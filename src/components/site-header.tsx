@@ -24,6 +24,7 @@ export async function SiteHeader() {
           <NavLinks
             links={[
               { href: `/${locale}/projects`, label: dict.nav.projects },
+              { href: `/${locale}/map`, label: dict.nav.map },
               { href: `/${locale}/developers`, label: dict.nav.developers },
               { href: `/${locale}#areas`, label: dict.nav.areas },
               { href: `/${locale}/compare`, label: dict.nav.compare },

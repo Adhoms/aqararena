@@ -1,134 +1,85 @@
 import Link from "next/link";
+import { ValueRing, AreaPriceBars, valueText } from "@/components/insights";
+import { mapLabels, toMapPoints } from "@/components/map/map-points";
+import { ProjectMap } from "@/components/map/project-map";
+import { artKindFor, ProjectArt } from "@/components/project-art";
 import { ProjectCard } from "@/components/project-card";
-import { Container, Eyebrow, PhotoPlaceholder, SectionHeading } from "@/components/ui";
+import { smartLabels } from "@/components/smart-labels";
+import { SmartSearch } from "@/components/smart-search";
+import { Container, Eyebrow, SectionHeading } from "@/components/ui";
 import {
-  countProjectsByArea,
   countProjectsByDeveloper,
   getFeaturedProjects,
+  getMarketInsights,
   listDevelopers,
+  listProjects,
   summarize,
-  totalProjects,
+  type Project,
 } from "@/lib/catalog";
 import { compareHref } from "@/lib/compare";
 import { fill, formatMillions } from "@/lib/format";
-import { AREA_SLUGS, PROPERTY_CATEGORIES } from "@/lib/property";
-import { getDictionary, getLocale } from "./dictionaries";
+import { getDictionary, getLocale, type Dictionary } from "./dictionaries";
 
-const fieldLabel = "flex flex-col px-3.5 py-1.5 text-xs font-medium text-muted";
-const fieldInput = "min-h-8 border-0 bg-transparent p-0 text-base text-ink outline-none";
 const arrow = (locale: string) => (locale === "ar" ? "←" : "→");
 
 export default async function HomePage() {
-  const [locale, dict, featured, developers, areaCounts, devCounts, projectCount] = await Promise.all([
+  const [locale, dict, featured, all, developers, devCounts, insights] = await Promise.all([
     getLocale(),
     getDictionary(),
     getFeaturedProjects(),
+    listProjects(),
     listDevelopers(),
-    countProjectsByArea(),
     countProjectsByDeveloper(),
-    totalProjects(),
+    getMarketInsights(),
   ]);
   const devBySlug = new Map(developers.map((d) => [d.slug, d]));
+  const heroProject = featured[0] ?? all[0];
+  const bestValue = [...all].sort((a, b) => (insights.values[b.slug]?.score ?? 0) - (insights.values[a.slug]?.score ?? 0)).slice(0, 3);
   const [first, second] = featured;
 
   return (
     <>
-      {/* ─── Hero ─────────────────────────────────────────────── */}
-      <section className="bg-brand text-white">
-        <Container className="flex flex-wrap items-center gap-12 pt-18 pb-20">
-          <div className="flex flex-[1_1_520px] flex-col gap-6">
-            <Eyebrow onDark>{dict.home.eyebrow}</Eyebrow>
-            <h1 className="font-display text-[40px] leading-[1.3] font-light tracking-tight sm:text-[54px] ltr:leading-[1.15]">
-              {dict.home.titleLine1}
+      {/* ─── Hero: full screen, the search is the star ─────────────── */}
+      <section className="relative isolate overflow-hidden bg-deep text-white">
+        {heroProject && (
+          <ProjectArt
+            seed={`${heroProject.slug}-hero`}
+            kind={artKindFor(heroProject)}
+            tone="dusk"
+            className="absolute inset-0 -z-10 size-full opacity-80"
+          />
+        )}
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-b from-deep/70 via-deep/40 to-deep" />
+        <Container className="flex min-h-[86vh] flex-col justify-center gap-8 py-20">
+          <div className="rise flex max-w-4xl flex-col gap-5">
+            <Eyebrow onDark>{dict.hero.kicker}</Eyebrow>
+            <h1 className="font-display text-[44px] leading-[1.25] font-light tracking-tight text-balance sm:text-[68px] ltr:leading-[1.05]">
+              {dict.hero.line1}
               <br />
-              {dict.home.titleLine2}
+              <span className="text-brass-light">{dict.hero.line2}</span>
             </h1>
-            <p className="max-w-xl text-lg text-on-dark">{dict.home.subtitle}</p>
-
-            <form
-              action={`/${locale}/projects`}
-              method="get"
-              role="search"
-              className="flex flex-wrap items-stretch gap-2 rounded-[18px] bg-surface p-2.5 text-ink"
-            >
-              <label className={`${fieldLabel} flex-[2_1_220px]`}>
-                {dict.home.searchLabel}
-                <input type="search" name="q" placeholder={dict.home.searchPlaceholder} className={fieldInput} />
-              </label>
-              <label className={`${fieldLabel} flex-[1_1_150px] border-line sm:border-s`}>
-                {dict.home.area}
-                <select name="area" defaultValue="" className={fieldInput}>
-                  <option value="">{dict.home.anyArea}</option>
-                  {AREA_SLUGS.map((slug) => (
-                    <option key={slug} value={slug}>
-                      {dict.areas[slug]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={`${fieldLabel} flex-[1_1_150px] border-line sm:border-s`}>
-                {dict.home.type}
-                <select name="category" defaultValue="" className={fieldInput}>
-                  <option value="">{dict.home.anyType}</option>
-                  {PROPERTY_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {dict.categories[c]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="submit"
-                className="inline-flex min-h-14 flex-[0_0_auto] items-center justify-center gap-2 rounded-xl bg-brand px-6.5 font-medium text-white hover:bg-brand-2"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M20 20l-3.5-3.5" />
-                </svg>
-                {dict.home.explore}
-              </button>
-            </form>
-
-            <dl className="flex flex-wrap gap-x-10 gap-y-3 pt-2">
-              {[
-                [developers.length, dict.home.statDevelopers],
-                [projectCount, dict.home.statProjects],
-                [Object.keys(areaCounts).length, dict.home.statAreas],
-              ].map(([value, label]) => (
-                <div key={label} className="flex flex-col-reverse">
-                  <dt className="text-[13px] text-on-dark-muted">{label}</dt>
-                  <dd className="font-display text-[28px]">{value}</dd>
-                </div>
-              ))}
-            </dl>
+            <p className="max-w-2xl text-lg text-on-dark">{dict.hero.sub}</p>
           </div>
-
-          <div className="grid flex-[1_1_420px] grid-cols-2 gap-3" aria-hidden="true">
-            <PhotoPlaceholder label={dict.home.heroPhoto} tone="dark" className="col-span-2 h-75 rounded-[20px]" />
-            <PhotoPlaceholder label={dict.home.heroPlan} tone="dark" className="h-42 rounded-[20px] bg-[#1c3d40]" />
-            <PhotoPlaceholder label={dict.home.heroInterior} tone="dark" className="h-42 rounded-[20px] bg-[#2c5154]" />
+          <div className="rise max-w-4xl [animation-delay:120ms]">
+            <SmartSearch locale={locale} labels={smartLabels(dict)} variant="hero" />
           </div>
+          <dl className="rise flex flex-wrap gap-3 [animation-delay:240ms]">
+            {[
+              [all.length, dict.home.statProjects],
+              [developers.length, dict.home.statDevelopers],
+              [insights.areas.length, dict.home.statAreas],
+            ].map(([value, label]) => (
+              <div key={label} className="flex min-w-36 flex-col-reverse rounded-2xl border border-white/15 bg-white/8 px-5 py-3 backdrop-blur-md">
+                <dt className="text-[13px] text-on-dark-muted">{label}</dt>
+                <dd className="font-display text-3xl font-light">{value}</dd>
+              </div>
+            ))}
+          </dl>
         </Container>
       </section>
 
-      {/* ─── What every project page shows ─────────────────────── */}
-      <Container className="flex flex-col gap-7 pt-18">
-        <SectionHeading eyebrow={dict.home.pillarsEyebrow} title={dict.home.pillarsTitle} />
-        <ol className="grid grid-cols-1 gap-px overflow-hidden rounded-[20px] border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
-          {dict.home.pillars.map((pillar, i) => (
-            <li key={pillar.title} className="flex flex-col gap-3 bg-surface px-5.5 py-6.5">
-              <span className="flex size-11 items-center justify-center rounded-xl bg-brass-soft font-display font-medium text-brass">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span className="font-display text-lg font-medium">{pillar.title}</span>
-              <span className="text-sm text-muted">{pillar.text}</span>
-            </li>
-          ))}
-        </ol>
-      </Container>
-
-      {/* ─── Featured projects ─────────────────────────────────── */}
-      <Container className="flex flex-col gap-7 pt-16">
+      {/* ─── Featured projects ─────────────────────────────────────── */}
+      <Container className="reveal flex flex-col gap-7 pt-20">
         <SectionHeading
           eyebrow={dict.home.featuredEyebrow}
           title={dict.home.featuredTitle}
@@ -140,40 +91,97 @@ export default async function HomePage() {
         />
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,340px),1fr))] gap-6">
           {featured.map((p) => (
-            <ProjectCard key={p.slug} project={p} developer={devBySlug.get(p.developerSlug)} locale={locale} dict={dict} size="large" badge="featured" />
+            <ProjectCard
+              key={p.slug}
+              project={p}
+              developer={devBySlug.get(p.developerSlug)}
+              value={insights.values[p.slug]}
+              locale={locale}
+              dict={dict}
+              size="large"
+              badge="featured"
+            />
           ))}
         </div>
       </Container>
 
-      {/* ─── Areas ─────────────────────────────────────────────── */}
-      <Container className="flex flex-col gap-7 pt-18">
-        <section id="areas" aria-labelledby="areas-title" className="flex flex-col gap-7">
-          <SectionHeading eyebrow={dict.home.areasEyebrow} title={<span id="areas-title">{dict.home.areasTitle}</span>} />
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-4">
-            {AREA_SLUGS.map((slug) => (
-              <li key={slug}>
-                <Link
-                  href={`/${locale}/projects?area=${slug}`}
-                  className="flex h-50 items-end overflow-hidden rounded-[20px] bg-photo text-ink no-underline hover:text-ink hover:ring-2 hover:ring-brass"
-                >
-                  <span className="m-3 flex flex-col rounded-[14px] bg-surface px-4 py-2.5 leading-snug">
-                    <span className="font-display text-[17px] font-medium">{dict.areas[slug]}</span>
-                    <span className="text-[13px] text-muted">{fill(dict.common.projectsCount, { n: areaCounts[slug] ?? 0 })}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {/* ─── Market insights ───────────────────────────────────────── */}
+      <section id="areas" aria-labelledby="insights-title" className="pt-22">
+        <Container className="reveal">
+          <div className="grid grid-cols-1 gap-6 rounded-[28px] border border-line bg-surface p-5 sm:p-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <div className="flex min-w-0 flex-col gap-6">
+              <div className="flex flex-col gap-1.5">
+                <Eyebrow>{dict.insights.eyebrow}</Eyebrow>
+                <h2 id="insights-title" className="font-display text-3xl font-normal tracking-tight sm:text-[34px]">
+                  {dict.insights.title}
+                </h2>
+                <p className="text-sm text-muted">{dict.insights.note}</p>
+              </div>
+              <AreaPriceBars insights={insights} dict={dict} locale={locale} />
+            </div>
+            <div className="flex min-w-0 flex-col gap-4 rounded-3xl bg-brand p-5 text-white sm:p-6">
+              <span className="font-display text-xl font-medium">{dict.insights.bestValue}</span>
+              <ol className="flex flex-col gap-3">
+                {bestValue.map((p, i) => (
+                  <BestValueRow key={p.slug} project={p} rank={i + 1} locale={locale} dict={dict} value={insights.values[p.slug]} />
+                ))}
+              </ol>
+              <p className="mt-auto text-xs text-on-dark-muted">{dict.insights.scoreHelp}</p>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* ─── Map ───────────────────────────────────────────────────── */}
+      <section aria-labelledby="map-title" className="reveal pt-22">
+        <Container className="flex flex-wrap items-end justify-between gap-4 pb-6">
+          <div className="flex flex-col gap-1.5">
+            <Eyebrow>{dict.map.teaserEyebrow}</Eyebrow>
+            <h2 id="map-title" className="font-display text-3xl font-normal tracking-tight sm:text-[34px]">
+              {dict.map.teaserTitle}
+            </h2>
+            <p className="max-w-xl text-muted">{dict.map.teaserText}</p>
+          </div>
+          <Link
+            href={`/${locale}/map`}
+            className="inline-flex min-h-12 items-center rounded-full bg-brand px-6 font-medium text-white no-underline hover:bg-brand-2 hover:text-white"
+          >
+            {dict.map.open} {arrow(locale)}
+          </Link>
+        </Container>
+        <Container>
+          <ProjectMap
+            mode="teaser"
+            points={toMapPoints(all, developers, insights, dict, locale)}
+            locale={locale}
+            labels={mapLabels(dict)}
+            className="h-[480px] overflow-hidden rounded-[28px] border border-line"
+          />
+        </Container>
+      </section>
+
+      {/* ─── What every project page shows ─────────────────────────── */}
+      <Container className="reveal flex flex-col gap-7 pt-22">
+        <SectionHeading eyebrow={dict.home.pillarsEyebrow} title={dict.home.pillarsTitle} />
+        <ol className="grid grid-cols-1 gap-px overflow-hidden rounded-[22px] border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
+          {dict.home.pillars.map((pillar, i) => (
+            <li key={pillar.title} className="flex flex-col gap-3 bg-surface px-5.5 py-6.5 transition-colors hover:bg-ground">
+              <span className="font-display text-3xl font-light text-brass">{String(i + 1).padStart(2, "0")}</span>
+              <span className="font-display text-lg font-medium">{pillar.title}</span>
+              <span className="text-sm text-muted">{pillar.text}</span>
+            </li>
+          ))}
+        </ol>
       </Container>
 
-      {/* ─── Compare teaser ────────────────────────────────────── */}
+      {/* ─── Compare teaser ────────────────────────────────────────── */}
       {first && second && (
-        <Container className="pt-18">
-          <div className="flex flex-wrap items-center gap-10 rounded-[28px] bg-brand p-8 text-white sm:p-12">
+        <Container className="reveal pt-22">
+          <div className="relative isolate flex flex-wrap items-center gap-10 overflow-hidden rounded-[28px] bg-brand p-8 text-white sm:p-12">
+            <ProjectArt seed="compare-band" kind="residential" tone="night" className="absolute inset-0 -z-10 size-full opacity-35" />
             <div className="flex flex-[1_1_360px] flex-col gap-4">
               <Eyebrow onDark>{dict.home.compareEyebrow}</Eyebrow>
-              <h2 className="font-display text-[34px] leading-[1.4] font-light sm:text-[38px] ltr:leading-[1.2]">
+              <h2 className="font-display text-[34px] leading-[1.4] font-light sm:text-[40px] ltr:leading-[1.15]">
                 {dict.home.compareTitleLine1}
                 <br />
                 {dict.home.compareTitleLine2}
@@ -191,8 +199,8 @@ export default async function HomePage() {
         </Container>
       )}
 
-      {/* ─── Developers ────────────────────────────────────────── */}
-      <Container className="flex flex-col gap-7 pt-18 pb-22">
+      {/* ─── Developers ────────────────────────────────────────────── */}
+      <Container className="reveal flex flex-col gap-7 pt-22 pb-24">
         <SectionHeading
           eyebrow={dict.home.developersEyebrow}
           title={dict.home.developersTitle}
@@ -207,10 +215,10 @@ export default async function HomePage() {
             <li key={d.slug}>
               <Link
                 href={`/${locale}/developers/${d.slug}`}
-                className="flex h-full flex-col items-center gap-2.5 rounded-[18px] border border-line bg-surface px-4 py-6 text-center text-ink no-underline hover:border-ink hover:text-ink"
+                className="flex h-full flex-col items-center gap-2.5 rounded-[18px] border border-line bg-surface px-4 py-6 text-center text-ink no-underline transition-[transform,border-color] hover:-translate-y-0.5 hover:border-ink hover:text-ink"
               >
-                <span aria-hidden="true" className="flex h-14 w-21 items-center justify-center rounded-[10px] bg-divider text-xs text-muted">
-                  {dict.common.logo}
+                <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-2xl bg-brand font-display text-xl text-brass-light">
+                  {d.name.en.replace("Developer ", "").charAt(0)}
                 </span>
                 <span className="font-semibold">{d.name[locale]}</span>
                 <span className="text-[13px] text-muted">{fill(dict.common.projectsCount, { n: devCounts[d.slug] ?? 0 })}</span>
@@ -223,20 +231,42 @@ export default async function HomePage() {
   );
 }
 
-function CompareTeaser({
+function BestValueRow({
+  project,
+  rank,
   locale,
   dict,
-  a,
-  b,
+  value,
 }: {
+  project: Project;
+  rank: number;
   locale: "ar" | "en";
-  dict: Awaited<ReturnType<typeof getDictionary>>;
-  a: Parameters<typeof summarize>[0];
-  b: Parameters<typeof summarize>[0];
+  dict: Dictionary;
+  value?: { score: number; vsAreaPct: number; areaRank: number; areaCount: number };
 }) {
+  return (
+    <li>
+      <Link
+        href={`/${locale}/projects/${project.slug}`}
+        className="flex items-center gap-3.5 rounded-2xl bg-brand-2 p-3 text-white no-underline transition-colors hover:bg-brand-3 hover:text-white"
+      >
+        <span className="w-5 flex-none text-center font-display text-lg text-on-dark-muted">{rank}</span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="font-display font-medium">{project.name[locale]}</span>
+          <span className="truncate text-xs text-on-dark-muted">
+            {dict.areas[project.areaSlug]} · {formatMillions(summarize(project).startingPrice, locale)}
+            {value ? ` · ${valueText(value, dict)}` : ""}
+          </span>
+        </span>
+        {value && <ValueRing score={value.score} label={dict.insights.score} onDark />}
+      </Link>
+    </li>
+  );
+}
+
+function CompareTeaser({ locale, dict, a, b }: { locale: "ar" | "en"; dict: Dictionary; a: Project; b: Project }) {
   const sa = summarize(a);
   const sb = summarize(b);
-  // Highlights the better value on each line, like the full comparison does.
   const rows: [string, string, string, number, number, "low" | "high"][] = [
     [dict.common.startingFrom, formatMillions(sa.startingPrice, locale), formatMillions(sb.startingPrice, locale), sa.startingPrice, sb.startingPrice, "low"],
     [dict.common.lowestDown, `${sa.minDownPct}%`, `${sb.minDownPct}%`, sa.minDownPct, sb.minDownPct, "low"],
@@ -246,18 +276,24 @@ function CompareTeaser({
   const better = (x: number, y: number, dir: "low" | "high") => (x === y ? false : dir === "low" ? x < y : x > y);
 
   return (
-    <table className="flex-[1_1_440px] overflow-hidden rounded-[20px] bg-brand-2 text-sm">
+    <table className="flex-[1_1_440px] overflow-hidden rounded-[20px] bg-brand-2/90 text-sm backdrop-blur">
       <thead>
-        <tr className="text-start">
+        <tr>
           <td className="px-4 py-3.5" />
-          <th scope="col" className="px-4 py-3.5 text-start font-semibold">{a.name[locale]}</th>
-          <th scope="col" className="px-4 py-3.5 text-start font-semibold">{b.name[locale]}</th>
+          <th scope="col" className="px-4 py-3.5 text-start font-semibold">
+            {a.name[locale]}
+          </th>
+          <th scope="col" className="px-4 py-3.5 text-start font-semibold">
+            {b.name[locale]}
+          </th>
         </tr>
       </thead>
       <tbody>
         {rows.map(([label, va, vb, na, nb, dir]) => (
           <tr key={label} className="border-t border-brand-3">
-            <th scope="row" className="px-4 py-3 text-start font-normal text-on-dark-muted">{label}</th>
+            <th scope="row" className="px-4 py-3 text-start font-normal text-on-dark-muted">
+              {label}
+            </th>
             <td className={`px-4 py-3 ${better(na, nb, dir) ? "font-semibold text-brass-light" : ""}`}>{va}</td>
             <td className={`px-4 py-3 ${better(nb, na, dir) ? "font-semibold text-brass-light" : ""}`}>{vb}</td>
           </tr>

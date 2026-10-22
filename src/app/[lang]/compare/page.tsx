@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { CompareShell, CompareSync, ProjectPicker, RestoreSavedList } from "@/components/compare/compare-client";
 import { PrintButton, ShareButton } from "@/components/share-button";
-import { Container, Eyebrow, PhotoPlaceholder } from "@/components/ui";
+import { Container, Eyebrow } from "@/components/ui";
+import { artKindFor, ProjectArt } from "@/components/project-art";
 import { getProjectsBySlugs, listDevelopers, listProjectOptions, summarize, type Project } from "@/lib/catalog";
 import { MAX_COMPARE, parseCompareParam } from "@/lib/compare";
 import { fill, formatMoney, formatNumber, telHref } from "@/lib/format";
@@ -110,7 +111,8 @@ async function CompareBody({
             </div>
             {projects.map((p, i) => (
               <div role="columnheader" key={p.slug} className="flex flex-col gap-3 border-s border-divider p-5">
-                <PhotoPlaceholder label={p.name[locale]} className="h-35 rounded-2xl text-xs">
+                <div className="relative h-35 overflow-hidden rounded-2xl">
+                  <ProjectArt seed={p.slug} kind={artKindFor(p)} tone="dusk" className="absolute inset-0 size-full" />
                   <Link
                     href={removeHref(p.slug)}
                     scroll={false}
@@ -119,7 +121,7 @@ async function CompareBody({
                   >
                     ×
                   </Link>
-                </PhotoPlaceholder>
+                </div>
                 <ProjectPicker locale={locale} slugs={shown} index={i} options={options} label={fill(c.projectN, { n: i + 1 })} />
                 <Link href={`/${locale}/projects/${p.slug}`} className="font-display text-lg font-medium text-ink no-underline">
                   {p.name[locale]}

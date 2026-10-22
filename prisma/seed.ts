@@ -73,6 +73,8 @@ async function main() {
         districtAr: p.district.ar,
         districtEn: p.district.en,
         categories: p.categories,
+        latitude: p.location?.lat,
+        longitude: p.location?.lng,
         landAreaM2: p.landFeddan ? Math.round(p.landFeddan * FEDDAN_M2) : undefined,
         footprintPct: p.greenPct !== undefined ? 100 - p.greenPct : undefined,
         unitsCount: p.unitsCount,

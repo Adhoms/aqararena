@@ -73,6 +73,8 @@ export type Project = {
   slug: string;
   developerSlug: string;
   areaSlug: AreaSlug;
+  /** Where the project is, for the map. */
+  location?: { lat: number; lng: number };
   name: Text;
   district: Text;
   description: Text;

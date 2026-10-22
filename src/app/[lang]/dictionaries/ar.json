@@ -37,11 +37,15 @@
     "TOWNHOUSE": "تاون هاوس",
     "TWIN_HOUSE": "توين هاوس",
     "VILLA": "فيلات",
+    "MANSION": "قصور",
     "OFFICE": "مكاتب",
     "CLINIC": "عيادات",
     "RETAIL": "محلات",
     "FOOD_AND_BEVERAGE": "مطاعم وكافيهات",
+    "PHARMACY": "صيدليات",
+    "BANK": "بنوك",
     "CHALET": "شاليهات",
+    "CABIN": "كابينات",
     "SERVICED_APARTMENT": "شقق فندقية"
   },
   "unitTabs": {
@@ -57,7 +61,8 @@
     "CORE_AND_SHELL": "Core & Shell",
     "SEMI_FINISHED": "نصف تشطيب",
     "FULLY_FINISHED": "تشطيب كامل",
-    "FULLY_FINISHED_WITH_AC": "تشطيب كامل بالتكييفات"
+    "FULLY_FINISHED_WITH_AC": "تشطيب كامل بالتكييفات",
+    "FURNISHED": "مفروش"
   },
   "status": {
     "LAUNCH": "إطلاق جديد",

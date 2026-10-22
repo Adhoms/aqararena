@@ -18,11 +18,15 @@ export const SUB_TYPES = [
   "TOWNHOUSE",
   "TWIN_HOUSE",
   "VILLA",
+  "MANSION",
   "OFFICE",
   "CLINIC",
   "RETAIL",
   "FOOD_AND_BEVERAGE",
+  "PHARMACY",
+  "BANK",
   "CHALET",
+  "CABIN",
   "SERVICED_APARTMENT",
 ] as const;
 export type SubType = (typeof SUB_TYPES)[number];
@@ -32,6 +36,7 @@ export const FINISHING_TYPES = [
   "SEMI_FINISHED",
   "FULLY_FINISHED",
   "FULLY_FINISHED_WITH_AC",
+  "FURNISHED",
 ] as const;
 export type Finishing = (typeof FINISHING_TYPES)[number];
 
@@ -92,3 +97,6 @@ export const INSTALLMENTS_PER_YEAR: Record<InstallmentFrequency, number> = {
   SEMI_ANNUAL: 2,
   ANNUAL: 1,
 };
+
+export const isSubType = (v: unknown): v is SubType => isOneOf(SUB_TYPES, v);
+export const isAmenity = (v: unknown): v is Amenity => isOneOf(AMENITIES, v);

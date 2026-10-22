@@ -1,79 +1,377 @@
 {
   "meta": {
-    "title": "AqarArena | Discover and compare real-estate projects in Egypt",
-    "description": "Search and compare projects from every real-estate developer in Egypt: prices, payment plans and floor plans. Contact the developer directly, no broker."
+    "title": "AqarArena | Egypt's real estate project guide",
+    "description": "Every developer project in Egypt: master plans, price plans, unit types, project photos and official developer phone numbers. Compare any project with another.",
+    "projectsTitle": "All projects",
+    "compareTitle": "Compare projects",
+    "developersTitle": "Real estate developers"
   },
+  "demoNotice": "Preview version: every name and number shown is a placeholder.",
   "nav": {
-    "label": "Property sections",
-    "home": "AqarArena home"
+    "label": "Main",
+    "home": "AqarArena home",
+    "homeShort": "Home",
+    "projects": "Projects",
+    "developers": "Developers",
+    "areas": "Areas",
+    "compare": "Compare",
+    "compareButton": "Compare",
+    "compareCount": "{n} in compare"
   },
   "language": {
     "switchTo": "العربية",
-    "switchToLabel": "التحويل إلى العربية"
+    "switchToLabel": "التبديل إلى العربية"
   },
   "categories": {
     "RESIDENTIAL": "Residential",
-    "COMMERCIAL": "Commercial & retail",
-    "ADMINISTRATIVE": "Offices",
+    "COMMERCIAL": "Commercial",
+    "ADMINISTRATIVE": "Administrative",
     "MEDICAL": "Medical",
     "COASTAL": "Coastal & hospitality"
   },
-  "categoryHints": {
-    "RESIDENTIAL": "Apartments, duplexes, townhouses, villas",
-    "COMMERCIAL": "Shops, restaurants & cafés, pharmacies",
-    "ADMINISTRATIVE": "Offices and company headquarters",
-    "MEDICAL": "Clinics and medical centers",
-    "COASTAL": "Chalets, cabins, serviced apartments"
+  "subTypes": {
+    "APARTMENT": "Apartments",
+    "STUDIO": "Studios",
+    "DUPLEX": "Duplexes",
+    "PENTHOUSE": "Penthouses",
+    "TOWNHOUSE": "Townhouses",
+    "TWIN_HOUSE": "Twin houses",
+    "VILLA": "Villas",
+    "OFFICE": "Offices",
+    "CLINIC": "Clinics",
+    "RETAIL": "Retail",
+    "FOOD_AND_BEVERAGE": "Restaurants & cafés",
+    "CHALET": "Chalets",
+    "SERVICED_APARTMENT": "Serviced apartments"
+  },
+  "unitTabs": {
+    "APARTMENTS": "Apartments",
+    "DUPLEX": "Duplex & penthouse",
+    "HOUSES": "Town & twin houses",
+    "VILLAS": "Villas",
+    "BUSINESS": "Offices & clinics",
+    "RETAIL": "Retail & dining",
+    "COASTAL": "Chalets"
+  },
+  "finishing": {
+    "CORE_AND_SHELL": "Core & shell",
+    "SEMI_FINISHED": "Semi-finished",
+    "FULLY_FINISHED": "Fully finished",
+    "FULLY_FINISHED_WITH_AC": "Fully finished with AC"
+  },
+  "status": {
+    "LAUNCH": "New launch",
+    "UNDER_CONSTRUCTION": "Under construction",
+    "READY": "Ready to move",
+    "DELIVERED": "Delivered"
+  },
+  "frequency": {
+    "MONTHLY": "Monthly",
+    "QUARTERLY": "Quarterly",
+    "SEMI_ANNUAL": "Semi-annual",
+    "ANNUAL": "Annual"
+  },
+  "frequencyPer": {
+    "MONTHLY": "/ month",
+    "QUARTERLY": "/ quarter",
+    "SEMI_ANNUAL": "/ half-year",
+    "ANNUAL": "/ year"
+  },
+  "amenities": {
+    "clubhouse": "Clubhouse",
+    "lake": "Lakes",
+    "lagoon": "Lagoon",
+    "beach": "Private beach",
+    "underground_parking": "Underground parking",
+    "security": "24/7 security",
+    "mall": "Commercial area",
+    "school": "Schools",
+    "medical": "Medical services",
+    "gym": "Gym & spa",
+    "running_track": "Running track",
+    "kids_area": "Kids area",
+    "mosque": "Mosque",
+    "hotel": "Hotel"
   },
   "areas": {
     "new-cairo": "New Cairo",
-    "new-capital": "New Administrative Capital",
     "sheikh-zayed": "Sheikh Zayed",
-    "6th-of-october": "6th of October",
-    "mostakbal-city": "Mostakbal City",
+    "new-capital": "New Capital",
     "north-coast": "North Coast",
-    "ain-sokhna": "Ain Sokhna"
+    "ain-sokhna": "Ain Sokhna",
+    "mostakbal-city": "Mostakbal City",
+    "6th-of-october": "6th of October"
   },
-  "hero": {
-    "title": "Every developer project in Egypt, in one place",
-    "subtitle": "Compare prices, payment plans and floor plans, then contact the developer directly. No broker and no buyer commission."
+  "photoGroups": {
+    "ALL": "All",
+    "EXTERIOR": "Exterior",
+    "INTERIOR": "Interior",
+    "CONSTRUCTION": "Construction progress"
   },
-  "search": {
-    "heading": "Find your unit",
+  "common": {
+    "viewProject": "View project",
+    "addToCompare": "+ Add to compare",
+    "addShort": "+ Compare",
+    "inCompare": "In compare",
+    "compareNow": "Compare now",
+    "trayLabel": "In compare ({n} of {max}):",
+    "clearCompare": "Clear",
+    "startingFrom": "Starting from",
+    "lowestDown": "Lowest down",
+    "delivery": "Delivery",
+    "years": "{n} years",
+    "featured": "Featured",
+    "projectsCount": "{n} projects",
+    "photo": "Project photo",
+    "logo": "Logo",
+    "seeAll": "See all",
+    "placeholderImage": "Photo"
+  },
+  "home": {
+    "eyebrow": "Egypt's real estate project guide",
+    "titleLine1": "Every developer project,",
+    "titleLine2": "clear and in one place.",
+    "subtitle": "Master plans, price plans, unit types, project photos and official developer phone numbers. Compare any project with another before you decide.",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Project or developer name",
     "area": "Area",
     "anyArea": "All areas",
-    "category": "Property type",
-    "anyCategory": "All types",
-    "downPayment": "Available down payment (EGP)",
-    "monthly": "Comfortable monthly installment (EGP)",
-    "amountPlaceholder": "Any amount",
-    "submit": "Search"
+    "type": "Project type",
+    "anyType": "All",
+    "explore": "Explore",
+    "statDevelopers": "Developers",
+    "statProjects": "Projects",
+    "statAreas": "Areas",
+    "heroPhoto": "Architectural photo — featured project",
+    "heroPlan": "Master plan detail",
+    "heroInterior": "Interior",
+    "pillarsEyebrow": "On every project page",
+    "pillarsTitle": "Everything you need to know, straight from the developer",
+    "pillars": [
+      {
+        "title": "Master plan",
+        "text": "An interactive map of the project: zones, buildings, amenities and green space."
+      },
+      {
+        "title": "Price plans",
+        "text": "Down payment, installment years, handover payment and cash discount for every plan."
+      },
+      {
+        "title": "Unit types",
+        "text": "Every typology with its area, floor plan and starting price."
+      },
+      {
+        "title": "Project photos",
+        "text": "High-quality photos and renders, plus construction progress."
+      },
+      {
+        "title": "Developer numbers",
+        "text": "Hotline, official website and head office, with no middleman."
+      }
+    ],
+    "featuredEyebrow": "Curated",
+    "featuredTitle": "Featured projects",
+    "allProjects": "All projects",
+    "areasEyebrow": "Browse by area",
+    "areasTitle": "Where are you looking?",
+    "compareEyebrow": "Compare",
+    "compareTitleLine1": "Project against project,",
+    "compareTitleLine2": "line by line.",
+    "compareText": "Prices, down payment, installment years, unit types, delivery and amenities. One clear table you can download as a PDF.",
+    "compareCta": "Start comparing",
+    "developersEyebrow": "Developer directory",
+    "developersTitle": "Developers on AqarArena",
+    "allDevelopers": "All developers"
   },
-  "browse": {
-    "title": "Browse by type"
+  "projectsPage": {
+    "title": "All projects",
+    "results": "{n} projects",
+    "search": "Search",
+    "searchPlaceholder": "Project or developer name",
+    "sort": "Sort by",
+    "sorts": {
+      "newest": "Newest",
+      "price": "Price: low to high",
+      "down": "Lowest down payment",
+      "delivery": "Earliest delivery"
+    },
+    "allTypes": "All",
+    "filters": "Filters",
+    "clearAll": "Clear all",
+    "area": "Area",
+    "developer": "Developer",
+    "anyDeveloper": "All developers",
+    "status": "Project status",
+    "deliveryBy": "Delivery by",
+    "anyYear": "Any year",
+    "maxDown": "Lowest down payment",
+    "anyDown": "Any",
+    "upToPct": "Up to {n}%",
+    "minYears": "Installment term",
+    "anyYears": "Any term",
+    "yearsPlus": "{n}+ years",
+    "apply": "Show results",
+    "empty": "No projects match these filters. Try removing some.",
+    "loading": "Loading projects…"
   },
-  "howItWorks": {
-    "title": "How AqarArena works",
-    "steps": [
-      { "title": "Search", "body": "Filter by area, property type, down payment and the monthly installment you can afford." },
-      { "title": "Compare", "body": "Put units side by side: price, price per m², down payment, installments, finishing and delivery." },
-      { "title": "Contact the developer", "body": "Official developer contacts, unhidden. You sign and pay with the developer directly." }
-    ]
+  "projectPage": {
+    "by": "by",
+    "share": "Share",
+    "copied": "Link copied",
+    "sections": {
+      "overview": "Overview",
+      "masterplan": "Master plan",
+      "units": "Unit types",
+      "prices": "Price plans",
+      "photos": "Photos",
+      "location": "Location",
+      "contact": "Developer contacts"
+    },
+    "allPhotos": "All photos ({n})",
+    "facts": {
+      "land": "Total area",
+      "green": "Green space",
+      "units": "Total units",
+      "launch": "Launched",
+      "delivery": "Expected delivery",
+      "progress": "Construction progress"
+    },
+    "feddan": "{n} feddans",
+    "amenitiesTitle": "Amenities",
+    "pricesFrom": "Prices starting from",
+    "priceSummary": "From {down}% down · up to {years} years",
+    "officialNumbers": "Official developer numbers",
+    "hotline": "Hotline",
+    "sales": "Sales",
+    "whatsapp": "WhatsApp",
+    "email": "Email",
+    "website": "Website",
+    "hq": "Head office",
+    "neutralNote": "AqarArena doesn't sell or take payments. Contact and contract with the developer directly.",
+    "masterplanEyebrow": "Tap any zone",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "planNote": "The original master plan loads as tiles for smooth zooming",
+    "zoneArea": "Area",
+    "zoneCounts": "Buildings / units",
+    "zoneUnits": "Unit types in this zone",
+    "buildings": "{n} buildings",
+    "unitsN": "{n} units",
+    "seeUnits": "See unit types",
+    "floorPlan": "2D floor plan",
+    "unitArea": "Area",
+    "rooms": "Rooms",
+    "roomsValue": "{bed} bed · {bath} bath",
+    "outdoor": "Outdoor",
+    "garden": "{n} m² garden",
+    "roof": "{n} m² roof",
+    "finishing": "Finishing",
+    "pricesTitle": "Price & payment plans",
+    "pricesUpdated": "Last updated by the developer: {date}",
+    "down": "down",
+    "off": "off",
+    "planYears": "Installment years",
+    "planFrequency": "Frequency",
+    "planDelivery": "On handover",
+    "planExample": "Example ({price} unit)",
+    "none": "None",
+    "oneOff": "One payment",
+    "cashPlan": "Cash",
+    "fees": "Additional fees:",
+    "maintenance": "Maintenance deposit",
+    "pricesNote": "Indicative prices as published by the developer; subject to change.",
+    "photosTitle": "Project photos",
+    "locationTitle": "Location",
+    "map": "Location map",
+    "minutes": "{n} min",
+    "contactTitle": "Contact {dev} directly",
+    "contactNote": "Official details from the developer. AqarArena takes no part in sales or contracts.",
+    "allDevProjects": "All projects by this developer",
+    "similarTitle": "Compare with similar projects",
+    "openCompare": "Open compare",
+    "compareWith": "Compare with {name}",
+    "mainImage": "Hero image — project render"
   },
-  "searchPage": {
-    "title": "Search results",
-    "comingSoon": "Results arrive in Phase 1, once the database is connected and the first developers are added.",
-    "yourFilters": "Your filters",
-    "none": "No filters",
-    "back": "Back to home"
+  "comparePage": {
+    "eyebrow": "Project vs project",
+    "title": "Compare projects",
+    "subtitle": "Pick up to 4 projects; the best value on each line is marked.",
+    "diffOnly": "Show differences only",
+    "share": "Share link",
+    "copied": "Link copied",
+    "print": "Download PDF",
+    "rowsLabel": "Compared items",
+    "projectN": "Project {n}",
+    "choose": "Choose a project",
+    "addProject": "+ Add a project",
+    "remove": "Remove {name} from compare",
+    "emptyTitle": "No projects in compare yet",
+    "emptyText": "Tap \"Add to compare\" on any project, or pick one here.",
+    "browse": "Browse projects",
+    "loading": "Preparing the comparison…",
+    "best": "Best",
+    "yes": "Available",
+    "no": "—",
+    "sections": {
+      "about": "About the project",
+      "units": "Units",
+      "prices": "Prices & payment plans",
+      "amenities": "Amenities",
+      "contact": "Master plan & contact"
+    },
+    "rows": {
+      "developer": "Developer",
+      "area": "Area",
+      "type": "Project type",
+      "land": "Total area",
+      "status": "Status",
+      "delivery": "Expected delivery",
+      "unitTypes": "Unit types",
+      "areaRange": "Unit sizes",
+      "finishing": "Finishing",
+      "startingPrice": "Starting from",
+      "pricePerM2": "Average price per m²",
+      "minDown": "Lowest down payment",
+      "maxYears": "Longest installment term",
+      "cash": "Cash discount",
+      "maintenance": "Maintenance deposit"
+    },
+    "masterPlanPreview": "Master plan preview",
+    "projectPage": "Project page",
+    "note": "Data as published by each developer. AqarArena is a showcase platform and takes no part in sales."
+  },
+  "developerPage": {
+    "verified": "Verified details",
+    "founded": "Founded {year}",
+    "onPlatform": "Projects on AqarArena",
+    "delivered": "Delivered",
+    "underConstruction": "Under construction",
+    "areas": "Areas",
+    "about": "About the company",
+    "officialNumbers": "Official company numbers",
+    "noMiddleman": "Contact the developer directly, with no middleman.",
+    "portfolioEyebrow": "Portfolio",
+    "portfolioTitle": "Projects by {dev}",
+    "allAreas": "All areas",
+    "deliveredIn": "Delivered {year}"
+  },
+  "developersPage": {
+    "title": "Real estate developers",
+    "subtitle": "Each developer's details, projects and official numbers."
+  },
+  "footer": {
+    "tagline": "A neutral guide to showcase and compare real estate developer projects in Egypt.",
+    "explore": "Explore",
+    "forDevelopers": "For developers",
+    "listProject": "List your project",
+    "plans": "Plans",
+    "contactUs": "Contact us",
+    "language": "Language",
+    "neutrality": "AqarArena is a showcase platform only. We don't sell, rent or broker; all data is provided by developers.",
+    "rights": "All rights reserved"
   },
   "notFound": {
     "title": "This page doesn't exist",
     "back": "Back to home"
-  },
-  "footer": {
-    "neutrality": "AqarArena is a neutral directory and comparison engine. We don't sell units or collect payments; you deal with the developer directly.",
-    "rights": "All rights reserved"
-  },
-  "currency": "EGP"
+  }
 }

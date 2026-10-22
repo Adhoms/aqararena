@@ -66,11 +66,6 @@ enum FinishingType {
   FURNISHED
 }
 
-enum ListingPurpose {
-  SALE
-  RENT
-}
-
 enum UnitAvailability {
   AVAILABLE
   RESERVED
@@ -95,16 +90,21 @@ enum MediaKind {
   BROCHURE
 }
 
-enum LeadSource {
-  REQUEST_INFO
-  BOOK_VISIT
+/// Photo tabs on the project page.
+enum MediaGroup {
+  EXTERIOR
+  INTERIOR
+  CONSTRUCTION
 }
 
-enum LeadStatus {
-  NEW
-  CONTACTED
-  QUALIFIED
-  CLOSED
+/// What a clickable master-plan zone contains.
+enum ZoneKind {
+  RESIDENTIAL
+  VILLAS
+  GREEN
+  AMENITY
+  COMMERCIAL
+  ADMINISTRATIVE
 }
 
 // ─── Locations ──────────────────────────────────────────────────────────
@@ -139,6 +139,7 @@ model Developer {
   aboutEn     String?
   website     String?
   hotline     String?
+  salesPhone  String?
   whatsapp    String?
   email       String?
   hqAddress   String?
@@ -181,12 +182,13 @@ model Project {
   published     Boolean       @default(false)
 
   typologies          Typology[]
+  zones               MasterPlanZone[]
+  distances           ProjectDistance[]
   media               Media[]
   paymentPlans        PaymentPlan[]
   offers              Offer[]
   constructionUpdates ConstructionUpdate[]
   priceHistory        PriceHistory[]
-  leads               Lead[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -225,7 +227,6 @@ model Typology {
   media        Media[]
   paymentPlans PaymentPlan[]
   priceHistory PriceHistory[]
-  leads        Lead[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -246,34 +247,77 @@ model Unit {
   orientation  String?
   /// e.g. "landscape", "main_street", "lagoon", "sea"
   view         String?
-  purpose      ListingPurpose   @default(SALE)
   price        Decimal?         @db.Decimal(14, 2)
-  monthlyRent  Decimal?         @db.Decimal(12, 2)
   availability UnitAvailability @default(AVAILABLE)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
   @@index([typologyId, availability])
-  @@index([purpose, availability])
+}
+
+// ─── Master plan & location ─────────────────────────────────────────────
+
+/// A clickable area on the master plan. The shape is a rectangle in percent of
+/// the plan image for now; it can become a polygon later.
+model MasterPlanZone {
+  id             String            @id @default(cuid())
+  projectId      String
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind           ZoneKind
+  shortAr        String
+  shortEn        String
+  nameAr         String
+  nameEn         String
+  phaseAr        String?
+  phaseEn        String?
+  descriptionAr  String?
+  descriptionEn  String?
+  areaFeddan     Decimal?          @db.Decimal(8, 2)
+  buildingsCount Int?
+  unitsCount     Int?
+  /// Unit sub-types found in this zone.
+  unitSubTypes   PropertySubType[]
+  xPct           Decimal           @db.Decimal(5, 2)
+  yPct           Decimal           @db.Decimal(5, 2)
+  widthPct       Decimal           @db.Decimal(5, 2)
+  heightPct      Decimal           @db.Decimal(5, 2)
+  sortOrder      Int               @default(0)
+
+  @@index([projectId])
+}
+
+/// Driving time from the project to a landmark ("Ring Road · 10 min").
+model ProjectDistance {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  placeAr   String
+  placeEn   String
+  minutes   Int
+  sortOrder Int     @default(0)
+
+  @@index([projectId])
 }
 
 // ─── Media ──────────────────────────────────────────────────────────────
 
 /// Files live in object storage (Cloudflare R2); this table stores their URLs.
 model Media {
-  id         String    @id @default(cuid())
+  id         String      @id @default(cuid())
   kind       MediaKind
+  /// Set on project photos so they can be shown under the right tab.
+  group      MediaGroup?
   url        String
   width      Int?
   height     Int?
   captionAr  String?
   captionEn  String?
-  sortOrder  Int       @default(0)
+  sortOrder  Int         @default(0)
   projectId  String?
-  project    Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   typologyId String?
-  typology   Typology? @relation(fields: [typologyId], references: [id], onDelete: Cascade)
-  createdAt  DateTime  @default(now())
+  typology   Typology?   @relation(fields: [typologyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
 
   @@index([projectId, kind])
   @@index([typologyId, kind])
@@ -336,7 +380,7 @@ model PriceHistory {
   @@index([projectId, recordedAt])
 }
 
-// ─── Progress & leads ───────────────────────────────────────────────────
+// ─── Construction progress ───────────────────────────────────────────────────
 
 model ConstructionUpdate {
   id          String   @id @default(cuid())
@@ -350,23 +394,4 @@ model ConstructionUpdate {
   createdAt   DateTime @default(now())
 
   @@index([projectId, date])
-}
-
-model Lead {
-  id         String     @id @default(cuid())
-  projectId  String
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  typologyId String?
-  typology   Typology?  @relation(fields: [typologyId], references: [id], onDelete: SetNull)
-  name       String
-  phone      String
-  email      String?
-  message    String?
-  source     LeadSource @default(REQUEST_INFO)
-  status     LeadStatus @default(NEW)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  @@index([projectId, status])
-  @@index([createdAt])
 }

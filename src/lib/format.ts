@@ -1,0 +1,46 @@
+import type { Locale } from "@/i18n/config";
+import type { Text } from "@/lib/catalog/types";
+
+// Western digits in both languages, matching how prices are written in Egypt's market.
+const numberLocale = (locale: Locale) => (locale === "ar" ? "ar-EG-u-nu-latn" : "en-EG");
+
+export const pick = (text: Text, locale: Locale) => text[locale];
+
+export function formatNumber(value: number, locale: Locale) {
+  return new Intl.NumberFormat(numberLocale(locale), { maximumFractionDigits: 0 }).format(value);
+}
+
+/** "4,850,000 ج.م" / "EGP 4,850,000" */
+export function formatMoney(value: number, locale: Locale) {
+  const n = formatNumber(value, locale);
+  return locale === "ar" ? `${n} ج.م` : `EGP ${n}`;
+}
+
+/** "4.85 مليون" / "EGP 4.85M" for cards. */
+export function formatMillions(value: number, locale: Locale) {
+  const m = new Intl.NumberFormat(numberLocale(locale), { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(
+    value / 1_000_000,
+  );
+  return locale === "ar" ? `${m} مليون` : `EGP ${m}M`;
+}
+
+/** A link target for a phone number, or undefined while the number is still a placeholder like "[19XXX]". */
+export function telHref(phone: string | undefined) {
+  if (!phone || !/^\+?[\d\s-]+$/.test(phone)) return undefined;
+  return `tel:${phone.replace(/[\s-]/g, "")}`;
+}
+
+export function whatsappHref(phone: string | undefined) {
+  const tel = telHref(phone);
+  return tel ? `https://wa.me/${tel.replace(/\D/g, "")}` : undefined;
+}
+
+export function websiteHref(site: string | undefined) {
+  if (!site || site.startsWith("[")) return undefined;
+  return site.startsWith("http") ? site : `https://${site}`;
+}
+
+/** Fills "{n} مشروع" style templates from the dictionaries. */
+export function fill(template: string, vars: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? String(vars[key]) : match));
+}

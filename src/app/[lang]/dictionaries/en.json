@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "title": "AqarArena | Discover and compare real-estate projects in Egypt",
+    "description": "Search and compare projects from every real-estate developer in Egypt: prices, payment plans and floor plans. Contact the developer directly, no broker."
+  },
+  "nav": {
+    "label": "Property sections",
+    "home": "AqarArena home"
+  },
+  "language": {
+    "switchTo": "العربية",
+    "switchToLabel": "التحويل إلى العربية"
+  },
+  "categories": {
+    "RESIDENTIAL": "Residential",
+    "COMMERCIAL": "Commercial & retail",
+    "ADMINISTRATIVE": "Offices",
+    "MEDICAL": "Medical",
+    "COASTAL": "Coastal & hospitality"
+  },
+  "categoryHints": {
+    "RESIDENTIAL": "Apartments, duplexes, townhouses, villas",
+    "COMMERCIAL": "Shops, restaurants & cafés, pharmacies",
+    "ADMINISTRATIVE": "Offices and company headquarters",
+    "MEDICAL": "Clinics and medical centers",
+    "COASTAL": "Chalets, cabins, serviced apartments"
+  },
+  "areas": {
+    "new-cairo": "New Cairo",
+    "new-capital": "New Administrative Capital",
+    "sheikh-zayed": "Sheikh Zayed",
+    "6th-of-october": "6th of October",
+    "mostakbal-city": "Mostakbal City",
+    "north-coast": "North Coast",
+    "ain-sokhna": "Ain Sokhna"
+  },
+  "hero": {
+    "title": "Every developer project in Egypt, in one place",
+    "subtitle": "Compare prices, payment plans and floor plans, then contact the developer directly. No broker and no buyer commission."
+  },
+  "search": {
+    "heading": "Find your unit",
+    "area": "Area",
+    "anyArea": "All areas",
+    "category": "Property type",
+    "anyCategory": "All types",
+    "downPayment": "Available down payment (EGP)",
+    "monthly": "Comfortable monthly installment (EGP)",
+    "amountPlaceholder": "Any amount",
+    "submit": "Search"
+  },
+  "browse": {
+    "title": "Browse by type"
+  },
+  "howItWorks": {
+    "title": "How AqarArena works",
+    "steps": [
+      { "title": "Search", "body": "Filter by area, property type, down payment and the monthly installment you can afford." },
+      { "title": "Compare", "body": "Put units side by side: price, price per m², down payment, installments, finishing and delivery." },
+      { "title": "Contact the developer", "body": "Official developer contacts, unhidden. You sign and pay with the developer directly." }
+    ]
+  },
+  "searchPage": {
+    "title": "Search results",
+    "comingSoon": "Results arrive in Phase 1, once the database is connected and the first developers are added.",
+    "yourFilters": "Your filters",
+    "none": "No filters",
+    "back": "Back to home"
+  },
+  "notFound": {
+    "title": "This page doesn't exist",
+    "back": "Back to home"
+  },
+  "footer": {
+    "neutrality": "AqarArena is a neutral directory and comparison engine. We don't sell units or collect payments; you deal with the developer directly.",
+    "rights": "All rights reserved"
+  },
+  "currency": "EGP"
+}

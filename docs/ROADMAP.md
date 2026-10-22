@@ -4,8 +4,9 @@ The goal of each phase is something real users can open. Build the buyer side fi
 
 ## Phase 0: Foundations (week 1)
 
-- [ ] Next.js + TypeScript + Tailwind project, Arabic RTL by default, English toggle
-- [ ] PostgreSQL database (Supabase or Neon) with Prisma schema from [DATA-MODEL.md](DATA-MODEL.md)
+- [x] Next.js + TypeScript + Tailwind project, Arabic RTL by default, English toggle
+- [x] Prisma schema from [DATA-MODEL.md](DATA-MODEL.md)
+- [ ] PostgreSQL database (Supabase or Neon) with PostGIS, first migration applied
 - [ ] Seed script with 10–20 real developers and their projects, entered by hand
 - [ ] Deploy preview on Vercel on every push
 

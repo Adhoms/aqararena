@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* AqarArena tokens, from the approved design: deep evergreen, quiet brass, stone neutrals.
+   Text/background pairs used in the components meet WCAG AA (4.5:1). */
+@theme {
+  --color-ground: #f6f5f2;
+  --color-surface: #ffffff;
+  --color-line: #e4e2dc;
+  --color-line-strong: #d5d2ca;
+  --color-divider: #eeece7;
+
+  /* Image placeholders until real photos arrive. */
+  --color-photo: #d9d5cc;
+  --color-photo-deep: #cfcac0;
+  --color-plan: #e9e6df;
+  --color-plan-green: #c9d4cb;
+
+  --color-ink: #0e1a1c;
+  --color-body: #3d4547;
+  --color-muted: #5c6466;
+
+  --color-brand: #0f2b2d;
+  --color-brand-2: #173b3e;
+  --color-brand-3: #24474a;
+  --color-deep: #0b2123;
+  --color-link: #1f5f63;
+  --color-on-dark: #c8d2d1;
+  --color-on-dark-muted: #a9b8b7;
+
+  --color-brass: #8a6a35;
+  --color-brass-dark: #6e5226;
+  --color-brass-light: #cdae74;
+  --color-brass-soft: #f3ece0;
+  --color-best: #e9dfc8;
+
+  --font-sans: var(--font-plex-arabic), system-ui, sans-serif;
+  --font-display: var(--font-alexandria), var(--font-plex-arabic), system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--color-ground);
+    color: var(--color-ink);
+  }
+
+  a {
+    color: var(--color-link);
+  }
+
+  a:hover {
+    color: var(--color-brand);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 2px;
+  }
+
+  [id] {
+    scroll-margin-top: 1.5rem;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+}

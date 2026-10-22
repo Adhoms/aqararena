@@ -1,0 +1,397 @@
+// AqarArena database schema. See docs/DATA-MODEL.md for the reasoning.
+// Hierarchy: Developer → Project → Typology (unit model) → Unit.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [postgis]
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────
+
+enum DeveloperPlan {
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum ProjectStatus {
+  LAUNCH
+  UNDER_CONSTRUCTION
+  READY
+  DELIVERED
+}
+
+enum PropertyCategory {
+  RESIDENTIAL
+  COMMERCIAL
+  ADMINISTRATIVE
+  MEDICAL
+  COASTAL
+}
+
+enum PropertySubType {
+  // Residential
+  APARTMENT
+  STUDIO
+  DUPLEX
+  PENTHOUSE
+  TOWNHOUSE
+  TWIN_HOUSE
+  VILLA
+  MANSION
+  // Commercial, administrative, medical
+  OFFICE
+  CLINIC
+  RETAIL
+  FOOD_AND_BEVERAGE
+  PHARMACY
+  BANK
+  // Coastal & hospitality
+  CHALET
+  CABIN
+  SERVICED_APARTMENT
+}
+
+enum FinishingType {
+  CORE_AND_SHELL
+  SEMI_FINISHED
+  FULLY_FINISHED
+  FULLY_FINISHED_WITH_AC
+  FURNISHED
+}
+
+enum UnitAvailability {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum InstallmentFrequency {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  FLOOR_PLAN_2D
+  LAYOUT_SKETCH
+  MODEL_3D
+  VIRTUAL_TOUR
+  MASTER_PLAN
+  BROCHURE
+}
+
+/// Photo tabs on the project page.
+enum MediaGroup {
+  EXTERIOR
+  INTERIOR
+  CONSTRUCTION
+}
+
+/// What a clickable master-plan zone contains.
+enum ZoneKind {
+  RESIDENTIAL
+  VILLAS
+  GREEN
+  AMENITY
+  COMMERCIAL
+  ADMINISTRATIVE
+}
+
+// ─── Locations ──────────────────────────────────────────────────────────
+
+/// Areas nest: e.g. Cairo › New Cairo › Fifth Settlement.
+model Area {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  nameAr    String
+  nameEn    String
+  parentId  String?
+  parent    Area?     @relation("AreaTree", fields: [parentId], references: [id])
+  children  Area[]    @relation("AreaTree")
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([parentId])
+}
+
+// ─── Developers & projects ──────────────────────────────────────────────
+
+model Developer {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  nameAr      String
+  nameEn      String
+  logoUrl     String?
+  coverUrl    String?
+  foundedYear Int?
+  aboutAr     String?
+  aboutEn     String?
+  website     String?
+  hotline     String?
+  salesPhone  String?
+  whatsapp    String?
+  email       String?
+  hqAddress   String?
+  verified    Boolean       @default(false)
+  plan        DeveloperPlan @default(BASIC)
+  projects    Project[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Project {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  developerId   String
+  developer     Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  areaId        String
+  area          Area      @relation(fields: [areaId], references: [id])
+  nameAr        String
+  nameEn        String
+  descriptionAr String?
+  descriptionEn String?
+
+  latitude  Decimal?                               @db.Decimal(9, 6)
+  longitude Decimal?                               @db.Decimal(9, 6)
+  /// PostGIS point for map and distance queries; kept in sync with latitude/longitude.
+  location  Unsupported("geography(Point, 4326)")?
+
+  landAreaM2    Decimal?      @db.Decimal(12, 2)
+  /// Share of the land covered by buildings, in percent.
+  footprintPct  Decimal?      @db.Decimal(5, 2)
+  status        ProjectStatus @default(LAUNCH)
+  launchDate    DateTime?     @db.Date
+  deliveryDate  DateTime?     @db.Date
+  progressPct   Int?
+  /// Amenity keys such as "clubhouse", "underground_parking", "mall", "school".
+  amenities     String[]
+  /// Base URL of the tiled master-plan image set.
+  masterPlanUrl String?
+  isFeatured    Boolean       @default(false)
+  published     Boolean       @default(false)
+
+  typologies          Typology[]
+  zones               MasterPlanZone[]
+  distances           ProjectDistance[]
+  media               Media[]
+  paymentPlans        PaymentPlan[]
+  offers              Offer[]
+  constructionUpdates ConstructionUpdate[]
+  priceHistory        PriceHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([developerId])
+  @@index([areaId])
+  @@index([status])
+  @@index([published, isFeatured])
+}
+
+// ─── Unit models & units ────────────────────────────────────────────────
+
+/// One unit model (e.g. "Type A – 150 m²"). Floor plans and 3D live here once,
+/// not on every unit.
+model Typology {
+  id             String           @id @default(cuid())
+  projectId      String
+  project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  code           String
+  nameAr         String?
+  nameEn         String?
+  category       PropertyCategory
+  subType        PropertySubType
+  buaM2          Decimal          @db.Decimal(8, 2)
+  netM2          Decimal?         @db.Decimal(8, 2)
+  gardenM2       Decimal?         @db.Decimal(8, 2)
+  roofM2         Decimal?         @db.Decimal(8, 2)
+  terraceM2      Decimal?         @db.Decimal(8, 2)
+  bedrooms       Int?
+  bathrooms      Int?
+  finishing      FinishingType
+  priceFrom      Decimal?         @db.Decimal(14, 2)
+  pricePerM2From Decimal?         @db.Decimal(12, 2)
+
+  units        Unit[]
+  media        Media[]
+  paymentPlans PaymentPlan[]
+  priceHistory PriceHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, code])
+  @@index([category, subType])
+  @@index([priceFrom])
+}
+
+model Unit {
+  id           String           @id @default(cuid())
+  typologyId   String
+  typology     Typology         @relation(fields: [typologyId], references: [id], onDelete: Cascade)
+  building     String?
+  floor        Int?
+  unitNumber   String?
+  /// e.g. "north", "south-east"
+  orientation  String?
+  /// e.g. "landscape", "main_street", "lagoon", "sea"
+  view         String?
+  price        Decimal?         @db.Decimal(14, 2)
+  availability UnitAvailability @default(AVAILABLE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([typologyId, availability])
+}
+
+// ─── Master plan & location ─────────────────────────────────────────────
+
+/// A clickable area on the master plan. The shape is a rectangle in percent of
+/// the plan image for now; it can become a polygon later.
+model MasterPlanZone {
+  id             String            @id @default(cuid())
+  projectId      String
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind           ZoneKind
+  shortAr        String
+  shortEn        String
+  nameAr         String
+  nameEn         String
+  phaseAr        String?
+  phaseEn        String?
+  descriptionAr  String?
+  descriptionEn  String?
+  areaFeddan     Decimal?          @db.Decimal(8, 2)
+  buildingsCount Int?
+  unitsCount     Int?
+  /// Unit sub-types found in this zone.
+  unitSubTypes   PropertySubType[]
+  xPct           Decimal           @db.Decimal(5, 2)
+  yPct           Decimal           @db.Decimal(5, 2)
+  widthPct       Decimal           @db.Decimal(5, 2)
+  heightPct      Decimal           @db.Decimal(5, 2)
+  sortOrder      Int               @default(0)
+
+  @@index([projectId])
+}
+
+/// Driving time from the project to a landmark ("Ring Road · 10 min").
+model ProjectDistance {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  placeAr   String
+  placeEn   String
+  minutes   Int
+  sortOrder Int     @default(0)
+
+  @@index([projectId])
+}
+
+// ─── Media ──────────────────────────────────────────────────────────────
+
+/// Files live in object storage (Cloudflare R2); this table stores their URLs.
+model Media {
+  id         String      @id @default(cuid())
+  kind       MediaKind
+  /// Set on project photos so they can be shown under the right tab.
+  group      MediaGroup?
+  url        String
+  width      Int?
+  height     Int?
+  captionAr  String?
+  captionEn  String?
+  sortOrder  Int         @default(0)
+  projectId  String?
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  typologyId String?
+  typology   Typology?   @relation(fields: [typologyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
+
+  @@index([projectId, kind])
+  @@index([typologyId, kind])
+}
+
+// ─── Money ──────────────────────────────────────────────────────────────
+
+model PaymentPlan {
+  id                 String               @id @default(cuid())
+  projectId          String
+  project            Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Set when a plan applies to one unit model only.
+  typologyId         String?
+  typology           Typology?            @relation(fields: [typologyId], references: [id], onDelete: Cascade)
+  nameAr             String?
+  nameEn             String?
+  downPaymentPct     Decimal              @db.Decimal(5, 2)
+  deliveryPaymentPct Decimal              @default(0) @db.Decimal(5, 2)
+  years              Int
+  frequency          InstallmentFrequency @default(QUARTERLY)
+  cashDiscountPct    Decimal?             @db.Decimal(5, 2)
+  maintenancePct     Decimal?             @db.Decimal(5, 2)
+  garageFee          Decimal?             @db.Decimal(12, 2)
+  clubFee            Decimal?             @db.Decimal(12, 2)
+  validUntil         DateTime?            @db.Date
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([projectId, isActive])
+  @@index([downPaymentPct, years])
+}
+
+model Offer {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  titleAr     String
+  titleEn     String
+  detailsAr   String?
+  detailsEn   String?
+  startsAt    DateTime?
+  endsAt      DateTime?
+  isSponsored Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([endsAt])
+}
+
+model PriceHistory {
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  typologyId String?
+  typology   Typology? @relation(fields: [typologyId], references: [id], onDelete: Cascade)
+  recordedAt DateTime  @db.Date
+  pricePerM2 Decimal   @db.Decimal(12, 2)
+
+  @@index([projectId, recordedAt])
+}
+
+// ─── Construction progress ───────────────────────────────────────────────────
+
+model ConstructionUpdate {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  progressPct Int?
+  noteAr      String?
+  noteEn      String?
+  mediaUrls   String[]
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, date])
+}

@@ -39,7 +39,7 @@ Skip the three `db:` steps (and leave `DATABASE_URL` out of `.env`) to run on th
 
 **About the local database:** `npm run db:local` starts Prisma's built-in Postgres (`prisma dev`). It takes one connection at a time, so `.env` sets `DATABASE_POOL_MAX=1` and builds then render pages one by one. If it stops answering, run `npx prisma dev stop aqararena`, wait a few seconds, and run `npm run db:local` again. Its data stays on disk.
 
-**For the live site:** create a Postgres database on Supabase or Neon, put its connection string in `DATABASE_URL` (in `.env` locally and in the hosting provider's settings), and run `npx prisma migrate deploy`.
+**For the live site:** follow [docs/DEPLOY.md](docs/DEPLOY.md) (Vercel + Neon, step by step in Arabic). On Vercel the `vercel-build` script applies migrations before building.
 
 | Command | What it does |
 | --- | --- |

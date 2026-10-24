@@ -37,11 +37,15 @@
     "TOWNHOUSE": "Townhouses",
     "TWIN_HOUSE": "Twin houses",
     "VILLA": "Villas",
+    "MANSION": "Mansions",
     "OFFICE": "Offices",
     "CLINIC": "Clinics",
     "RETAIL": "Retail",
     "FOOD_AND_BEVERAGE": "Restaurants & cafés",
+    "PHARMACY": "Pharmacies",
+    "BANK": "Banks",
     "CHALET": "Chalets",
+    "CABIN": "Cabins",
     "SERVICED_APARTMENT": "Serviced apartments"
   },
   "unitTabs": {
@@ -57,7 +61,8 @@
     "CORE_AND_SHELL": "Core & shell",
     "SEMI_FINISHED": "Semi-finished",
     "FULLY_FINISHED": "Fully finished",
-    "FULLY_FINISHED_WITH_AC": "Fully finished with AC"
+    "FULLY_FINISHED_WITH_AC": "Fully finished with AC",
+    "FURNISHED": "Furnished"
   },
   "status": {
     "LAUNCH": "New launch",

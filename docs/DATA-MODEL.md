@@ -13,7 +13,9 @@ Developer
 
 Project
  ├─ slug, developer, area (Area tree: Cairo › New Cairo › Fifth Settlement)
- ├─ nameAr/En, descriptionAr/En, location (PostGIS point), landAreaM2
+ ├─ nameAr/En, descriptionAr/En, districtAr/En, categories[]
+ ├─ latitude/longitude (PostGIS point later, for map search), landAreaM2, footprintPct, unitsCount
+ ├─ pricesUpdatedAt (when the developer last confirmed prices)
  ├─ status (LAUNCH | UNDER_CONSTRUCTION | READY | DELIVERED)
  ├─ launchDate, deliveryDate, progressPct, amenities[]
  ├─ masterPlanUrl (tiled image) + zones[]      → MasterPlanZone

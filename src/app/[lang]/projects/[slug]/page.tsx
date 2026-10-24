@@ -42,11 +42,11 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/projects/[
 const UNIT_TAB_GROUPS: { id: keyof Dictionary["unitTabs"]; subTypes: SubType[] }[] = [
   { id: "APARTMENTS", subTypes: ["APARTMENT", "STUDIO", "SERVICED_APARTMENT"] },
   { id: "DUPLEX", subTypes: ["DUPLEX", "PENTHOUSE"] },
-  { id: "COASTAL", subTypes: ["CHALET"] },
+  { id: "COASTAL", subTypes: ["CHALET", "CABIN"] },
   { id: "HOUSES", subTypes: ["TOWNHOUSE", "TWIN_HOUSE"] },
-  { id: "VILLAS", subTypes: ["VILLA"] },
+  { id: "VILLAS", subTypes: ["VILLA", "MANSION"] },
   { id: "BUSINESS", subTypes: ["OFFICE", "CLINIC"] },
-  { id: "RETAIL", subTypes: ["RETAIL", "FOOD_AND_BEVERAGE"] },
+  { id: "RETAIL", subTypes: ["RETAIL", "FOOD_AND_BEVERAGE", "PHARMACY", "BANK"] },
 ];
 
 const h2 = "font-display text-3xl font-normal tracking-tight";

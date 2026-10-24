@@ -9,7 +9,8 @@ The goal of each phase is something real users can open.
 - [x] Next.js + TypeScript + Tailwind project, Arabic RTL by default, English toggle
 - [x] Prisma schema from [DATA-MODEL.md](DATA-MODEL.md)
 - [x] Approved visual design: [design canvas](https://claude.ai/artifact/XPigMkPtbo1h3d6ezkWV3s) (palette, type, page layouts)
-- [ ] PostgreSQL database (Supabase or Neon) with PostGIS, first migration applied
+- [x] PostgreSQL schema and first migration; local development database (`prisma dev`) with demo seed
+- [ ] Hosted PostgreSQL (Supabase or Neon) for the live site, migrations applied with `prisma migrate deploy`
 - [ ] Seed script with 10–20 real developers and their projects, entered by hand
 - [ ] Deploy preview on Vercel on every push
 
@@ -20,7 +21,7 @@ The goal of each phase is something real users can open.
 - [x] Project page: gallery, overview, interactive master plan (zones), unit types with floor plans, price plans, photos by tab, location, official developer contacts
 - [x] Developer page: profile, official contacts, portfolio filtered by area
 - [x] Project-vs-project comparison (up to 4), shareable link, "differences only", print / PDF
-- [ ] Swap the sample data in `src/lib/catalog` for database queries
+- [x] Pages read from the database through `src/lib/catalog` (cached, demo-data fallback without a database)
 - [ ] Real photos, floor plans and master plans from Cloudflare R2 (WebP/AVIF, tiled master plans)
 - [ ] SEO: sitemap, Open Graph images, structured data (JSON-LD)
 
@@ -33,7 +34,7 @@ The goal of each phase is something real users can open.
 
 ## Phase 3: Later
 
-- [ ] Map search (PostGIS)
+- [ ] Map search (add the PostGIS extension and a location column in its own migration)
 - [ ] Polygon master-plan zones and deep zoom
 - [ ] Price history per project
 - [ ] Mobile apps (Expo), same API

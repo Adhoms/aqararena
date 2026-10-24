@@ -2,14 +2,14 @@
 // Hierarchy: Developer → Project → Typology (unit model) → Unit.
 
 generator client {
-  provider        = "prisma-client"
-  output          = "../src/generated/prisma"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
+// PostGIS (for map search, roadmap phase 3) is added with its own migration later.
+// Until then projects keep plain latitude/longitude.
 datasource db {
-  provider   = "postgresql"
-  extensions = [postgis]
+  provider = "postgresql"
 }
 
 // ─── Enums ──────────────────────────────────────────────────────────────
@@ -142,7 +142,8 @@ model Developer {
   salesPhone  String?
   whatsapp    String?
   email       String?
-  hqAddress   String?
+  hqAddressAr String?
+  hqAddressEn String?
   verified    Boolean       @default(false)
   plan        DeveloperPlan @default(BASIC)
   projects    Project[]
@@ -151,35 +152,41 @@ model Developer {
 }
 
 model Project {
-  id            String    @id @default(cuid())
-  slug          String    @unique
+  id            String             @id @default(cuid())
+  slug          String             @unique
   developerId   String
-  developer     Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  developer     Developer          @relation(fields: [developerId], references: [id], onDelete: Cascade)
   areaId        String
-  area          Area      @relation(fields: [areaId], references: [id])
+  area          Area               @relation(fields: [areaId], references: [id])
   nameAr        String
   nameEn        String
   descriptionAr String?
   descriptionEn String?
+  /// Neighbourhood inside the area, e.g. "Fifth Settlement" in New Cairo.
+  districtAr    String?
+  districtEn    String?
+  /// Every kind of space the project offers (a compound can be residential + commercial + medical).
+  categories    PropertyCategory[]
 
-  latitude  Decimal?                               @db.Decimal(9, 6)
-  longitude Decimal?                               @db.Decimal(9, 6)
-  /// PostGIS point for map and distance queries; kept in sync with latitude/longitude.
-  location  Unsupported("geography(Point, 4326)")?
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
 
-  landAreaM2    Decimal?      @db.Decimal(12, 2)
-  /// Share of the land covered by buildings, in percent.
-  footprintPct  Decimal?      @db.Decimal(5, 2)
-  status        ProjectStatus @default(LAUNCH)
-  launchDate    DateTime?     @db.Date
-  deliveryDate  DateTime?     @db.Date
-  progressPct   Int?
+  landAreaM2      Decimal?      @db.Decimal(12, 2)
+  /// Share of the land covered by buildings, in percent. Green/open space is the rest.
+  footprintPct    Decimal?      @db.Decimal(5, 2)
+  unitsCount      Int?
+  status          ProjectStatus @default(LAUNCH)
+  launchDate      DateTime?     @db.Date
+  deliveryDate    DateTime      @db.Date
+  progressPct     Int?
+  /// When the developer last confirmed the prices and payment plans.
+  pricesUpdatedAt DateTime?     @db.Date
   /// Amenity keys such as "clubhouse", "underground_parking", "mall", "school".
-  amenities     String[]
+  amenities       String[]
   /// Base URL of the tiled master-plan image set.
-  masterPlanUrl String?
-  isFeatured    Boolean       @default(false)
-  published     Boolean       @default(false)
+  masterPlanUrl   String?
+  isFeatured      Boolean       @default(false)
+  published       Boolean       @default(false)
 
   typologies          Typology[]
   zones               MasterPlanZone[]

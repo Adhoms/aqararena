@@ -36,7 +36,7 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
         />
         <span className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/45 to-transparent" />
         <span className="absolute top-3.5 start-3.5 flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-white/90 px-3 py-0.5 text-xs font-medium text-ink backdrop-blur">{dict.categories[project.categories[0]]}</span>
+          <span className="rounded-full bg-black/45 px-3 py-0.5 text-xs font-medium text-white backdrop-blur">{dict.categories[project.categories[0]]}</span>
           {badge === "featured" ? (
             <span className="rounded-full bg-brand/90 px-3 py-0.5 text-xs font-medium text-brass-light backdrop-blur">{dict.common.featured}</span>
           ) : (

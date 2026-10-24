@@ -503,8 +503,8 @@ function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: L
   ];
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-surface">
-      <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-[#fbfaf8] text-[13px] text-[#4a5254]">
-        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="#9a9588" strokeWidth="1.5" aria-hidden="true">
+      <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-white/[0.03] text-[13px] text-muted">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="#6f8a87" strokeWidth="1.5" aria-hidden="true">
           <rect x="6" y="6" width="60" height="60" />
           <path d="M6 34h30V6M36 50h30M46 34v32" />
         </svg>

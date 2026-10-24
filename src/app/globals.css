@@ -3,35 +3,38 @@
 /* AqarArena tokens, from the approved design: deep evergreen, quiet brass, stone neutrals.
    Text/background pairs used in the components meet WCAG AA (4.5:1). */
 @theme {
-  --color-ground: #f6f5f2;
-  --color-surface: #ffffff;
-  --color-line: #e4e2dc;
-  --color-line-strong: #d5d2ca;
-  --color-divider: #eeece7;
+  /* Dark luxury: deep evergreen ground, dark-glass surfaces, light hairlines. */
+  --color-ground: #081a1c;
+  --color-surface: rgb(255 255 255 / 0.055);
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-line-strong: rgb(255 255 255 / 0.2);
+  --color-divider: rgb(255 255 255 / 0.07);
 
   /* Image placeholders until real photos arrive. */
-  --color-photo: #d9d5cc;
-  --color-photo-deep: #cfcac0;
-  --color-plan: #e9e6df;
-  --color-plan-green: #c9d4cb;
+  --color-photo: #1d3a3d;
+  --color-photo-deep: #234548;
+  --color-plan: #10292b;
+  --color-plan-green: #1f4a3c;
 
-  --color-ink: #0e1a1c;
-  --color-body: #3d4547;
-  --color-muted: #5c6466;
+  /* Text, light on dark. */
+  --color-ink: #f1f3f1;
+  --color-body: #c9d3d1;
+  --color-muted: #9fb1af;
 
-  --color-brand: #0f2b2d;
-  --color-brand-2: #173b3e;
-  --color-brand-3: #24474a;
-  --color-deep: #0b2123;
-  --color-link: #1f5f63;
+  /* Buttons and dark bands: a lighter teal so they stand out from the ground. */
+  --color-brand: #24605c;
+  --color-brand-2: #2c716c;
+  --color-brand-3: #357d78;
+  --color-deep: #04100f;
+  --color-link: #8fd0c9;
   --color-on-dark: #c8d2d1;
   --color-on-dark-muted: #a9b8b7;
 
-  --color-brass: #8a6a35;
-  --color-brass-dark: #6e5226;
+  --color-brass: #d8b97e;
+  --color-brass-dark: #e8cf9e;
   --color-brass-light: #cdae74;
-  --color-brass-soft: #f3ece0;
-  --color-best: #e9dfc8;
+  --color-brass-soft: rgb(205 174 116 / 0.14);
+  --color-best: rgb(205 174 116 / 0.28);
 
   --font-sans: var(--font-plex-arabic), system-ui, sans-serif;
   --font-display: var(--font-alexandria), var(--font-plex-arabic), system-ui, sans-serif;
@@ -40,6 +43,8 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Native controls (selects, scrollbars) in dark style. */
+    color-scheme: dark;
   }
 
   body {
@@ -52,7 +57,7 @@
   }
 
   a:hover {
-    color: var(--color-brand);
+    color: var(--color-brass);
   }
 
   :focus-visible {
@@ -123,6 +128,54 @@
   --bar-origin: left;
 }
 
+/* Frosted glass: every surface blurs the drifting light behind it. */
+.bg-surface {
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+/* Glass cards get a soft lift and a bright top edge. */
+.rounded-\[20px\].bg-surface,
+.rounded-\[22px\].bg-surface,
+.rounded-\[28px\].bg-surface,
+.rounded-3xl.bg-surface {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 24px 48px -28px rgb(0 0 0 / 0.7);
+}
+
+/* Ambient background: slow drifting light and film grain. */
+.ambient-blob {
+  filter: blur(40px);
+  will-change: transform;
+}
+
+.ambient-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(8vw, 6vh) scale(1.08); }
+}
+
+@keyframes drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-7vw, -5vh) scale(1.12); }
+}
+
+@keyframes drift-c {
+  0%, 100% { transform: translate(0, 0) scale(1.05); }
+  50% { transform: translate(6vw, -8vh) scale(0.95); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ambient-a { animation: drift-a 38s ease-in-out infinite; }
+  .ambient-b { animation: drift-b 46s ease-in-out infinite; }
+  .ambient-c { animation: drift-c 52s ease-in-out infinite; }
+  .ambient-d { animation: drift-b 60s ease-in-out infinite reverse; }
+}
+
 /* Map pins and controls follow the site's look. */
 .maplibregl-ctrl-group {
   border-radius: 12px !important;
@@ -133,4 +186,21 @@
   body {
     background: white;
   }
+}
+
+/* Egypt blueprint: the border and the Nile draw themselves once, cities fade in. */
+@keyframes bp-draw {
+  from { stroke-dasharray: 1; stroke-dashoffset: 1; }
+  to { stroke-dasharray: 1; stroke-dashoffset: 0; }
+}
+
+@keyframes bp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bp-draw { animation: bp-draw 5s cubic-bezier(0.4, 0, 0.2, 1) both; }
+  .bp-draw-late { animation-delay: 1.8s; animation-duration: 4s; }
+  .bp-point { animation: bp-fade 1.2s ease-out 3.2s both; }
 }

@@ -32,7 +32,7 @@ type Labels = {
 };
 
 // Free vector map tiles, no API key (https://openfreemap.org). Map data © OpenStreetMap contributors.
-const STYLE = "https://tiles.openfreemap.org/styles/positron";
+const STYLE = "https://tiles.openfreemap.org/styles/dark";
 // Shapes Arabic place names correctly on the map.
 const RTL_PLUGIN = "https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js";
 

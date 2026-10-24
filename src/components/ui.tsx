@@ -51,7 +51,7 @@ export function PhotoPlaceholder({
   children?: ReactNode;
 }) {
   const tones = {
-    light: "bg-photo text-[#4a5254]",
+    light: "bg-photo text-muted",
     deep: "bg-photo-deep text-body",
     dark: "bg-brand-3 text-on-dark",
   };

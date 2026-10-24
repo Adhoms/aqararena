@@ -14,7 +14,8 @@ export function valueText(value: ProjectValue, dict: Dictionary) {
 }
 
 /** Score in a small ring, for cards. */
-export function ValueRing({ score, label, size = 44, onDark = false }: { score: number; label: string; size?: number; onDark?: boolean }) {
+// `onDark` is kept for callers; the ring now always uses the dark style.
+export function ValueRing({ score, label, size = 44 }: { score: number; label: string; size?: number; onDark?: boolean }) {
   const r = 18;
   const c = 2 * Math.PI * r;
   return (
@@ -25,10 +26,10 @@ export function ValueRing({ score, label, size = 44, onDark = false }: { score: 
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90" aria-hidden="true">
-        <circle cx="22" cy="22" r={r} fill={onDark ? "rgba(11,33,35,0.75)" : "#ffffff"} stroke={onDark ? "rgba(255,255,255,0.18)" : "#eeece7"} strokeWidth="4" />
+        <circle cx="22" cy="22" r={r} fill="rgba(4,16,15,0.7)" stroke="rgba(255,255,255,0.14)" strokeWidth="4" />
         <circle cx="22" cy="22" r={r} fill="none" stroke="#cdae74" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(score / 10) * c} ${c}`} />
       </svg>
-      <span aria-hidden="true" className={`relative font-display text-[13px] font-medium ${onDark ? "text-white" : "text-ink"}`}>
+      <span aria-hidden="true" className={`relative font-display text-[13px] font-medium text-white`}>
         {score.toFixed(1)}
       </span>
     </span>

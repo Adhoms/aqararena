@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { isAmenity, isAreaSlug, isSubType, type AreaSlug } from "@/lib/property";
 import type { Developer, Project, Text } from "./types";
-import type { ProjectFilters } from "./filters";
+import { needsUnitMatch, type ProjectFilters } from "./filters";
 
 // Reads developers and projects from PostgreSQL and turns the rows into the plain
 // shapes in ./types.ts, so pages never see Prisma types (Decimal, Date, …).
@@ -54,6 +54,7 @@ function toProject(p: ProjectRow): Project {
     developerSlug: p.developer.slug,
     // Areas outside the starter list fall back to the first one until the area list comes from the database too.
     areaSlug: (isAreaSlug(p.area.slug) ? p.area.slug : "new-cairo") as AreaSlug,
+    location: p.latitude !== null && p.longitude !== null ? { lat: Number(p.latitude), lng: Number(p.longitude) } : undefined,
     name: text(p.nameAr, p.nameEn),
     district: text(p.districtAr, p.districtEn),
     description: text(p.descriptionAr, p.descriptionEn),
@@ -161,5 +162,16 @@ export function filtersToWhere(f: ProjectFilters): Prisma.ProjectWhereInput {
   if (f.deliveryBy) and.push({ deliveryDate: { lte: new Date(Date.UTC(f.deliveryBy, 11, 31)) } });
   if (f.maxDownPct) and.push({ paymentPlans: { some: { isActive: true, years: { gt: 0 }, downPaymentPct: { lte: f.maxDownPct } } } });
   if (f.minYears) and.push({ paymentPlans: { some: { isActive: true, years: { gte: f.minYears } } } });
+  if (needsUnitMatch(f)) {
+    and.push({
+      typologies: {
+        some: {
+          ...(f.subTypes?.length && { subType: { in: f.subTypes } }),
+          ...(f.minBedrooms && { bedrooms: { gte: f.minBedrooms } }),
+          ...(f.maxPrice && { priceFrom: { lte: f.maxPrice } }),
+        },
+      },
+    });
+  }
   return and.length ? { AND: and } : {};
 }

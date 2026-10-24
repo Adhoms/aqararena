@@ -2,6 +2,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { AreaSlug } from "@/lib/property";
 import { filterProjects, sortProjects, type ProjectFilters } from "./filters";
+import { computeInsights, type MarketInsights } from "./insights";
 import * as sample from "./sample-data";
 import type { Developer, Project } from "./types";
 
@@ -17,6 +18,7 @@ import type { Developer, Project } from "./types";
 export type { Developer, MasterPlanZone, PaymentPlan, Photo, Project, ProjectSummary, Text, Typology } from "./types";
 export { isCashPlan, summarize } from "./summary";
 export { SORTS, type ProjectFilters, type Sort } from "./filters";
+export type { AreaInsight, MarketInsights, ProjectValue } from "./insights";
 
 export const CATALOG_TAG = "catalog";
 const usesDatabase = Boolean(process.env.DATABASE_URL);
@@ -60,6 +62,15 @@ export async function searchProjects(filters: ProjectFilters): Promise<Project[]
     ? await (await source()).dbProjects((await source()).filtersToWhere(filters))
     : filterProjects(sample.projects, sample.developers, filters);
   return sortProjects(found, filters.sort);
+}
+
+export async function getMarketInsights(): Promise<MarketInsights> {
+  return computeInsights(await allProjects());
+}
+
+/** Every published project, e.g. for the map. */
+export async function listProjects(): Promise<Project[]> {
+  return allProjects();
 }
 
 export async function getFeaturedProjects(): Promise<Project[]> {

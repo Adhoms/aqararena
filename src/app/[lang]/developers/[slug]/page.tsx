@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { GroupFilter } from "@/components/area-filter";
 import { ContactStack } from "@/components/contact-list";
-import { Container, Eyebrow, PhotoPlaceholder } from "@/components/ui";
+import { Container, Eyebrow } from "@/components/ui";
+import { artKindFor, ProjectArt } from "@/components/project-art";
 import { getDeveloper, getProjectsByDeveloper, listDevelopers, summarize } from "@/lib/catalog";
 import { fill, formatMoney } from "@/lib/format";
 import { AREA_SLUGS } from "@/lib/property";
@@ -141,11 +142,12 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
                     href={`/${locale}/projects/${p.slug}`}
                     className="flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-surface text-ink no-underline hover:border-ink hover:text-ink"
                   >
-                    <PhotoPlaceholder label={dict.common.photo} className="h-52">
+                    <span className="relative block h-52 overflow-hidden">
+                      <ProjectArt seed={p.slug} kind={artKindFor(p)} tone="dusk" className="absolute inset-0 size-full" />
                       <span className={`absolute top-3.5 end-3.5 rounded-full px-3 py-0.5 text-xs font-medium ${badgeTone[p.status]}`}>
                         {dict.status[p.status]}
                       </span>
-                    </PhotoPlaceholder>
+                    </span>
                     <span className="flex flex-col gap-1.5 px-5 py-4.5">
                       <span className="font-display text-xl font-medium">{p.name[locale]}</span>
                       <span className="text-sm text-muted">

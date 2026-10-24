@@ -4,9 +4,12 @@ import { Suspense } from "react";
 import { FilterForm } from "@/components/filter-form";
 import { ProjectCard } from "@/components/project-card";
 import { Container } from "@/components/ui";
-import { listDevelopers, searchProjects, SORTS, totalProjects, type ProjectFilters, type Sort } from "@/lib/catalog";
+import { getMarketInsights, listDevelopers, searchProjects, SORTS, totalProjects } from "@/lib/catalog";
+import { readFilters } from "@/lib/catalog/read-filters";
+import { smartLabels } from "@/components/smart-labels";
+import { SmartSearch } from "@/components/smart-search";
 import { fill } from "@/lib/format";
-import { AREA_SLUGS, isAreaSlug, isProjectStatus, isPropertyCategory, PROJECT_STATUSES, PROPERTY_CATEGORIES } from "@/lib/property";
+import { AREA_SLUGS, PROJECT_STATUSES, PROPERTY_CATEGORIES } from "@/lib/property";
 import { getDictionary, getLocale, type Dictionary } from "../dictionaries";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -38,31 +41,18 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/[lang]/
 
 const all = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [v] : []).filter(Boolean);
 const one = (v: string | string[] | undefined) => all(v)[0];
-const num = (v: string | string[] | undefined) => {
-  const n = Number(one(v));
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-};
-
-function readFilters(params: Search): ProjectFilters {
-  const category = one(params.category);
-  const sort = one(params.sort);
-  return {
-    q: one(params.q),
-    category: isPropertyCategory(category) ? category : undefined,
-    areas: all(params.area).filter(isAreaSlug),
-    developer: one(params.developer),
-    statuses: all(params.status).filter(isProjectStatus),
-    deliveryBy: num(params.delivery),
-    maxDownPct: num(params.down),
-    minYears: num(params.years),
-    sort: (SORTS as readonly string[]).includes(sort ?? "") ? (sort as Sort) : "newest",
-  };
+/** Builds a link that removes one value of a repeated parameter (e.g. one unit type). */
+function withoutValue(locale: string, params: Search, key: string, value: string) {
+  const next = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) all(v).forEach((x) => (k === key && x === value) || k === "s" ? null : next.append(k, x));
+  const qs = next.toString();
+  return `/${locale}/projects${qs ? `?${qs}` : ""}`;
 }
 
 /** Builds a link that changes one filter and keeps the rest. */
 function withParam(locale: string, params: Search, key: string, value: string | undefined) {
   const next = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (k !== key) all(v).forEach((x) => next.append(k, x));
+  for (const [k, v] of Object.entries(params)) if (k !== key && k !== "s") all(v).forEach((x) => next.append(k, x));
   if (value) next.set(key, value);
   const qs = next.toString();
   return `/${locale}/projects${qs ? `?${qs}` : ""}`;
@@ -75,30 +65,49 @@ const legend = "mb-1.5 p-0 text-sm font-semibold";
 async function Results({ searchParams, locale, dict }: { searchParams: Promise<Search>; locale: "ar" | "en"; dict: Dictionary }) {
   const params = await searchParams;
   const f = readFilters(params);
-  const [results, developers, total] = await Promise.all([searchProjects(f), listDevelopers(), totalProjects()]);
+  const sentence = one(params.s) ?? "";
+  const [results, developers, total, insights] = await Promise.all([searchProjects(f), listDevelopers(), totalProjects(), getMarketInsights()]);
   const devBySlug = new Map(developers.map((d) => [d.slug, d]));
   const p = dict.projectsPage;
 
+  // Conditions that come from the smart search (not in the sidebar), shown as removable chips.
+  const smartChips = [
+    ...(f.subTypes ?? []).map((t) => ({ label: dict.subTypes[t], href: withoutValue(locale, params, "type", t) })),
+    ...(f.minBedrooms ? [{ label: fill(dict.smart.chips.minBedrooms, { n: f.minBedrooms }), href: withParam(locale, params, "beds", undefined) }] : []),
+    ...(f.maxPrice ? [{ label: fill(dict.smart.chips.maxPrice, { n: Math.round((f.maxPrice / 1e6) * 100) / 100 }), href: withParam(locale, params, "max", undefined) }] : []),
+    ...(f.q ? [{ label: fill(dict.smart.chips.q, { q: f.q }), href: withParam(locale, params, "q", undefined) }] : []),
+  ];
+
   return (
+    <div className="flex flex-col gap-6">
+      <SmartSearch key={sentence} locale={locale} labels={smartLabels(dict)} variant="page" initialText={sentence} />
+
     <FilterForm action={`/${locale}/projects`} className="flex flex-col gap-6">
       {f.category && <input type="hidden" name="category" value={f.category} />}
+      {/* Keep the smart-search conditions when the sidebar filters change. */}
+      {f.q && <input type="hidden" name="q" value={f.q} />}
+      {f.subTypes?.map((t) => <input key={t} type="hidden" name="type" value={t} />)}
+      {f.minBedrooms && <input type="hidden" name="beds" value={f.minBedrooms} />}
+      {f.maxPrice && <input type="hidden" name="max" value={f.maxPrice} />}
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <p className="text-muted" aria-live="polite">
-          {fill(p.results, { n: results.length })}
-          {results.length !== total && <span> / {total}</span>}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="me-2 font-semibold" aria-live="polite">
+            {fill(p.results, { n: results.length })}
+            {results.length !== total && <span className="font-normal text-muted"> / {total}</span>}
+          </p>
+          {smartChips.map((chip) => (
+            <Link
+              key={chip.label}
+              href={chip.href}
+              aria-label={fill(dict.smart.remove, { label: chip.label })}
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-brass-soft px-3 text-[13px] font-medium text-brass-dark no-underline hover:bg-best hover:text-brass-dark"
+            >
+              {chip.label} <span aria-hidden="true">×</span>
+            </Link>
+          ))}
+        </div>
         <div className="flex flex-wrap items-end gap-2.5">
-          <label className="flex flex-col text-xs font-medium text-muted">
-            {p.search}
-            <input
-              type="search"
-              name="q"
-              defaultValue={f.q}
-              placeholder={p.searchPlaceholder}
-              className="min-h-11.5 min-w-60 rounded-xl border border-line-strong bg-surface px-3.5 text-[15px] text-ink focus:border-brand focus:outline-none"
-            />
-          </label>
           <label className="flex flex-col text-xs font-medium text-muted">
             {p.sort}
             <select name="sort" defaultValue={f.sort} className={select}>
@@ -221,7 +230,7 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
               {results.map((project) => (
                 <li key={project.slug} className="flex">
                   <div className="w-full">
-                    <ProjectCard project={project} developer={devBySlug.get(project.developerSlug)} locale={locale} dict={dict} />
+                    <ProjectCard project={project} developer={devBySlug.get(project.developerSlug)} value={insights.values[project.slug]} locale={locale} dict={dict} />
                   </div>
                 </li>
               ))}
@@ -230,5 +239,6 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
         </section>
       </div>
     </FilterForm>
+    </div>
   );
 }

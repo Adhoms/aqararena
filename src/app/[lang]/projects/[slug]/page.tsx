@@ -7,9 +7,12 @@ import { ContactGrid, ContactStack } from "@/components/contact-list";
 import { MasterPlan } from "@/components/project/master-plan";
 import { ShareButton } from "@/components/share-button";
 import { Tabs, type Tab } from "@/components/tabs";
-import { Container, Eyebrow, PhotoPlaceholder, Pill } from "@/components/ui";
+import { ProjectVsMarket, ValueRing, valueText } from "@/components/insights";
+import { artKindFor, ProjectArt } from "@/components/project-art";
+import { Container, Eyebrow } from "@/components/ui";
 import {
   getDeveloper,
+  getMarketInsights,
   getProject,
   isCashPlan,
   listProjectSlugs,
@@ -50,8 +53,6 @@ const UNIT_TAB_GROUPS: { id: keyof Dictionary["unitTabs"]; subTypes: SubType[] }
 ];
 
 const h2 = "font-display text-3xl font-normal tracking-tight";
-const outlineButton =
-  "inline-flex min-h-12 items-center rounded-full border border-line-strong bg-surface px-4.5 text-[15px] text-ink no-underline hover:border-ink hover:text-ink";
 
 // The slug comes from the URL, so the content streams in behind a skeleton and navigation stays instant.
 export default function Page({ params }: PageProps<"/[lang]/projects/[slug]">) {
@@ -81,10 +82,12 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
 
   const s = summarize(project);
   const p = dict.projectPage;
-  const similar = (await searchProjects({ category: project.categories[0] })).filter((x) => x.slug !== project.slug).slice(0, 3);
+  const [related, insights] = await Promise.all([searchProjects({ category: project.categories[0] }), getMarketInsights()]);
+  const similar = related.filter((x) => x.slug !== project.slug).slice(0, 3);
 
   const sections = [
     ["overview", p.sections.overview],
+    ["market", dict.insights.vsMarket],
     ["masterplan", p.sections.masterplan],
     ["units", p.sections.units],
     ["prices", p.sections.prices],
@@ -102,71 +105,109 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
     project.progressPct !== undefined && [p.facts.progress, `${project.progressPct}%`],
   ].filter((f): f is [string, string] => Array.isArray(f));
 
+  const kind = artKindFor(project);
+  const value = insights.values[project.slug];
+  const areaAvg = insights.areas.find((a) => a.area === project.areaSlug)?.avgPricePerM2;
+  const heroStats: [string, string][] = [
+    [dict.common.startingFrom, formatMillions(s.startingPrice, locale)],
+    [dict.common.lowestDown, `${s.minDownPct}%`],
+    [p.planYears, s.maxYears ? fill(dict.common.years, { n: s.maxYears }) : "—"],
+    [dict.common.delivery, String(project.deliveryYear)],
+  ];
+
   return (
     <>
-      <Container className="flex flex-col gap-5.5 pt-7">
-        <nav aria-label="breadcrumb" className="flex flex-wrap gap-1.5 text-[13px] text-muted">
-          <Link href={`/${locale}`}>{dict.nav.homeShort}</Link>
-          <span aria-hidden="true">/</span>
-          <Link href={`/${locale}/projects`}>{dict.nav.projects}</Link>
-          <span aria-hidden="true">/</span>
-          <Link href={`/${locale}/projects?area=${project.areaSlug}`}>{dict.areas[project.areaSlug]}</Link>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page">{project.name[locale]}</span>
-        </nav>
+      {/* ─── Hero: the project's scene, full width, with the key numbers on top ─── */}
+      <section className="relative isolate overflow-hidden bg-deep text-white">
+        <ProjectArt seed={project.slug} kind={kind} tone={kind === "coastal" ? "day" : "dusk"} className="absolute inset-0 -z-10 size-full" />
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-deep via-deep/55 to-deep/20" />
+        <Container className="flex min-h-[78vh] flex-col justify-between gap-10 pt-7 pb-10">
+          <nav aria-label="breadcrumb" className="flex flex-wrap gap-1.5 text-[13px] text-on-dark">
+            <Link href={`/${locale}`} className="text-on-dark hover:text-white">
+              {dict.nav.homeShort}
+            </Link>
+            <span aria-hidden="true">/</span>
+            <Link href={`/${locale}/projects`} className="text-on-dark hover:text-white">
+              {dict.nav.projects}
+            </Link>
+            <span aria-hidden="true">/</span>
+            <Link href={`/${locale}/projects?area=${project.areaSlug}`} className="text-on-dark hover:text-white">
+              {dict.areas[project.areaSlug]}
+            </Link>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{project.name[locale]}</span>
+          </nav>
 
-        <div className="flex flex-wrap items-end justify-between gap-4.5">
-          <div className="flex flex-col gap-2.5">
+          <div className="rise flex flex-col gap-6">
             <div className="flex flex-wrap gap-2">
-              <Pill tone="dark">{dict.status[project.status]}</Pill>
-              {project.categories.slice(0, 2).map((c) => (
-                <Pill key={c} tone="outline">
+              <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-medium backdrop-blur">{dict.status[project.status]}</span>
+              {project.categories.slice(0, 3).map((c) => (
+                <span key={c} className="rounded-full border border-white/25 px-3 py-0.5 text-xs font-medium">
                   {dict.categories[c]}
-                </Pill>
+                </span>
               ))}
-              <Pill tone="brass">
-                {p.facts.delivery} {project.deliveryYear}
-              </Pill>
             </div>
-            <h1 className="font-display text-[40px] leading-tight font-normal tracking-tight sm:text-5xl">{project.name[locale]}</h1>
-            <span className="text-[17px] text-muted">
-              {p.by}{" "}
-              <Link href={`/${locale}/developers/${developer.slug}`} className="font-semibold">
-                {developer.name[locale]}
-              </Link>{" "}
-              · {project.district[locale]}{locale === "ar" ? "، " : ", "}{dict.areas[project.areaSlug]}
-            </span>
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <div className="flex flex-col gap-2">
+                <h1 className="font-display text-5xl leading-tight font-light tracking-tight sm:text-7xl">{project.name[locale]}</h1>
+                <span className="text-lg text-on-dark">
+                  {p.by}{" "}
+                  <Link href={`/${locale}/developers/${developer.slug}`} className="font-semibold text-brass-light hover:text-white">
+                    {developer.name[locale]}
+                  </Link>{" "}
+                  · {project.district[locale]}
+                  {locale === "ar" ? "، " : ", "}
+                  {dict.areas[project.areaSlug]}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2.5 print:hidden">
+                <ShareButton
+                  label={p.share}
+                  copiedLabel={p.copied}
+                  title={project.name[locale]}
+                  className="inline-flex min-h-12 items-center rounded-full border border-white/30 bg-white/10 px-5 text-[15px] text-white backdrop-blur hover:bg-white/20"
+                />
+                <CompareButton
+                  slug={project.slug}
+                  name={project.name}
+                  labels={{ add: dict.common.addToCompare, added: dict.common.inCompare }}
+                  className="min-h-12 rounded-full border-0 bg-brass-light! px-5.5 text-brand! hover:bg-[#d8bc86]!"
+                />
+              </div>
+            </div>
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[22px] border border-white/15 bg-white/10 backdrop-blur-md sm:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
+              {heroStats.map(([label, v]) => (
+                <div key={label} className="flex flex-col-reverse bg-deep/40 px-5 py-4">
+                  <dt className="text-[13px] text-on-dark-muted">{label}</dt>
+                  <dd className="font-display text-2xl font-light">{v}</dd>
+                </div>
+              ))}
+              {value && (
+                <div className="col-span-2 flex items-center gap-3 bg-deep/40 px-5 py-4 sm:col-span-1">
+                  <ValueRing score={value.score} label={dict.insights.score} size={52} onDark />
+                  <span className="flex flex-col text-[13px] leading-snug">
+                    <span className="text-on-dark-muted">{dict.insights.score}</span>
+                    <a href="#market" className="text-white hover:text-brass-light">
+                      {valueText(value, dict)}
+                    </a>
+                  </span>
+                </div>
+              )}
+            </dl>
           </div>
-          <div className="flex flex-wrap gap-2.5 print:hidden">
-            <ShareButton label={p.share} copiedLabel={p.copied} title={project.name[locale]} className={outlineButton} />
-            <CompareButton
-              slug={project.slug}
-              name={project.name}
-              variant="solid"
-              labels={{ add: dict.common.addToCompare, added: dict.common.inCompare }}
-              className="min-h-12 rounded-full px-5.5"
-            />
-          </div>
-        </div>
+        </Container>
+      </section>
 
-        <div aria-hidden="true" className="grid grid-cols-2 grid-rows-[180px_180px] gap-2.5 overflow-hidden rounded-3xl sm:grid-cols-4 sm:grid-rows-[220px_220px]">
-          <PhotoPlaceholder label={p.mainImage} tone="dark" className="col-span-2 row-span-2" />
-          {project.photos.slice(0, 4).map((photo, i) => (
-            <PhotoPlaceholder key={i} label={photo.caption[locale]} tone={i % 3 ? "deep" : "light"} className="hidden sm:flex" />
-          ))}
-        </div>
-        <a href="#photos" className="-mt-2 self-end text-sm font-semibold">
-          {fill(p.allPhotos, { n: project.photos.length })}
-        </a>
-
-        <nav aria-label={p.sections.overview} className="flex gap-x-6.5 overflow-x-auto border-b border-line text-[15px] whitespace-nowrap print:hidden">
+      {/* ─── Sections bar, stays at the top while scrolling ─── */}
+      <nav aria-label={p.sections.overview} className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur-md print:hidden">
+        <Container className="flex gap-x-6.5 overflow-x-auto text-[15px] whitespace-nowrap">
           {sections.map(([id, label]) => (
-            <a key={id} href={`#${id}`} className="py-3 text-body no-underline hover:text-ink">
+            <a key={id} href={`#${id}`} className="py-3.5 text-body no-underline hover:text-ink">
               {label}
             </a>
           ))}
-        </nav>
-      </Container>
+        </Container>
+      </nav>
 
       <Container className="flex flex-col gap-18 pt-9 pb-24">
         {/* Overview */}
@@ -210,11 +251,25 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
           </aside>
         </section>
 
-        {/* Master plan */}
-        <section id="masterplan" aria-labelledby="masterplan-title" className="flex flex-col gap-5.5">
+        {/* Against the market */}
+        {value && areaAvg && (
+          <section id="market" aria-labelledby="market-title" className="reveal grid gap-8 rounded-[28px] border border-line bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1.2fr]">
+            <div className="flex flex-col gap-2">
+              <Eyebrow>{dict.insights.eyebrow}</Eyebrow>
+              <h2 id="market-title" className={h2}>
+                {dict.insights.vsMarket}
+              </h2>
+              <p className="text-sm text-muted">{dict.insights.note}</p>
+            </div>
+            <ProjectVsMarket avgPricePerM2={s.avgPricePerM2} areaAvg={areaAvg} value={value} area={project.areaSlug} dict={dict} locale={locale} />
+          </section>
+        )}
+
+        {/* Master plan, on a dark stage */}
+        <section id="masterplan" aria-labelledby="masterplan-title" className="reveal flex flex-col gap-6 rounded-[32px] bg-deep p-5 text-white sm:p-10">
           <div className="flex flex-col gap-1">
-            <Eyebrow>{p.masterplanEyebrow}</Eyebrow>
-            <h2 id="masterplan-title" className={h2}>
+            <Eyebrow onDark>{p.masterplanEyebrow}</Eyebrow>
+            <h2 id="masterplan-title" className={`${h2} sm:text-4xl`}>
               {p.sections.masterplan}
             </h2>
           </div>
@@ -309,8 +364,17 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                   content: (
                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-3">
                       {items.map((ph, i) => (
-                        <li key={i}>
-                          <PhotoPlaceholder label={ph.caption[locale]} className="h-50 rounded-[18px]" />
+                        <li key={i} className="group relative h-56 overflow-hidden rounded-[18px]">
+                          <ProjectArt
+                            seed={`${project.slug}-${ph.caption.en}`}
+                            kind={ph.group === "CONSTRUCTION" ? "towers" : kind}
+                            tone={ph.group === "INTERIOR" ? "day" : ph.group === "CONSTRUCTION" ? "day" : i % 2 ? "night" : "dusk"}
+                            label={ph.caption[locale]}
+                            className="absolute inset-0 size-full transition-transform duration-700 group-hover:scale-105"
+                          />
+                          <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent px-4 pt-8 pb-3 text-[13px] text-white">
+                            {ph.caption[locale]}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -439,8 +503,8 @@ function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: L
   ];
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-surface">
-      <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-[#fbfaf8] text-[13px] text-[#4a5254]">
-        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="#9a9588" strokeWidth="1.5" aria-hidden="true">
+      <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-white/[0.03] text-[13px] text-muted">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="#6f8a87" strokeWidth="1.5" aria-hidden="true">
           <rect x="6" y="6" width="60" height="60" />
           <path d="M6 34h30V6M36 50h30M46 34v32" />
         </svg>
@@ -509,7 +573,9 @@ function SimilarCard({ project, other, locale, dict }: { project: Project; other
       href={compareHref(locale, [project.slug, other.slug])}
       className="flex items-center gap-3.5 rounded-[20px] border border-line bg-surface p-3.5 text-ink no-underline hover:border-ink hover:text-ink"
     >
-      <span aria-hidden="true" className="h-20 w-24 flex-none rounded-[14px] bg-photo" />
+      <span className="relative h-20 w-24 flex-none overflow-hidden rounded-[14px]">
+        <ProjectArt seed={other.slug} kind={artKindFor(other)} tone="dusk" className="absolute inset-0 size-full" />
+      </span>
       <span className="flex flex-col leading-normal">
         <span className="font-display text-[17px] font-medium">{other.name[locale]}</span>
         <span className="text-[13px] text-muted">

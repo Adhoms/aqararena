@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { CompareShell, CompareSync, ProjectPicker, RestoreSavedList } from "@/components/compare/compare-client";
 import { PrintButton, ShareButton } from "@/components/share-button";
-import { Container, Eyebrow, PhotoPlaceholder } from "@/components/ui";
+import { Container, Eyebrow } from "@/components/ui";
+import { artKindFor, ProjectArt } from "@/components/project-art";
 import { getProjectsBySlugs, listDevelopers, listProjectOptions, summarize, type Project } from "@/lib/catalog";
 import { MAX_COMPARE, parseCompareParam } from "@/lib/compare";
 import { fill, formatMoney, formatNumber, telHref } from "@/lib/format";
@@ -110,7 +111,8 @@ async function CompareBody({
             </div>
             {projects.map((p, i) => (
               <div role="columnheader" key={p.slug} className="flex flex-col gap-3 border-s border-divider p-5">
-                <PhotoPlaceholder label={p.name[locale]} className="h-35 rounded-2xl text-xs">
+                <div className="relative h-35 overflow-hidden rounded-2xl">
+                  <ProjectArt seed={p.slug} kind={artKindFor(p)} tone="dusk" className="absolute inset-0 size-full" />
                   <Link
                     href={removeHref(p.slug)}
                     scroll={false}
@@ -119,7 +121,7 @@ async function CompareBody({
                   >
                     ×
                   </Link>
-                </PhotoPlaceholder>
+                </div>
                 <ProjectPicker locale={locale} slugs={shown} index={i} options={options} label={fill(c.projectN, { n: i + 1 })} />
                 <Link href={`/${locale}/projects/${p.slug}`} className="font-display text-lg font-medium text-ink no-underline">
                   {p.name[locale]}
@@ -155,12 +157,12 @@ async function CompareBody({
                 {row.cells.map((cell, i) => (
                   <div role="cell" key={i} className="flex flex-wrap items-center gap-2 border-s border-divider px-5 py-3.5">
                     {cell.yes && (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f5f63" strokeWidth="2.2" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8fd0c9" strokeWidth="2.2" aria-hidden="true">
                         <path d="M5 12l5 5L20 7" />
                       </svg>
                     )}
                     <span className="font-medium">{cell.text}</span>
-                    {cell.best && <span className="rounded-full bg-best px-2.5 py-px text-xs font-semibold text-brand">{c.best}</span>}
+                    {cell.best && <span className="rounded-full bg-best px-2.5 py-px text-xs font-semibold text-brass-dark">{c.best}</span>}
                   </div>
                 ))}
                 {projects.length < MAX_COMPARE && <div role="cell" className="border-s border-divider print:hidden" />}

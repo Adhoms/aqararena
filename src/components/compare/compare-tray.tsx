@@ -18,7 +18,7 @@ export function CompareTray({ locale, labels }: Props) {
     <>
       {/* Keeps the footer from sitting under the fixed bar. */}
       <div aria-hidden="true" className="h-20 print:hidden" />
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur print:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-[#0b2123]/90 backdrop-blur-xl print:hidden">
         <div className="mx-auto flex max-w-310 flex-wrap items-center gap-2.5 px-4 py-3 sm:px-6">
           <span className="font-semibold">{labels.tray.replace("{n}", String(items.length))}</span>
           <ul className="hidden flex-wrap gap-2 sm:flex">

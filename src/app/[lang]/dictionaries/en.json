@@ -16,7 +16,8 @@
     "areas": "Areas",
     "compare": "Compare",
     "compareButton": "Compare",
-    "compareCount": "{n} in compare"
+    "compareCount": "{n} in compare",
+    "map": "Map"
   },
   "language": {
     "switchTo": "العربية",
@@ -378,5 +379,69 @@
   "notFound": {
     "title": "This page doesn't exist",
     "back": "Back to home"
+  },
+  "smart": {
+    "label": "Search in a sentence",
+    "placeholder": "Type it the way you'd say it… e.g. 3-bed apartment in New Cairo, delivery 2027, 10% down",
+    "go": "Search",
+    "tryLabel": "Try:",
+    "examples": [
+      "Villa in Sheikh Zayed over 10 years",
+      "Clinic in the New Capital, ready to move",
+      "Chalet in North Coast, 5% down"
+    ],
+    "understood": "Understood:",
+    "results": "{n} matching projects",
+    "noMatch": "No projects match. Remove one of the conditions above.",
+    "seeAll": "See all results",
+    "searching": "Searching…",
+    "remove": "Remove: {label}",
+    "chips": {
+      "maxPrice": "Up to EGP {n}M",
+      "maxDownPct": "Down payment ≤ {n}%",
+      "minYears": "{n}+ year installments",
+      "minBedrooms": "{n}+ bedrooms",
+      "deliveryBy": "Delivery by {n}",
+      "ready": "Ready to move",
+      "q": "Name: {q}"
+    }
+  },
+  "insights": {
+    "eyebrow": "Market insights",
+    "title": "Average price per m² by area",
+    "note": "Calculated from the projects listed on AqarArena and refreshed whenever prices change.",
+    "perM2": "EGP / m²",
+    "projects": "{n} projects",
+    "from": "From {price}",
+    "bestValue": "Best value right now",
+    "score": "Value score",
+    "scoreOutOf": "of 10",
+    "scoreHelp": "Compares price per m² with the area average (60%), the lowest down payment (20%) and the longest installment term (20%).",
+    "cheaper": "{n}% below the area average",
+    "pricier": "{n}% above the area average",
+    "average": "At the area average",
+    "rank": "#{rank} of {count} in {area} by price per m²",
+    "vsMarket": "Against the market",
+    "thisProject": "This project",
+    "areaAvg": "{area} average"
+  },
+  "map": {
+    "title": "Explore on the map",
+    "subtitle": "Pan and zoom; the list follows whatever area is on screen.",
+    "inView": "{n} projects in view",
+    "all": "All",
+    "open": "Open the map",
+    "showAll": "Show all of Egypt",
+    "loading": "Loading the map…",
+    "label": "Projects map",
+    "teaserEyebrow": "Map",
+    "teaserTitle": "Every project on the map of Egypt",
+    "teaserText": "See each project where it really is, and compare areas as you move around."
+  },
+  "hero": {
+    "kicker": "Egypt's real estate project guide",
+    "line1": "Type what you're looking for,",
+    "line2": "we'll find it.",
+    "sub": "Every developer project in one place: master plans, prices and payment plans, unit types and official developer numbers. Compare smartly before you decide."
   }
 }

@@ -1,4 +1,4 @@
-import type { AreaSlug, ProjectStatus, PropertyCategory } from "@/lib/property";
+import type { AreaSlug, ProjectStatus, PropertyCategory, SubType } from "@/lib/property";
 import { summarize } from "./summary";
 import type { Developer, Project } from "./types";
 
@@ -14,8 +14,14 @@ export type ProjectFilters = {
   deliveryBy?: number;
   maxDownPct?: number;
   minYears?: number;
+  /** A project matches when one of its unit types has the type, bedrooms and price asked for. */
+  subTypes?: SubType[];
+  minBedrooms?: number;
+  maxPrice?: number;
   sort?: Sort;
 };
+
+export const needsUnitMatch = (f: ProjectFilters) => Boolean(f.subTypes?.length || f.minBedrooms || f.maxPrice);
 
 export function sortProjects(list: Project[], sort: Sort = "newest"): Project[] {
   const by: Record<Sort, (a: Project, b: Project) => number> = {
@@ -41,6 +47,16 @@ export function filterProjects(list: Project[], developers: Developer[], f: Proj
     if (f.deliveryBy && p.deliveryYear > f.deliveryBy) return false;
     if (f.maxDownPct && s.minDownPct > f.maxDownPct) return false;
     if (f.minYears && s.maxYears < f.minYears) return false;
+    if (
+      needsUnitMatch(f) &&
+      !p.typologies.some(
+        (t) =>
+          (!f.subTypes?.length || f.subTypes.includes(t.subType)) &&
+          (!f.minBedrooms || (t.bedrooms ?? 0) >= f.minBedrooms) &&
+          (!f.maxPrice || t.priceFrom <= f.maxPrice),
+      )
+    )
+      return false;
     return true;
   });
 }

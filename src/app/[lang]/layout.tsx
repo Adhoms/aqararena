@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Alexandria, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { directionOf, locales } from "@/i18n/config";
+import { AmbientBackground } from "@/components/ambient-background";
 import { CompareTray } from "@/components/compare/compare-tray";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       className={`${plexArabic.variable} ${alexandria.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans leading-relaxed">
+        <AmbientBackground locale={locale} />
         <p className="bg-brass-soft px-4 py-1.5 text-center text-xs text-brass-dark print:hidden">{dict.demoNotice}</p>
         <SiteHeader />
         <main className="flex-1">{children}</main>

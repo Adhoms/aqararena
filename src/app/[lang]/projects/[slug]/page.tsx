@@ -266,10 +266,10 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
           </section>
         )}
 
-        {/* Master plan, on a dark stage */}
-        <section id="masterplan" aria-labelledby="masterplan-title" className="reveal flex flex-col gap-6 rounded-3xl bg-deep p-5 text-white sm:p-10">
+        {/* Master plan, on a survey-sheet stage */}
+        <section id="masterplan" aria-labelledby="masterplan-title" className="plan-grid reveal flex flex-col gap-6 rounded-3xl border border-line bg-plan p-5 text-ink sm:p-10">
           <div className="flex flex-col gap-1">
-            <Eyebrow onDark>{p.masterplanEyebrow}</Eyebrow>
+            <Eyebrow>{p.masterplanEyebrow}</Eyebrow>
             <h2 id="masterplan-title" className={`${h2} sm:text-4xl`}>
               {p.sections.masterplan}
             </h2>
@@ -504,7 +504,7 @@ function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: L
   ];
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface">
-      <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-white/[0.03] text-[13px] text-muted">
+      <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-ink/[0.03] text-[13px] text-muted">
         <Layout size={64} weight="thin" className="text-muted" aria-hidden="true" />
         <span>{p.floorPlan}</span>
       </div>

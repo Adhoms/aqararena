@@ -20,8 +20,8 @@ const CITY_NAMES: Record<string, { ar: string; en: string; main?: boolean }> = {
 // Labels that would overlap a neighbour go to the other side of their point.
 const LABEL_LEFT = new Set(["alexandria", "northCoast", "cairo", "luxor", "aswan"]);
 
-const INK = "#cdae74";
-const NILE = "#5fb3aa";
+const INK = "#1d4a42";
+const NILE = "#2f7d8c";
 
 export function EgyptBlueprint({ locale, className = "" }: { locale: Locale; className?: string }) {
   const [[x0, y0], [x1, y1]] = EGYPT.bbox;

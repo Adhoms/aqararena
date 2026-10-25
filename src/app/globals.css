@@ -1,41 +1,41 @@
 @import "tailwindcss";
 
-/* AqarArena tokens, from the approved design: deep evergreen, quiet brass, stone neutrals.
-   Text/background pairs used in the components meet WCAG AA (4.5:1). */
+/* AqarArena tokens, light "Forest" edition: green-tinted bone ground, forest-green ink and buttons,
+   one amber accent. Text/background pairs used in the components meet WCAG AA (4.5:1). */
 @theme {
-  /* Dark luxury: deep evergreen ground, dark-glass surfaces, light hairlines. */
-  --color-ground: #081a1c;
-  /* Near-solid evergreen panel: readable over the blueprint without blurring scrolling content. */
-  --color-surface: rgb(14 39 41 / 0.9);
-  --color-line: rgb(255 255 255 / 0.1);
-  --color-line-strong: rgb(255 255 255 / 0.2);
-  --color-divider: rgb(255 255 255 / 0.07);
+  --color-ground: #edefe9;
+  --color-surface: rgb(251 252 249 / 0.94);
+  --color-line: rgb(16 38 33 / 0.1);
+  --color-line-strong: rgb(16 38 33 / 0.22);
+  --color-divider: rgb(16 38 33 / 0.07);
 
   /* Image placeholders until real photos arrive. */
-  --color-photo: #1d3a3d;
-  --color-photo-deep: #234548;
-  --color-plan: #10292b;
-  --color-plan-green: #1f4a3c;
+  --color-photo: #d5ddd6;
+  --color-photo-deep: #c4cfc6;
+  --color-plan: #e4e9e2;
+  --color-plan-green: #cfe1d3;
 
-  /* Text, light on dark. */
-  --color-ink: #f1f3f1;
-  --color-body: #c9d3d1;
-  --color-muted: #9fb1af;
+  /* Text, forest green on bone. */
+  --color-ink: #10231e;
+  --color-body: #34463f;
+  --color-muted: #586a63;
 
-  /* Buttons and dark bands: a lighter teal so they stand out from the ground. */
-  --color-brand: #24605c;
-  --color-brand-2: #2c716c;
-  --color-brand-3: #357d78;
-  --color-deep: #04100f;
-  --color-link: #e3c891;
-  --color-on-dark: #c8d2d1;
-  --color-on-dark-muted: #a9b8b7;
+  /* Buttons and green panels. */
+  --color-brand: #1d4a42;
+  --color-brand-2: #245a50;
+  --color-brand-3: #2c6a5e;
+  --color-deep: #0d221e;
+  --color-link: #8c5a0e;
+  --color-on-dark: #cfdbd6;
+  --color-on-dark-muted: #a8bbb4;
 
-  --color-brass: #d8b97e;
-  --color-brass-dark: #e8cf9e;
-  --color-brass-light: #cdae74;
-  --color-brass-soft: rgb(205 174 116 / 0.14);
-  --color-best: rgb(205 174 116 / 0.28);
+  /* Amber accent: "brass" = text on light, "brass-light" = on green panels and fills,
+     "brass-dark" = stronger text on light. */
+  --color-brass: #8c5a0e;
+  --color-brass-dark: #74490a;
+  --color-brass-light: #e2a84a;
+  --color-brass-soft: rgb(201 138 30 / 0.14);
+  --color-best: rgb(201 138 30 / 0.24);
 
   --font-sans: var(--font-plex-arabic), system-ui, sans-serif;
   --font-display: var(--font-alexandria), var(--font-plex-arabic), system-ui, sans-serif;
@@ -77,7 +77,7 @@
   }
 
   ::selection {
-    background: rgb(205 174 116 / 0.35);
+    background: rgb(226 168 74 / 0.35);
     color: var(--color-ink);
   }
 
@@ -245,7 +245,7 @@
   pointer-events: none;
   background: radial-gradient(
     420px circle at var(--mx, -999px) var(--my, -999px),
-    rgb(232 207 158 / 0.55),
+    rgb(201 138 30 / 0.55),
     transparent 45%
   );
   -webkit-mask:
@@ -264,7 +264,7 @@
 /* Hairline that fades out at both ends, for dividing sections. */
 .hairline {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(205 174 116 / 0.35), transparent);
+  background: linear-gradient(90deg, transparent, rgb(140 90 14 / 0.35), transparent);
 }
 
 /* Fixed glass layers fall back to solid where the visitor asks for less transparency. */
@@ -283,4 +283,18 @@
     linear-gradient(rgb(205 174 116 / 0.09) 1px, transparent 1px),
     linear-gradient(90deg, rgb(205 174 116 / 0.09) 1px, transparent 1px);
   background-size: 100% 100%, 28px 28px, 28px 28px;
+}
+
+/* Developer strip: two copies of the list slide by half their width, so the loop is seamless.
+   Pauses on hover/focus; static (and scrollable) for reduced-motion visitors. */
+@keyframes marquee { to { transform: translateX(-50%); } }
+@keyframes marquee-rtl { to { transform: translateX(50%); } }
+@media (prefers-reduced-motion: no-preference) {
+  .marquee-track { animation: marquee 48s linear infinite; }
+  [dir="rtl"] .marquee-track { animation-name: marquee-rtl; }
+  .marquee:hover .marquee-track,
+  .marquee:focus-within .marquee-track { animation-play-state: paused; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee { overflow-x: auto; }
 }

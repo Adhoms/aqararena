@@ -27,7 +27,7 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
   const kind = artKindFor(project);
 
   return (
-    <article className="spotlight group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-1 hover:border-line-strong hover:shadow-[0_36px_70px_-34px_rgb(1_12_12/0.95)]">
+    <article className="spotlight group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-1 hover:border-line-strong hover:shadow-[0_36px_70px_-34px_rgb(16_38_33/0.4)]">
       <Link
         href={href}
         tabIndex={-1}

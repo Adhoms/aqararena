@@ -125,7 +125,7 @@ export function SmartSearch({ locale, labels, variant = "hero", initialText = ""
           e.preventDefault();
           if (active) router.push(resultsHref);
         }}
-        className={`overflow-hidden rounded-3xl text-ink ${onDark ? "bg-[#0d2426]/94 border border-white/15" : "bg-surface"} ${onDark ? "shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]" : "border border-line"}`}
+        className={`overflow-hidden rounded-3xl text-ink ${onDark ? "border border-line-strong bg-surface shadow-[0_30px_70px_-30px_rgb(16_38_33/0.35)]" : "border border-line bg-surface"}`}
       >
         <div className="flex items-center gap-2 p-2">
           <label htmlFor={inputId} className="sr-only">
@@ -233,7 +233,7 @@ export function SmartSearch({ locale, labels, variant = "hero", initialText = ""
 
       {!active && (
         <div className="flex flex-wrap items-center gap-2 text-[13px]">
-          <span className={onDark ? "text-on-dark-muted" : "text-muted"}>{labels.tryLabel}</span>
+          <span className="text-muted">{labels.tryLabel}</span>
           {labels.examples.map((example) => (
             <button
               key={example}
@@ -243,7 +243,7 @@ export function SmartSearch({ locale, labels, variant = "hero", initialText = ""
                 inputRef.current?.focus();
               }}
               className={`min-h-9 rounded-full border px-3.5 ${
-                onDark ? "border-white/20 text-on-dark hover:border-brass-light hover:text-white" : "border-line-strong text-body hover:border-ink"
+                onDark ? "border-line-strong bg-surface/70 text-body hover:border-brass hover:text-ink" : "border-line-strong text-body hover:border-ink"
               }`}
             >
               {example}

@@ -91,14 +91,14 @@ export function CardGridSkeleton({ label, count = 6 }: { label: string; count?: 
       <span className="sr-only">{label}</span>
       {Array.from({ length: count }, (_, i) => (
         <div key={i} aria-hidden="true" className="overflow-hidden rounded-3xl border border-line bg-surface">
-          <div className="h-52 animate-pulse bg-white/5" />
+          <div className="h-52 animate-pulse bg-ink/5" />
           <div className="flex flex-col gap-3 p-4.5">
-            <div className="h-5 w-2/3 animate-pulse rounded-md bg-white/8" />
-            <div className="h-3.5 w-1/2 animate-pulse rounded-md bg-white/6" />
+            <div className="h-5 w-2/3 animate-pulse rounded-md bg-ink/8" />
+            <div className="h-3.5 w-1/2 animate-pulse rounded-md bg-ink/6" />
             <div className="mt-2 grid grid-cols-3 gap-2">
-              <div className="h-8 animate-pulse rounded-md bg-white/5" />
-              <div className="h-8 animate-pulse rounded-md bg-white/5" />
-              <div className="h-8 animate-pulse rounded-md bg-white/5" />
+              <div className="h-8 animate-pulse rounded-md bg-ink/5" />
+              <div className="h-8 animate-pulse rounded-md bg-ink/5" />
+              <div className="h-8 animate-pulse rounded-md bg-ink/5" />
             </div>
           </div>
         </div>

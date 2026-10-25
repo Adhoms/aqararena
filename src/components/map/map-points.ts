@@ -1,7 +1,7 @@
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import type { Locale } from "@/i18n/config";
 import { summarize, type Developer, type MarketInsights, type Project } from "@/lib/catalog";
-import { formatMillions } from "@/lib/format";
+import { fill } from "@/lib/format";
 import type { MapPoint } from "./project-map";
 
 /** Projects that have a location, as map pins with their text already in the visitor's language. */
@@ -18,7 +18,8 @@ export function toMapPoints(projects: Project[], developers: Developer[], insigh
         name: p.name[locale],
         developer: devName.get(p.developerSlug) ?? "",
         area: dict.areas[p.areaSlug],
-        price: formatMillions(s.startingPrice, locale),
+        // Land area, not price: prices differ per unit, so the map shows size only.
+        size: p.landFeddan ? fill(dict.projectPage.feddan, { n: p.landFeddan }) : undefined,
         down: `${dict.common.lowestDown} ${s.minDownPct}%`,
         delivery: p.deliveryYear,
         category: p.categories[0],

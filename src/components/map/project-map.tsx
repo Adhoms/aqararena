@@ -14,7 +14,8 @@ export type MapPoint = {
   name: string;
   developer: string;
   area: string;
-  price: string;
+  /** Land area, e.g. "85 فدان". */
+  size?: string;
   down: string;
   delivery: number;
   category: PropertyCategory;
@@ -37,8 +38,8 @@ const STYLE = "https://tiles.openfreemap.org/styles/dark";
 const RTL_PLUGIN = "https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js";
 
 const pinClass = (active: boolean) =>
-  `rounded-full px-2.5 py-1 font-display text-[13px] font-medium shadow-lg transition-transform cursor-pointer whitespace-nowrap border ${
-    active ? "bg-brass-light text-brand border-brand scale-110 z-10" : "bg-brand text-white border-white hover:scale-105"
+  `flex flex-col items-center rounded-xl px-3 py-1 font-display leading-tight shadow-lg transition-transform cursor-pointer whitespace-nowrap border ${
+    active ? "bg-brass-light text-brand border-brand scale-110 z-10" : "bg-brand text-white border-white/70 hover:scale-105"
   }`;
 
 function boundsOf(points: MapPoint[]): [[number, number], [number, number]] {
@@ -98,8 +99,17 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
         const el = document.createElement("button");
         el.type = "button";
         el.className = pinClass(false);
-        el.textContent = p.price;
-        el.setAttribute("aria-label", `${p.name} — ${p.price}`);
+        const name = document.createElement("span");
+        name.className = "text-[13px] font-medium";
+        name.textContent = p.name;
+        el.append(name);
+        if (p.size) {
+          const size = document.createElement("span");
+          size.className = "text-[11px] opacity-80";
+          size.textContent = p.size;
+          el.append(size);
+        }
+        el.setAttribute("aria-label", p.size ? `${p.name} — ${p.size}` : p.name);
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           setActive(p.slug);
@@ -187,7 +197,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
               </button>
             </div>
             <div className="flex gap-4 text-[13px]">
-              <b className="font-display text-base font-medium">{activePoint.price}</b>
+              {activePoint.size && <b className="font-display text-base font-medium">{activePoint.size}</b>}
               <span>{activePoint.down}</span>
               <span>{activePoint.delivery}</span>
             </div>
@@ -246,7 +256,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
               >
                 <span className="flex items-center justify-between gap-3">
                   <span className="font-display font-medium">{p.name}</span>
-                  <span className="font-display text-sm font-medium">{p.price}</span>
+                  {p.size && <span className="font-display text-sm font-medium text-muted">{p.size}</span>}
                 </span>
                 <span className="text-[13px] text-muted">
                   {p.developer} · {p.area} · {labels.categories[p.category]}

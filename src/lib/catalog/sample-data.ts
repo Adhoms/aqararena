@@ -86,18 +86,18 @@ const distancesByArea: Record<AreaSlug, { place: Text; minutes: number }[]> = {
 function photos(kind: "residential" | "admin" | "coastal"): Photo[] {
   const exterior =
     kind === "coastal"
-      ? [t("رندر — الواجهة البحرية", "Render — sea front"), t("رندر — اللاجون", "Render — lagoon")]
+      ? [t("رندر: الواجهة البحرية", "Render: sea front"), t("رندر: اللاجون", "Render: lagoon")]
       : kind === "admin"
-        ? [t("رندر — المبنى الرئيسي", "Render — main building"), t("رندر — البلازا", "Render — plaza")]
-        : [t("رندر — الواجهة الرئيسية", "Render — main facade"), t("رندر — البحيرة", "Render — the lake")];
+        ? [t("رندر: المبنى الرئيسي", "Render: main building"), t("رندر: البلازا", "Render: plaza")]
+        : [t("رندر: الواجهة الرئيسية", "Render: main facade"), t("رندر: البحيرة", "Render: the lake")];
   return [
     ...exterior.map((caption) => ({ group: "EXTERIOR" as const, caption })),
     { group: "EXTERIOR", caption: t("اللاندسكيب", "Landscape") },
-    { group: "INTERIOR", caption: t("داخلي — الاستقبال", "Interior — reception") },
-    { group: "INTERIOR", caption: t("داخلي — نموذج وحدة", "Interior — show unit") },
-    { group: "CONSTRUCTION", caption: t("صورة موقع — أبريل 2026", "Site photo — April 2026") },
-    { group: "CONSTRUCTION", caption: t("صورة موقع — يوليو 2026", "Site photo — July 2026") },
-    { group: "CONSTRUCTION", caption: t("صورة موقع — أكتوبر 2026", "Site photo — October 2026") },
+    { group: "INTERIOR", caption: t("داخلي: الاستقبال", "Interior: reception") },
+    { group: "INTERIOR", caption: t("داخلي: نموذج وحدة", "Interior: show unit") },
+    { group: "CONSTRUCTION", caption: t("صورة موقع: أبريل 2026", "Site photo: April 2026") },
+    { group: "CONSTRUCTION", caption: t("صورة موقع: يوليو 2026", "Site photo: July 2026") },
+    { group: "CONSTRUCTION", caption: t("صورة موقع: أكتوبر 2026", "Site photo: October 2026") },
   ];
 }
 
@@ -108,7 +108,7 @@ function residentialZones(phase1: number, phase2: number): MasterPlanZone[] {
     zone({
       id: "apartments",
       kind: "RESIDENTIAL",
-      short: t("شقق — المرحلة 1", "Apartments — Phase 1"),
+      short: t("شقق: المرحلة 1", "Apartments: Phase 1"),
       name: t("الحي السكني (شقق)", "Residential district (apartments)"),
       phase: t(`المرحلة الأولى · تسليم ${phase1}`, `Phase 1 · Delivery ${phase1}`),
       description: t(

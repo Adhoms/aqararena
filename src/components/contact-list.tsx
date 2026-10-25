@@ -38,7 +38,7 @@ export function ContactStack({ developer, dict, locale, limit }: { developer: De
         <li key={row.key}>
           <RowLink
             row={row}
-            className={`flex min-h-12 items-center justify-between gap-3 rounded-[14px] px-4 no-underline ${
+            className={`flex min-h-12 items-center justify-between gap-3 rounded-2xl px-4 no-underline ${
               i === 0 ? "min-h-13 bg-brand text-white hover:bg-brand-2 hover:text-white" : "border border-line-strong text-ink hover:border-ink hover:text-ink"
             }`}
           >

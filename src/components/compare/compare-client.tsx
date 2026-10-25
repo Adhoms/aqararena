@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import type { Text } from "@/lib/catalog/types";
@@ -21,9 +22,7 @@ export function CompareShell({ toolbar, label, children }: { toolbar: ReactNode;
           }`}
         >
           {diffOnly && (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-              <path d="M5 12l5 5L20 7" />
-            </svg>
+            <Check size={16} weight="bold" aria-hidden="true" />
           )}
           {label}
         </button>

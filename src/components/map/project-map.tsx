@@ -125,7 +125,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
           size.textContent = p.size;
           el.append(size);
         }
-        el.setAttribute("aria-label", p.size ? `${p.name} — ${p.size}` : p.name);
+        el.setAttribute("aria-label", p.size ? `${p.name}: ${p.size}` : p.name);
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           setActive(p.slug);
@@ -334,8 +334,11 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
                   <span className="font-display font-medium">{p.name}</span>
                   {p.size && <span className="font-display text-sm font-medium text-muted">{p.size}</span>}
                 </span>
-                <span className="text-[13px] text-muted">
-                  {p.developer} · {p.area} · {labels.categories[p.category]}
+                <span className="flex justify-between gap-3 text-[13px] text-muted">
+                  <span>
+                    {p.developer} · {p.area}
+                  </span>
+                  <span className="text-brass">{labels.categories[p.category]}</span>
                 </span>
               </button>
             </li>

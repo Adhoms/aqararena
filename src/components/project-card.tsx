@@ -27,7 +27,7 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
   const kind = artKindFor(project);
 
   return (
-    <article className="spotlight group relative flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-surface transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-1 hover:border-line-strong hover:shadow-[0_36px_70px_-34px_rgb(1_12_12/0.95)]">
+    <article className="spotlight group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-1 hover:border-line-strong hover:shadow-[0_36px_70px_-34px_rgb(1_12_12/0.95)]">
       <Link
         href={href}
         tabIndex={-1}
@@ -78,11 +78,11 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
 
         <div className="grid grid-cols-3 gap-2 border-y border-divider py-3">
           <Stat label={dict.common.lowestDown} value={`${s.minDownPct}%`} />
-          <Stat label={dict.projectPage.planYears} value={s.maxYears ? fill(dict.common.years, { n: s.maxYears }) : "—"} />
+          <Stat label={dict.projectPage.planYears} value={s.maxYears ? fill(dict.common.years, { n: s.maxYears }) : "-"} />
           <Stat label={dict.common.delivery} value={project.deliveryYear} />
         </div>
 
-        {large && <span className="text-sm text-body">{s.subTypes.map((t) => dict.subTypes[t]).join(" · ")}</span>}
+        {large && <span className="text-sm text-body">{s.subTypes.map((t) => dict.subTypes[t]).join(locale === "ar" ? "، " : ", ")}</span>}
 
         <div className="relative z-10 mt-auto flex gap-2.5">
           <CompareButton

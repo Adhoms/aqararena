@@ -1,3 +1,4 @@
+import { Layout } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -111,7 +112,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
   const heroStats: [string, string][] = [
     [dict.common.startingFrom, formatMillions(s.startingPrice, locale)],
     [dict.common.lowestDown, `${s.minDownPct}%`],
-    [p.planYears, s.maxYears ? fill(dict.common.years, { n: s.maxYears }) : "—"],
+    [p.planYears, s.maxYears ? fill(dict.common.years, { n: s.maxYears }) : "-"],
     [dict.common.delivery, String(project.deliveryYear)],
   ];
 
@@ -175,7 +176,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                 />
               </div>
             </div>
-            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[22px] border border-white/15 bg-white/10 backdrop-blur-md sm:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/15 bg-white/10 backdrop-blur-md sm:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
               {heroStats.map(([label, v]) => (
                 <div key={label} className="flex flex-col-reverse bg-deep/40 px-5 py-4">
                   <dt className="text-[13px] text-on-dark-muted">{label}</dt>
@@ -217,7 +218,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               {p.sections.overview}
             </h2>
             <p className="max-w-3xl text-[17px] text-body">{project.description[locale]}</p>
-            <dl className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-px overflow-hidden rounded-[18px] border border-line bg-line">
+            <dl className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-px overflow-hidden rounded-2xl border border-line bg-line">
               {facts.map(([label, value]) => (
                 <div key={label} className="flex flex-col-reverse gap-0.5 bg-surface p-4.5">
                   <dt className="text-[13px] text-muted">{label}</dt>
@@ -237,7 +238,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             </div>
           </div>
 
-          <aside aria-label={p.officialNumbers} className="flex flex-[1_1_320px] flex-col gap-4.5 rounded-[22px] border border-line bg-surface p-6">
+          <aside aria-label={p.officialNumbers} className="flex flex-[1_1_320px] flex-col gap-4.5 rounded-3xl border border-line bg-surface p-6">
             <div className="flex flex-col">
               <span className="text-[13px] text-muted">{p.pricesFrom}</span>
               <span className="font-display text-[32px] font-medium">{formatMoney(s.startingPrice, locale)}</span>
@@ -253,7 +254,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
 
         {/* Against the market */}
         {value && areaAvg && (
-          <section id="market" aria-labelledby="market-title" className="reveal grid gap-8 rounded-[28px] border border-line bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1.2fr]">
+          <section id="market" aria-labelledby="market-title" className="reveal grid gap-8 rounded-3xl border border-line bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1.2fr]">
             <div className="flex flex-col gap-2">
               <Eyebrow>{dict.insights.eyebrow}</Eyebrow>
               <h2 id="market-title" className={h2}>
@@ -266,7 +267,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
         )}
 
         {/* Master plan, on a dark stage */}
-        <section id="masterplan" aria-labelledby="masterplan-title" className="reveal flex flex-col gap-6 rounded-[32px] bg-deep p-5 text-white sm:p-10">
+        <section id="masterplan" aria-labelledby="masterplan-title" className="reveal flex flex-col gap-6 rounded-3xl bg-deep p-5 text-white sm:p-10">
           <div className="flex flex-col gap-1">
             <Eyebrow onDark>{p.masterplanEyebrow}</Eyebrow>
             <h2 id="masterplan-title" className={`${h2} sm:text-4xl`}>
@@ -334,7 +335,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               </li>
             ))}
           </ul>
-          <div className="flex flex-wrap gap-x-8 gap-y-2.5 rounded-[18px] border border-line bg-surface px-5.5 py-4.5 text-sm">
+          <div className="flex flex-wrap gap-x-8 gap-y-2.5 rounded-2xl border border-line bg-surface px-5.5 py-4.5 text-sm">
             <span className="font-semibold">{p.fees}</span>
             {project.fees.maintenancePct !== undefined && (
               <span>
@@ -364,7 +365,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                   content: (
                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-3">
                       {items.map((ph, i) => (
-                        <li key={i} className="group relative h-56 overflow-hidden rounded-[18px]">
+                        <li key={i} className="group relative h-56 overflow-hidden rounded-2xl">
                           <ProjectArt
                             seed={`${project.slug}-${ph.caption.en}`}
                             kind={ph.group === "CONSTRUCTION" ? "towers" : kind}
@@ -414,7 +415,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
         </section>
 
         {/* Developer contacts */}
-        <section id="contact" aria-labelledby="contact-title" className="flex flex-wrap items-center gap-9 rounded-[28px] bg-brand p-8 text-white sm:p-11">
+        <section id="contact" aria-labelledby="contact-title" className="flex flex-wrap items-center gap-9 rounded-3xl bg-brand p-8 text-white sm:p-11">
           <div className="flex flex-[1_1_320px] flex-col gap-3.5">
             <span aria-hidden="true" className="flex h-16 w-24 items-center justify-center rounded-xl bg-brand-2 text-xs text-on-dark-muted">
               {dict.common.logo}
@@ -461,13 +462,13 @@ function ZonePanel({ zone, locale, dict }: { zone: MasterPlanZone; locale: Local
       <h3 className="font-display text-2xl leading-snug font-medium">{zone.name[locale]}</h3>
       <p className="text-body">{zone.description[locale]}</p>
       <dl className="grid grid-cols-2 gap-2.5">
-        <div className="flex flex-col-reverse rounded-[14px] bg-ground px-3.5 py-3">
+        <div className="flex flex-col-reverse rounded-2xl bg-ground px-3.5 py-3">
           <dt className="text-xs text-muted">{p.zoneArea}</dt>
-          <dd className="font-semibold">{zone.areaFeddan ? fill(p.feddan, { n: zone.areaFeddan }) : "—"}</dd>
+          <dd className="font-semibold">{zone.areaFeddan ? fill(p.feddan, { n: zone.areaFeddan }) : "-"}</dd>
         </div>
-        <div className="flex flex-col-reverse rounded-[14px] bg-ground px-3.5 py-3">
+        <div className="flex flex-col-reverse rounded-2xl bg-ground px-3.5 py-3">
           <dt className="text-xs text-muted">{p.zoneCounts}</dt>
-          <dd className="font-semibold">{counts || "—"}</dd>
+          <dd className="font-semibold">{counts || "-"}</dd>
         </div>
       </dl>
       {zone.subTypes.length > 0 && (
@@ -484,7 +485,7 @@ function ZonePanel({ zone, locale, dict }: { zone: MasterPlanZone; locale: Local
       )}
       <a
         href="#units"
-        className="mt-auto inline-flex min-h-12 items-center justify-center rounded-[14px] bg-brand font-medium text-white no-underline hover:bg-brand-2 hover:text-white"
+        className="mt-auto inline-flex min-h-12 items-center justify-center rounded-2xl bg-brand font-medium text-white no-underline hover:bg-brand-2 hover:text-white"
       >
         {p.seeUnits}
       </a>
@@ -498,16 +499,13 @@ function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: L
   const rows: [string, string][] = [
     [p.unitArea, `${t.buaM2} ${locale === "ar" ? "م²" : "m²"}`],
     ...(t.bedrooms ? ([[p.rooms, fill(p.roomsValue, { bed: t.bedrooms, bath: t.bathrooms ?? 1 })]] as [string, string][]) : []),
-    [p.outdoor, extra || "—"],
+    [p.outdoor, extra || "-"],
     [p.finishing, dict.finishing[t.finishing]],
   ];
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-surface">
+    <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface">
       <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-white/[0.03] text-[13px] text-muted">
-        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="#6f8a87" strokeWidth="1.5" aria-hidden="true">
-          <rect x="6" y="6" width="60" height="60" />
-          <path d="M6 34h30V6M36 50h30M46 34v32" />
-        </svg>
+        <Layout size={64} weight="thin" className="text-muted" aria-hidden="true" />
         <span>{p.floorPlan}</span>
       </div>
       <div className="flex flex-1 flex-col gap-3 p-5">
@@ -543,13 +541,13 @@ function PlanCard({ plan, price, locale, dict }: { plan: PaymentPlan; price: num
     ? formatMoney(price * (1 - (plan.cashDiscountPct ?? 0) / 100), locale)
     : `~${formatMoney(Math.round(installment / 50) * 50, locale)} ${dict.frequencyPer[plan.frequency]}`;
   const rows: [string, string][] = [
-    [p.planYears, cash ? "—" : fill(dict.common.years, { n: plan.years })],
+    [p.planYears, cash ? "-" : fill(dict.common.years, { n: plan.years })],
     [p.planFrequency, cash ? p.oneOff : dict.frequency[plan.frequency]],
-    [p.planDelivery, cash ? "—" : plan.deliveryPaymentPct ? `${plan.deliveryPaymentPct}%` : p.none],
+    [p.planDelivery, cash ? "-" : plan.deliveryPaymentPct ? `${plan.deliveryPaymentPct}%` : p.none],
     [fill(p.planExample, { price: formatMillions(price, locale) }), example],
   ];
   return (
-    <article className="flex h-full flex-col gap-4 rounded-[22px] border border-line bg-surface p-6">
+    <article className="flex h-full flex-col gap-4 rounded-3xl border border-line bg-surface p-6">
       <h3 className="font-display text-xl font-medium">{plan.name[locale]}</h3>
       <div className="flex items-baseline gap-1.5">
         <span className="font-display text-[44px] leading-none font-light">{cash ? plan.cashDiscountPct : plan.downPaymentPct}%</span>
@@ -571,9 +569,9 @@ function SimilarCard({ project, other, locale, dict }: { project: Project; other
   return (
     <Link
       href={compareHref(locale, [project.slug, other.slug])}
-      className="flex items-center gap-3.5 rounded-[20px] border border-line bg-surface p-3.5 text-ink no-underline hover:border-ink hover:text-ink"
+      className="flex items-center gap-3.5 rounded-3xl border border-line bg-surface p-3.5 text-ink no-underline hover:border-ink hover:text-ink"
     >
-      <span className="relative h-20 w-24 flex-none overflow-hidden rounded-[14px]">
+      <span className="relative h-20 w-24 flex-none overflow-hidden rounded-2xl">
         <ProjectArt seed={other.slug} kind={artKindFor(other)} tone="dusk" className="absolute inset-0 size-full" />
       </span>
       <span className="flex flex-col leading-normal">

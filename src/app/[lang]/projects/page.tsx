@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { FilterForm } from "@/components/filter-form";
 import { ProjectCard } from "@/components/project-card";
-import { Container } from "@/components/ui";
+import { Container, CardGridSkeleton } from "@/components/ui";
 import { getMarketInsights, listDevelopers, searchProjects, SORTS, totalProjects } from "@/lib/catalog";
 import { readFilters } from "@/lib/catalog/read-filters";
 import { smartLabels } from "@/components/smart-labels";
@@ -32,7 +32,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/[lang]/
         </nav>
         <h1 className="font-display text-4xl font-normal tracking-tight sm:text-[38px]">{dict.projectsPage.title}</h1>
       </div>
-      <Suspense fallback={<p className="rounded-[20px] border border-line bg-surface p-10 text-muted">{dict.projectsPage.loading}</p>}>
+      <Suspense fallback={<CardGridSkeleton label={dict.projectsPage.loading} />}>
         <Results searchParams={searchParams} locale={locale} dict={dict} />
       </Suspense>
     </Container>

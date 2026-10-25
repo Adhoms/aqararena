@@ -171,7 +171,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                   slug={project.slug}
                   name={project.name}
                   labels={{ add: dict.common.addToCompare, added: dict.common.inCompare }}
-                  className="min-h-12 rounded-full border-0 bg-brass-light! px-5.5 text-brand! hover:bg-[#d8bc86]!"
+                  className="press min-h-12 rounded-full border-0 bg-brass-light! px-5.5 text-brand! hover:bg-[#d8bc86]!"
                 />
               </div>
             </div>
@@ -229,7 +229,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               <h3 className="font-semibold">{p.amenitiesTitle}</h3>
               <ul className="flex flex-wrap gap-2">
                 {project.amenities.map((a) => (
-                  <li key={a} className="rounded-full border border-line bg-surface px-4 py-1.5 text-sm">
+                  <li key={a} className="press rounded-full border border-line bg-surface px-4 py-1.5 text-sm">
                     {dict.amenities[a]}
                   </li>
                 ))}

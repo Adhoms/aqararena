@@ -50,28 +50,33 @@ export default async function HomePage() {
           />
         )}
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-b from-deep/70 via-deep/40 to-deep" />
-        <Container className="flex min-h-[86vh] flex-col justify-center gap-8 py-20">
-          <div className="rise flex max-w-4xl flex-col gap-5">
-            <Eyebrow onDark>{dict.hero.kicker}</Eyebrow>
-            <h1 className="font-display text-[44px] leading-[1.25] font-light tracking-tight text-balance sm:text-[68px] ltr:leading-[1.05]">
+        <Container className="flex min-h-[calc(100dvh-6.5rem)] flex-col justify-center gap-9 pt-20 pb-16">
+          <div className="rise flex max-w-5xl flex-col gap-6">
+            <span className="flex items-center gap-3">
+              <span aria-hidden="true" className="h-px w-10 bg-brass-light/70" />
+              <Eyebrow onDark>{dict.hero.kicker}</Eyebrow>
+            </span>
+            <h1 className="font-display text-[46px] leading-[1.2] font-light tracking-[-0.02em] sm:text-[76px] lg:text-[92px] ltr:leading-[0.98]">
               {dict.hero.line1}
               <br />
-              <span className="text-brass-light">{dict.hero.line2}</span>
+              <span className="bg-linear-to-l from-brass-dark via-brass-light to-brass bg-clip-text text-transparent ltr:bg-linear-to-r">
+                {dict.hero.line2}
+              </span>
             </h1>
-            <p className="max-w-2xl text-lg text-on-dark">{dict.hero.sub}</p>
+            <p className="max-w-[58ch] text-lg leading-relaxed text-on-dark sm:text-xl">{dict.hero.sub}</p>
           </div>
           <div className="rise max-w-4xl [animation-delay:120ms]">
             <SmartSearch locale={locale} labels={smartLabels(dict)} variant="hero" />
           </div>
-          <dl className="rise flex flex-wrap gap-3 [animation-delay:240ms]">
+          <dl className="rise flex flex-wrap gap-x-10 gap-y-4 [animation-delay:240ms]">
             {[
               [all.length, dict.home.statProjects],
               [developers.length, dict.home.statDevelopers],
               [insights.areas.length, dict.home.statAreas],
-            ].map(([value, label]) => (
-              <div key={label} className="flex min-w-36 flex-col-reverse rounded-2xl border border-white/15 bg-white/8 px-5 py-3 backdrop-blur-md">
+            ].map(([value, label], i) => (
+              <div key={label} className={`flex flex-col-reverse gap-0.5 ${i ? "border-s border-white/12 ps-10" : ""}`}>
                 <dt className="text-[13px] text-on-dark-muted">{label}</dt>
-                <dd className="font-display text-3xl font-light">{value}</dd>
+                <dd className="font-display text-4xl font-light text-white">{value}</dd>
               </div>
             ))}
           </dl>
@@ -89,18 +94,20 @@ export default async function HomePage() {
             </Link>
           }
         />
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,340px),1fr))] gap-6">
-          {featured.map((p) => (
-            <ProjectCard
-              key={p.slug}
-              project={p}
-              developer={devBySlug.get(p.developerSlug)}
-              value={insights.values[p.slug]}
-              locale={locale}
-              dict={dict}
-              size="large"
-              badge="featured"
-            />
+        {/* Asymmetric: the lead project tall on one side, the next ones stacked beside it. */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+          {featured.map((p, i) => (
+            <div key={p.slug} className={i === 0 ? "md:col-span-2 lg:col-span-1 lg:row-span-2" : ""}>
+              <ProjectCard
+                project={p}
+                developer={devBySlug.get(p.developerSlug)}
+                value={insights.values[p.slug]}
+                locale={locale}
+                dict={dict}
+                size={i === 0 ? "feature" : "large"}
+                badge="featured"
+              />
+            </div>
           ))}
         </div>
       </Container>
@@ -144,7 +151,7 @@ export default async function HomePage() {
           </div>
           <Link
             href={`/${locale}/map`}
-            className="inline-flex min-h-12 items-center rounded-full bg-brand px-6 font-medium text-white no-underline hover:bg-brand-2 hover:text-white"
+            className="press inline-flex min-h-12 items-center rounded-full bg-brand px-6 font-medium text-white no-underline hover:bg-brand-2 hover:text-white"
           >
             {dict.map.open} {arrow(locale)}
           </Link>
@@ -189,7 +196,7 @@ export default async function HomePage() {
               <p className="text-on-dark">{dict.home.compareText}</p>
               <Link
                 href={compareHref(locale, [first.slug, second.slug])}
-                className="inline-flex min-h-13 items-center self-start rounded-full bg-brass-light px-7 font-semibold text-brand no-underline hover:bg-[#d8bc86] hover:text-brand"
+                className="press inline-flex min-h-13 items-center self-start rounded-full bg-brass-light px-7 font-semibold text-brand no-underline hover:bg-[#d8bc86] hover:text-brand"
               >
                 {dict.home.compareCta}
               </Link>
@@ -215,7 +222,7 @@ export default async function HomePage() {
             <li key={d.slug}>
               <Link
                 href={`/${locale}/developers/${d.slug}`}
-                className="flex h-full flex-col items-center gap-2.5 rounded-[18px] border border-line bg-surface px-4 py-6 text-center text-ink no-underline transition-[transform,border-color] hover:-translate-y-0.5 hover:border-ink hover:text-ink"
+                className="spotlight flex h-full flex-col items-center gap-2.5 rounded-[18px] border border-line bg-surface px-4 py-6 text-center text-ink no-underline transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-line-strong hover:text-ink"
               >
                 <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-2xl bg-brand font-display text-xl text-brass-light">
                   {d.name.en.replace("Developer ", "").charAt(0)}

@@ -4,10 +4,11 @@ import { BrandMark } from "./brand-mark";
 
 export async function SiteFooter() {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
-  const link = "text-on-dark no-underline hover:text-white";
+  const link = "w-fit text-on-dark no-underline transition-colors hover:text-brass-dark";
 
   return (
-    <footer className="bg-deep text-on-dark print:hidden">
+    <footer className="relative mt-10 bg-deep/85 text-on-dark backdrop-blur-xl print:hidden">
+      <div aria-hidden="true" className="hairline" />
       <div className="mx-auto flex max-w-310 flex-col gap-9 px-4 pt-14 pb-8 sm:px-6">
         <div className="grid grid-cols-1 gap-8 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-3">
@@ -26,9 +27,9 @@ export async function SiteFooter() {
           <div className="flex flex-col gap-2">
             <span className="font-semibold text-white">{dict.footer.forDevelopers}</span>
             {/* Pages for developers arrive with the developer portal (roadmap phase 2). */}
-            <span>{dict.footer.listProject}</span>
-            <span>{dict.footer.plans}</span>
-            <span>{dict.footer.contactUs}</span>
+            <span className="text-on-dark-muted">{dict.footer.listProject}</span>
+            <span className="text-on-dark-muted">{dict.footer.plans}</span>
+            <span className="text-on-dark-muted">{dict.footer.contactUs}</span>
           </div>
           <div className="flex flex-col gap-2">
             <span className="font-semibold text-white">{dict.footer.language}</span>
@@ -41,7 +42,7 @@ export async function SiteFooter() {
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap justify-between gap-3 border-t border-brand-2 pt-5 text-[13px] text-on-dark-muted">
+        <div className="flex flex-wrap justify-between gap-3 border-t border-white/8 pt-5 text-[13px] text-on-dark-muted">
           <p>{dict.footer.neutrality}</p>
           <p>
             © 2026 <span dir="ltr">AqarArena</span> · {dict.footer.rights}

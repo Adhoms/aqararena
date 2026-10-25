@@ -95,9 +95,9 @@ async function CompareBody({
             label={c.share}
             copiedLabel={c.copied}
             title={c.title}
-            className="inline-flex min-h-12 items-center rounded-full border border-line-strong bg-surface px-5 text-[15px] hover:border-ink"
+            className="press inline-flex min-h-12 items-center rounded-full border border-line-strong bg-surface px-5 text-[15px] hover:border-ink"
           />
-          <PrintButton label={c.print} className="inline-flex min-h-12 items-center rounded-full bg-brand px-5.5 text-[15px] font-medium text-white hover:bg-brand-2" />
+          <PrintButton label={c.print} className="press inline-flex min-h-12 items-center rounded-full bg-brand px-5.5 text-[15px] font-medium text-white hover:bg-brand-2" />
         </>
       }
     >

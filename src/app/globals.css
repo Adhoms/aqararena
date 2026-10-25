@@ -26,7 +26,7 @@
   --color-brand-2: #2c716c;
   --color-brand-3: #357d78;
   --color-deep: #04100f;
-  --color-link: #8fd0c9;
+  --color-link: #e3c891;
   --color-on-dark: #c8d2d1;
   --color-on-dark-muted: #a9b8b7;
 
@@ -57,7 +57,27 @@
   }
 
   a:hover {
-    color: var(--color-brass);
+    color: var(--color-ink);
+  }
+
+  /* Figures line up in columns (prices, years, percentages). */
+  body {
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: rgb(205 174 116 / 0.35);
+    color: var(--color-ink);
   }
 
   :focus-visible {
@@ -65,8 +85,9 @@
     outline-offset: 2px;
   }
 
+  /* Leaves room for the sticky header when jumping to an anchor. */
   [id] {
-    scroll-margin-top: 1.5rem;
+    scroll-margin-top: 6.5rem;
   }
 }
 
@@ -141,7 +162,8 @@
 .rounded-3xl.bg-surface {
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 24px 48px -28px rgb(0 0 0 / 0.7);
+    inset 0 0 0 1px rgb(255 255 255 / 0.015),
+    0 30px 60px -32px rgb(1 12 12 / 0.85);
 }
 
 /* Ambient background: slow drifting light and film grain. */
@@ -203,4 +225,52 @@
   .bp-draw { animation: bp-draw 5s cubic-bezier(0.4, 0, 0.2, 1) both; }
   .bp-draw-late { animation-delay: 1.8s; animation-duration: 4s; }
   .bp-point { animation: bp-fade 1.2s ease-out 3.2s both; }
+}
+
+/* Buttons and button-like links: smooth colour change and a small press-in. */
+@utility press {
+  transition-property: transform, background-color, border-color, color, box-shadow;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Spotlight: a soft brass light follows the cursor along a card's edge.
+   --mx/--my are set by <Spotlight />; without them nothing shows. */
+.spotlight {
+  position: relative;
+}
+
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: radial-gradient(
+    420px circle at var(--mx, -999px) var(--my, -999px),
+    rgb(232 207 158 / 0.55),
+    transparent 45%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+.spotlight:hover::before {
+  opacity: 1;
+}
+
+/* Hairline that fades out at both ends, for dividing sections. */
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(205 174 116 / 0.35), transparent);
 }

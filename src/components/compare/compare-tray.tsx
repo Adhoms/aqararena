@@ -38,7 +38,7 @@ export function CompareTray({ locale, labels }: Props) {
             </button>
             <Link
               href={compareHref(locale, items.map((i) => i.slug))}
-              className="inline-flex min-h-11 items-center rounded-full bg-brand px-6 font-medium text-white no-underline hover:bg-brand-2 hover:text-white"
+              className="press inline-flex min-h-11 items-center rounded-full bg-brand px-6 font-medium text-white no-underline hover:bg-brand-2 hover:text-white"
             >
               {labels.compareNow}
             </Link>

@@ -17,7 +17,8 @@
     "compare": "Compare",
     "compareButton": "Compare",
     "compareCount": "{n} in compare",
-    "map": "Map"
+    "map": "Map",
+    "skip": "Skip to content"
   },
   "language": {
     "switchTo": "العربية",
@@ -378,7 +379,10 @@
   },
   "notFound": {
     "title": "This page doesn't exist",
-    "back": "Back to home"
+    "back": "Back to home",
+    "text": "The link may have changed or the project may have been removed. Try searching for it or browse all projects.",
+    "projects": "Browse all projects",
+    "code": "Error 404"
   },
   "smart": {
     "label": "Search in a sentence",

@@ -13,8 +13,10 @@ export function NavLinks({ links }: { links: { href: string; label: string }[] }
         key={link.href}
         href={link.href}
         aria-current={current ? "page" : undefined}
-        className={`border-b-2 py-3 text-[15px] text-ink no-underline hover:text-brand ${
-          current ? "border-brass font-semibold" : "border-transparent"
+        className={`press relative my-2 rounded-full px-3.5 py-2 text-[15px] no-underline ${
+          current
+            ? "bg-brass-soft font-medium text-brass-dark hover:text-brass-dark"
+            : "text-body hover:bg-white/6 hover:text-ink"
         }`}
       >
         {link.label}

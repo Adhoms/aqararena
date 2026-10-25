@@ -26,10 +26,10 @@ export function SectionHeading({
   as?: "h1" | "h2";
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="flex flex-col gap-1.5">
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div className="flex flex-col gap-2">
         {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-        <Tag className={`font-display font-normal tracking-tight ${Tag === "h1" ? "text-4xl sm:text-[40px]" : "text-3xl sm:text-[34px]"}`}>
+        <Tag className={`font-display font-light tracking-[-0.015em] ${Tag === "h1" ? "text-4xl sm:text-[46px]" : "text-[32px] sm:text-[42px]"}`}>
           {title}
         </Tag>
       </div>
@@ -79,6 +79,29 @@ export function Stat({ label, value }: { label: string; value: ReactNode }) {
     <div className="flex flex-col">
       <span className="text-xs text-muted">{label}</span>
       <span className="text-[15px] font-semibold">{value}</span>
+    </div>
+  );
+}
+
+/** Placeholder shaped like the project cards while results load; `label` is read to screen readers. */
+export function CardGridSkeleton({ label, count = 6 }: { label: string; count?: number }) {
+  return (
+    <div role="status" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-6">
+      <span className="sr-only">{label}</span>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} aria-hidden="true" className="overflow-hidden rounded-[22px] border border-line bg-surface">
+          <div className="h-52 animate-pulse bg-white/5" />
+          <div className="flex flex-col gap-3 p-4.5">
+            <div className="h-5 w-2/3 animate-pulse rounded-md bg-white/8" />
+            <div className="h-3.5 w-1/2 animate-pulse rounded-md bg-white/6" />
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <div className="h-8 animate-pulse rounded-md bg-white/5" />
+              <div className="h-8 animate-pulse rounded-md bg-white/5" />
+              <div className="h-8 animate-pulse rounded-md bg-white/5" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

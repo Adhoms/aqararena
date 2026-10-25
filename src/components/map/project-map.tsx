@@ -168,7 +168,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       <button
         type="button"
         onClick={() => mapRef.current?.fitBounds(boundsOf(points), { padding: 70, maxZoom: 11 })}
-        className="absolute bottom-8 start-3 rounded-full border border-line bg-surface/95 px-4 py-2 text-[13px] font-medium shadow backdrop-blur hover:border-ink"
+        className="press absolute bottom-8 start-3 rounded-full border border-line bg-surface/95 px-4 py-2 text-[13px] font-medium shadow backdrop-blur hover:border-ink"
       >
         {labels.showAll}
       </button>

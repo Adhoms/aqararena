@@ -28,7 +28,7 @@ export function LanguageSwitcher({ target, label, ariaLabel }: Props) {
       lang={target}
       aria-label={ariaLabel}
       onClick={switchLanguage}
-      className="inline-flex min-h-11 items-center rounded-full border border-line px-3 font-display sm:px-4 text-sm text-ink no-underline hover:border-ink hover:text-ink"
+      className="press inline-flex min-h-11 items-center rounded-full border border-line px-3 font-display text-sm text-ink no-underline hover:border-line-strong hover:bg-white/6 hover:text-ink sm:px-4"
     >
       {label}
     </a>

@@ -33,6 +33,7 @@ export function mapLabels(dict: Dictionary) {
     label: dict.map.label,
     loading: dict.map.loading,
     showAll: dict.map.showAll,
+    cluster: dict.map.cluster,
     inView: dict.map.inView,
     all: dict.map.all,
     viewProject: dict.common.viewProject,

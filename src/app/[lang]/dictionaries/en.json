@@ -440,7 +440,8 @@
     "label": "Projects map",
     "teaserEyebrow": "Map",
     "teaserTitle": "Every project on the map of Egypt",
-    "teaserText": "See each project where it really is, and compare areas as you move around."
+    "teaserText": "See each project where it really is, and compare areas as you move around.",
+    "cluster": "{n} projects here — click to zoom in"
   },
   "hero": {
     "kicker": "Egypt's real estate project guide",

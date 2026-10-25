@@ -26,6 +26,8 @@ type Labels = {
   label: string;
   loading: string;
   showAll: string;
+  /** "{n} projects here — click to zoom in" */
+  cluster: string;
   inView: string;
   all: string;
   viewProject: string;
@@ -41,6 +43,15 @@ const pinClass = (active: boolean) =>
   `flex flex-col items-center rounded-xl px-3 py-1 font-display leading-tight shadow-lg transition-transform cursor-pointer whitespace-nowrap border ${
     active ? "bg-brass-light text-brand border-brand scale-110 z-10" : "bg-brand text-white border-white/70 hover:scale-105"
   }`;
+
+// Pins closer than this on screen (in px) are merged into one numbered circle.
+const GROUP_DX = 100;
+const GROUP_DY = 52;
+// From this zoom on, every pin shows on its own.
+const NO_GROUP_ZOOM = 13;
+
+const clusterClass =
+  "flex size-12 items-center justify-center rounded-full border-2 border-deep bg-brass-light font-display text-lg font-semibold text-deep shadow-[0_0_0_6px_rgb(205_174_116/0.25)] transition-transform cursor-pointer hover:scale-110";
 
 function boundsOf(points: MapPoint[]): [[number, number], [number, number]] {
   const lngs = points.map((p) => p.lng);
@@ -69,6 +80,10 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
   const [active, setActive] = useState<string | null>(null);
   const [visible, setVisible] = useState<string[]>(points.map((p) => p.slug));
   const [category, setCategory] = useState<PropertyCategory | "all">("all");
+  // Read by the map's grouping, which runs outside React's render.
+  const activeRef = useRef(active);
+  const categoryRef = useRef(category);
+  const regroupRef = useRef<() => void>(() => {});
 
   const categories = useMemo(() => [...new Set(points.map((p) => p.category))], [points]);
   const shown = points.filter((p) => (category === "all" || p.category === category) && visible.includes(p.slug));
@@ -76,6 +91,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
   useEffect(() => {
     let cancelled = false;
     const markerMap = markers.current;
+    const clusterMarkers: Marker[] = [];
     (async () => {
       const maplibregl = (await import("maplibre-gl")).default;
       if (cancelled || !container.current || points.length === 0) return;
@@ -118,6 +134,63 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
         markerMap.set(p.slug, { marker, el });
       }
 
+      // Merge pins that would overlap on screen into a numbered circle; clicking it zooms in until they split.
+      const regroup = () => {
+        clusterMarkers.splice(0).forEach((m) => m.remove());
+        const cat = categoryRef.current;
+        const candidates = points.filter((p) => cat === "all" || p.category === cat);
+        markerMap.forEach(({ el }) => (el.style.display = "none"));
+        const pos = new Map(candidates.map((p) => [p.slug, map.project([p.lng, p.lat])]));
+        const grouping = map.getZoom() < NO_GROUP_ZOOM;
+        const taken = new Set<string>();
+
+        for (const p of candidates) {
+          if (taken.has(p.slug)) continue;
+          taken.add(p.slug);
+          const group = [p];
+          // The picked project always shows as its own pin.
+          // A pin joins the group if it is close to any pin already in it (so chains merge too).
+          if (grouping && p.slug !== activeRef.current) {
+            for (let i = 0; i < group.length; i++) {
+              const a = pos.get(group[i].slug)!;
+              for (const q of candidates) {
+                if (taken.has(q.slug) || q.slug === activeRef.current) continue;
+                const b = pos.get(q.slug)!;
+                if (Math.abs(a.x - b.x) < GROUP_DX && Math.abs(a.y - b.y) < GROUP_DY) {
+                  group.push(q);
+                  taken.add(q.slug);
+                }
+              }
+            }
+          }
+          if (group.length === 1) {
+            markerMap.get(p.slug)!.el.style.display = "";
+            continue;
+          }
+          const el = document.createElement("button");
+          el.type = "button";
+          el.className = clusterClass;
+          el.textContent = String(group.length);
+          el.title = group.map((g) => g.name).join(" · ");
+          el.setAttribute("aria-label", labels.cluster.replace("{n}", String(group.length)));
+          const lng = group.reduce((t, g) => t + g.lng, 0) / group.length;
+          const lat = group.reduce((t, g) => t + g.lat, 0) / group.length;
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            // Fit the group, but always zoom in at least 1.5 levels so every click splits it further.
+            const fit = map.cameraForBounds(boundsOf(group), { padding: 60 });
+            const zoom = Math.min(Math.max(fit?.zoom ?? 0, map.getZoom() + 1.5), NO_GROUP_ZOOM + 0.5);
+            map.easeTo({ center: fit?.center ?? [lng, lat], zoom, duration: 700 });
+          });
+          clusterMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map));
+        }
+      };
+      regroupRef.current = regroup;
+      // Group straight away (positions are known before the tiles finish loading).
+      regroup();
+      map.on("zoomend", regroup);
+      map.on("resize", regroup);
+
       const updateVisible = () => {
         const b = map.getBounds();
         setVisible(points.filter((p) => b.contains([p.lng, p.lat])).map((p) => p.slug));
@@ -133,31 +206,34 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
           }
         }
         setReady(true);
+        regroup();
         updateVisible();
       });
     })();
     return () => {
       cancelled = true;
+      regroupRef.current = () => {};
+      clusterMarkers.forEach((m) => m.remove());
       markerMap.forEach(({ marker }) => marker.remove());
       markerMap.clear();
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [points, locale, mode]);
+  }, [points, locale, mode, labels.cluster]);
 
   // Highlight the picked pin and bring its list row into view.
   useEffect(() => {
     markers.current.forEach(({ el }, slug) => (el.className = pinClass(slug === active)));
+    activeRef.current = active;
+    regroupRef.current();
     if (active) listRefs.current.get(active)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [active]);
 
-  // Category chips hide the other pins.
+  // Category chips hide the other pins (and regroup the rest).
   useEffect(() => {
-    markers.current.forEach(({ el }, slug) => {
-      const p = points.find((x) => x.slug === slug);
-      el.style.display = category === "all" || p?.category === category ? "" : "none";
-    });
-  }, [category, points]);
+    categoryRef.current = category;
+    regroupRef.current();
+  }, [category]);
 
   const activePoint = points.find((p) => p.slug === active);
 

@@ -3,11 +3,11 @@ import { ValueRing, AreaPriceBars, valueText } from "@/components/insights";
 import { mapLabels, toMapPoints } from "@/components/map/map-points";
 import { ProjectMap } from "@/components/map/project-map";
 import { artKindFor, ProjectArt } from "@/components/project-art";
-import { ProjectCard } from "@/components/project-card";
+import { FeaturedShowcase } from "@/components/featured-showcase";
 import { smartLabels } from "@/components/smart-labels";
 import { SmartSearch } from "@/components/smart-search";
 import { ArrowIcon, Container, Eyebrow, SectionHeading } from "@/components/ui";
-import { Buildings, Coins, Images, MapTrifold, Phone } from "@phosphor-icons/react/ssr";
+import { Buildings, Check, Coins, Images, MapTrifold, Phone } from "@phosphor-icons/react/ssr";
 import {
   countProjectsByDeveloper,
   getFeaturedProjects,
@@ -87,7 +87,7 @@ export default async function HomePage() {
         </dl>
       </Container>
 
-      {/* ─── Featured projects ─────────────────────────────────────── */}
+      {/* ─── Featured projects: an expanding gallery ────────────────── */}
       <Container className="reveal flex flex-col gap-9 pt-24 sm:pt-28">
         <SectionHeading
           title={dict.home.featuredTitle}
@@ -97,22 +97,7 @@ export default async function HomePage() {
             </Link>
           }
         />
-        {/* Asymmetric: the lead project tall on one side, the next ones stacked beside it. */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-          {featured.map((p, i) => (
-            <div key={p.slug} className={i === 0 ? "md:col-span-2 lg:col-span-1 lg:row-span-2" : ""}>
-              <ProjectCard
-                project={p}
-                developer={devBySlug.get(p.developerSlug)}
-                value={insights.values[p.slug]}
-                locale={locale}
-                dict={dict}
-                size={i === 0 ? "feature" : "large"}
-                badge="featured"
-              />
-            </div>
-          ))}
-        </div>
+        <FeaturedShowcase projects={featured} developers={devBySlug} values={insights.values} locale={locale} dict={dict} />
       </Container>
 
       {/* ─── Market insights ───────────────────────────────────────── */}
@@ -207,32 +192,31 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      {/* ─── Compare teaser ────────────────────────────────────────── */}
+      {/* ─── Compare: two projects face to face ─────────────────────── */}
       {first && second && (
-        <Container className="reveal pt-24 sm:pt-28">
-          <div className="relative isolate flex flex-wrap items-center gap-10 overflow-hidden rounded-3xl bg-brand p-6 text-white sm:p-12">
-            <ProjectArt seed="compare-band" kind="residential" tone="night" className="absolute inset-0 -z-10 size-full opacity-35" />
-            <div className="flex flex-[1_1_360px] flex-col gap-4">
-              <Eyebrow onDark>{dict.home.compareEyebrow}</Eyebrow>
-              <h2 className="font-display text-[32px] leading-[1.35] font-light tracking-[-0.015em] sm:text-[42px] ltr:leading-[1.1]">
-                {dict.home.compareTitleLine1}
-                <br />
-                {dict.home.compareTitleLine2}
-              </h2>
-              <p className="text-on-dark">{dict.home.compareText}</p>
+        <section aria-labelledby="compare-title" className="reveal pt-24 sm:pt-28">
+          <Container>
+            <div className="plan-grid flex flex-col items-center gap-10 rounded-3xl border border-line bg-plan px-5 py-12 text-center sm:px-12 sm:py-16">
+              <div className="flex flex-col items-center gap-4">
+                <Eyebrow>{dict.home.compareEyebrow}</Eyebrow>
+                <h2 id="compare-title" className="font-display text-[32px] leading-[1.2] font-light tracking-[-0.015em] sm:text-[44px]">
+                  {dict.home.compareTitleLine1} {dict.home.compareTitleLine2}
+                </h2>
+                <p className="max-w-[56ch] text-body">{dict.home.compareText}</p>
+              </div>
+              <FaceOff locale={locale} dict={dict} a={first} b={second} />
               <Link
                 href={compareHref(locale, [first.slug, second.slug])}
-                className="press group inline-flex min-h-13 items-center gap-3 self-start rounded-full bg-brass-light ps-7 pe-2 font-semibold text-deep no-underline hover:bg-brass-dark hover:text-deep"
+                className="press group inline-flex min-h-13 items-center gap-3 rounded-full bg-brand ps-7 pe-2 font-semibold text-white no-underline hover:bg-brand-2 hover:text-white"
               >
                 {dict.home.compareCta}
-                <span className="flex size-9 items-center justify-center rounded-full bg-deep/10">
+                <span className="flex size-9 items-center justify-center rounded-full bg-white/12">
                   <ArrowIcon locale={locale} size={16} />
                 </span>
               </Link>
             </div>
-            <CompareTeaser locale={locale} dict={dict} a={first} b={second} />
-          </div>
-        </Container>
+          </Container>
+        </section>
       )}
 
       {/* ─── Developers: a slow strip of names ─────────────────────── */}
@@ -310,7 +294,8 @@ function BestValueRow({
   );
 }
 
-function CompareTeaser({ locale, dict, a, b }: { locale: "ar" | "en"; dict: Dictionary; a: Project; b: Project }) {
+/** Two projects face to face: names on either side, each figure beside its project, the better one marked. */
+function FaceOff({ locale, dict, a, b }: { locale: "ar" | "en"; dict: Dictionary; a: Project; b: Project }) {
   const sa = summarize(a);
   const sb = summarize(b);
   const rows: [string, string, string, number, number, "low" | "high"][] = [
@@ -320,31 +305,35 @@ function CompareTeaser({ locale, dict, a, b }: { locale: "ar" | "en"; dict: Dict
     [dict.common.delivery, String(a.deliveryYear), String(b.deliveryYear), a.deliveryYear, b.deliveryYear, "low"],
   ];
   const better = (x: number, y: number, dir: "low" | "high") => (x === y ? false : dir === "low" ? x < y : x > y);
+  const cell = (text: string, win: boolean, side: "a" | "b") => (
+    <span className={`flex items-center gap-2 font-display text-lg sm:text-2xl ${side === "a" ? "justify-end" : "justify-start"} ${win ? "text-brass" : "text-ink"}`}>
+      {win && side === "b" && <Check size={18} weight="bold" aria-hidden="true" />}
+      {text}
+      {win && side === "a" && <Check size={18} weight="bold" aria-hidden="true" />}
+    </span>
+  );
 
   return (
-    <table className="flex-[1_1_440px] overflow-hidden rounded-3xl bg-brand-2/90 text-sm backdrop-blur">
-      <thead>
-        <tr>
-          <td className="px-4 py-3.5" />
-          <th scope="col" className="px-4 py-3.5 text-start font-semibold">
-            {a.name[locale]}
-          </th>
-          <th scope="col" className="px-4 py-3.5 text-start font-semibold">
-            {b.name[locale]}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
+    <div className="w-full max-w-3xl">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
+        <span className="text-end font-display text-2xl font-medium text-ink sm:text-4xl">{a.name[locale]}</span>
+        <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full border border-brass/40 bg-surface font-display text-sm text-brass sm:size-14">
+          VS
+        </span>
+        <span className="text-start font-display text-2xl font-medium text-ink sm:text-4xl">{b.name[locale]}</span>
+      </div>
+      <ul className="mt-8 flex flex-col gap-1">
         {rows.map(([label, va, vb, na, nb, dir]) => (
-          <tr key={label} className="border-t border-brand-3">
-            <th scope="row" className="px-4 py-3 text-start font-normal text-on-dark-muted">
-              {label}
-            </th>
-            <td className={`px-4 py-3 ${better(na, nb, dir) ? "font-semibold text-brass-light" : ""}`}>{va}</td>
-            <td className={`px-4 py-3 ${better(nb, na, dir) ? "font-semibold text-brass-light" : ""}`}>{vb}</td>
-          </tr>
+          <li
+            key={label}
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,9rem)_minmax(0,1fr)] items-center gap-3 rounded-2xl px-2 py-3 odd:bg-surface/70 sm:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)] sm:gap-6"
+          >
+            {cell(va, better(na, nb, dir), "a")}
+            <span className="text-center text-[13px] text-muted">{label}</span>
+            {cell(vb, better(nb, na, dir), "b")}
+          </li>
         ))}
-      </tbody>
-    </table>
+      </ul>
+    </div>
   );
 }

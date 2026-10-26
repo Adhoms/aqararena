@@ -355,3 +355,98 @@
 @media (prefers-reduced-motion: reduce) {
   .marquee { overflow-x: auto; }
 }
+
+/* Featured gallery (<FeaturedShowcase />): tall panels side by side; the hovered or focused one
+   widens and shows its figures, the first is open while the visitor is elsewhere. */
+.acc {
+  display: flex;
+  gap: 0.75rem;
+  height: min(620px, 78dvh);
+}
+.acc > li {
+  flex: 1 1 0;
+  min-width: 0;
+  transition: flex-grow 750ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.acc > li:hover,
+.acc > li:focus-within,
+.acc:not(:hover):not(:focus-within) > li:first-child {
+  flex-grow: 3.2;
+}
+.acc-more {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 400ms ease-out, transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.acc > li:hover .acc-more,
+.acc > li:focus-within .acc-more,
+.acc:not(:hover):not(:focus-within) > li:first-child .acc-more {
+  opacity: 1;
+  transform: none;
+  transition-delay: 180ms;
+}
+.acc-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 650ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.acc > li:hover .acc-reveal,
+.acc > li:focus-within .acc-reveal,
+.acc:not(:hover):not(:focus-within) > li:first-child .acc-reveal {
+  grid-template-rows: 1fr;
+}
+.acc-arrow {
+  display: none;
+}
+.acc > li:hover .acc-arrow,
+.acc > li:focus-within .acc-arrow,
+.acc:not(:hover):not(:focus-within) > li:first-child .acc-arrow {
+  display: flex;
+}
+/* Name: compact in a narrow panel, larger once the panel opens. */
+.acc-name {
+  font-size: 1.375rem;
+}
+.acc > li:hover .acc-name,
+.acc > li:focus-within .acc-name,
+.acc:not(:hover):not(:focus-within) > li:first-child .acc-name {
+  font-size: 1.875rem;
+}
+.acc-art {
+  transition: transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.acc > li:hover .acc-art {
+  transform: scale(1.05);
+}
+/* Phones and small tablets: a vertical stack, every panel open. */
+@media (max-width: 767px) {
+  .acc {
+    flex-direction: column;
+    height: auto;
+  }
+  .acc > li {
+    flex: none;
+    height: 540px;
+  }
+  .acc-more {
+    opacity: 1;
+    transform: none;
+  }
+  .acc-reveal {
+    grid-template-rows: 1fr;
+  }
+  .acc-arrow {
+    display: flex;
+  }
+  .acc-name {
+    font-size: 1.625rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acc > li,
+  .acc-more,
+  .acc-reveal,
+  .acc-art {
+    transition: none;
+  }
+}

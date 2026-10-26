@@ -28,9 +28,11 @@ export function LanguageSwitcher({ target, label, ariaLabel }: Props) {
       lang={target}
       aria-label={ariaLabel}
       onClick={switchLanguage}
-      className="press inline-flex min-h-11 items-center rounded-full border border-line px-3 font-display text-sm text-ink no-underline hover:border-line-strong hover:bg-white/6 hover:text-ink sm:px-4"
+      className="press inline-flex min-h-11 items-center rounded-full border border-line px-3 font-display text-sm text-ink no-underline hover:border-line-strong hover:bg-ink/5 hover:text-ink sm:px-4"
     >
-      {label}
+      {/* Phones: a short label so the header stays on one row. */}
+      <span className="sm:hidden">{target === "en" ? "EN" : "ع"}</span>
+      <span className="hidden sm:inline">{label}</span>
     </a>
   );
 }

@@ -20,13 +20,23 @@ const CITY_NAMES: Record<string, { ar: string; en: string; main?: boolean }> = {
 // Labels that would overlap a neighbour go to the other side of their point.
 const LABEL_LEFT = new Set(["alexandria", "northCoast", "cairo", "luxor", "aswan"]);
 
-const INK = "#cdae74";
-const NILE = "#5fb3aa";
+// Colours come from the theme (--bp-ink / --bp-nile in globals.css), so the drawing follows light and dark mode.
+const INK = "currentColor";
 
-export function EgyptBlueprint({ locale, className = "" }: { locale: Locale; className?: string }) {
+// "wide": the sheet is extended sideways (Egypt stays whole and centred) so it can span the full page width.
+const WIDE_X = -400;
+const WIDE_W = 1800;
+
+export function EgyptBlueprint({ locale, className = "", wide = false }: { locale: Locale; className?: string; wide?: boolean }) {
   const [[x0, y0], [x1, y1]] = EGYPT.bbox;
   return (
-    <svg viewBox="0 0 1000 1000" className={className} aria-hidden="true" fill="none">
+    <svg
+      viewBox={wide ? `${WIDE_X} 0 ${WIDE_W} 1000` : "0 0 1000 1000"}
+      preserveAspectRatio="xMidYMid meet"
+      className={`text-(--bp-ink) ${className}`}
+      aria-hidden="true"
+      fill="none"
+    >
       <defs>
         <pattern id="bp-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="9" stroke={INK} strokeWidth="0.6" strokeOpacity="0.16" />
@@ -39,7 +49,14 @@ export function EgyptBlueprint({ locale, className = "" }: { locale: Locale; cla
       {/* Survey grid with degree marks */}
       <g stroke={INK} strokeOpacity="0.14" strokeWidth="0.8" strokeDasharray="2 6">
         {EGYPT.grat.map((g) => (
-          <line key={`${g.kind}${g.v}`} x1={g.a[0]} y1={g.a[1]} x2={g.b[0]} y2={g.b[1]} />
+          <line
+            key={`${g.kind}${g.v}`}
+            // On the wide sheet, latitude lines run edge to edge.
+            x1={wide && g.kind === "lat" ? WIDE_X : g.a[0]}
+            y1={g.a[1]}
+            x2={wide && g.kind === "lat" ? WIDE_X + WIDE_W : g.b[0]}
+            y2={g.b[1]}
+          />
         ))}
       </g>
       <g fill={INK} fillOpacity="0.45" fontSize="11" fontFamily="var(--font-alexandria), sans-serif" letterSpacing="1.5">
@@ -81,7 +98,7 @@ export function EgyptBlueprint({ locale, className = "" }: { locale: Locale; cla
       </g>
 
       {/* The Nile, its delta, and the Suez Canal */}
-      <g stroke={NILE} strokeLinecap="round" strokeLinejoin="round">
+      <g stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className="text-(--bp-nile)">
         <path d={EGYPT.nile} strokeOpacity="0.15" strokeWidth="8" />
         <path d={EGYPT.nile} strokeOpacity="0.8" strokeWidth="2" pathLength={1} className="bp-draw bp-draw-late" />
         <path d={EGYPT.rosetta} strokeOpacity="0.7" strokeWidth="1.4" />

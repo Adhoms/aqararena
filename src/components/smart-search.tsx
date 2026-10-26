@@ -125,7 +125,7 @@ export function SmartSearch({ locale, labels, variant = "hero", initialText = ""
           e.preventDefault();
           if (active) router.push(resultsHref);
         }}
-        className={`overflow-hidden rounded-3xl text-ink ${onDark ? "bg-[#0d2426]/94 border border-white/15" : "bg-surface"} ${onDark ? "shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]" : "border border-line"}`}
+        className={`overflow-hidden rounded-3xl text-ink ${onDark ? "border border-line-strong bg-surface shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]" : "border border-line bg-surface"}`}
       >
         <div className="flex items-center gap-2 p-2">
           <label htmlFor={inputId} className="sr-only">

@@ -448,5 +448,9 @@
     "line1": "Type what you're looking for,",
     "line2": "we'll find it.",
     "sub": "Every developer project in one place: master plans, prices and payment plans, unit types and official developer numbers. Compare smartly before you decide."
+  },
+  "theme": {
+    "toDark": "Dark mode",
+    "toLight": "Light mode"
   }
 }

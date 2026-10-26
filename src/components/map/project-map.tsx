@@ -2,9 +2,11 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { Locale } from "@/i18n/config";
+import { useTheme } from "@/components/theme-toggle";
 import type { PropertyCategory } from "@/lib/property";
 
 export type MapPoint = {
@@ -13,6 +15,7 @@ export type MapPoint = {
   lng: number;
   name: string;
   developer: string;
+  developerSlug: string;
   area: string;
   /** Land area, e.g. "85 فدان". */
   size?: string;
@@ -35,7 +38,7 @@ type Labels = {
 };
 
 // Free vector map tiles, no API key (https://openfreemap.org). Map data © OpenStreetMap contributors.
-const STYLE = "https://tiles.openfreemap.org/styles/dark";
+const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 // Shapes Arabic place names correctly on the map.
 const RTL_PLUGIN = "https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js";
 
@@ -45,8 +48,8 @@ const pinClass = (active: boolean) =>
   }`;
 
 // Pins closer than this on screen (in px) are merged into one numbered circle.
-const GROUP_DX = 100;
-const GROUP_DY = 52;
+const GROUP_DX = 130;
+const GROUP_DY = 64;
 // From this zoom on, every pin shows on its own.
 const NO_GROUP_ZOOM = 13;
 
@@ -74,7 +77,11 @@ type Props = {
 export function ProjectMap({ points, locale, labels, mode = "explore", className = "" }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const markers = useRef(new Map<string, { marker: Marker; el: HTMLButtonElement }>());
+  const markers = useRef(new Map<string, { marker: Marker; el: HTMLElement }>());
+  const router = useRouter();
+  const theme = useTheme();
+  // The style the map was created with; later mode changes swap it in place (see below).
+  const themeAtCreate = useRef(theme);
   const listRefs = useRef(new Map<string, HTMLLIElement>());
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState<string | null>(null);
@@ -100,7 +107,8 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       }
       const map = new maplibregl.Map({
         container: container.current,
-        style: STYLE,
+        // Read the mode from the page itself: on first load React may not have caught up with it yet.
+        style: STYLES[(themeAtCreate.current = document.documentElement.dataset.theme === "dark" ? "dark" : "light")],
         bounds: boundsOf(points),
         fitBoundsOptions: { padding: 70, maxZoom: 11 },
         attributionControl: { compact: true },
@@ -112,20 +120,34 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), locale === "ar" ? "top-left" : "top-right");
 
       for (const p of points) {
-        const el = document.createElement("button");
-        el.type = "button";
+        // Pin: developer (link to the developer page), project (link to the project page), land area.
+        // Clicking the pin anywhere else selects it and opens the summary card.
+        const el = document.createElement("div");
         el.className = pinClass(false);
-        const name = document.createElement("span");
-        name.className = "text-[13px] font-medium";
-        name.textContent = p.name;
-        el.append(name);
+        el.setAttribute("role", "group");
+        el.setAttribute("aria-label", p.size ? `${p.name}: ${p.size}` : p.name);
+        const link = (href: string, text: string, className: string) => {
+          const a = document.createElement("a");
+          a.href = href;
+          a.textContent = text;
+          a.className = `text-inherit no-underline hover:underline hover:text-inherit ${className}`;
+          a.addEventListener("click", (e) => {
+            e.stopPropagation();
+            // Keep new-tab clicks native; plain clicks navigate inside the app.
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            router.push(href);
+          });
+          return a;
+        };
+        el.append(link(`/${locale}/developers/${p.developerSlug}`, p.developer, "text-[11px] opacity-85"));
+        el.append(link(`/${locale}/projects/${p.slug}`, p.name, "text-[13px] font-semibold"));
         if (p.size) {
           const size = document.createElement("span");
           size.className = "text-[11px] opacity-80";
           size.textContent = p.size;
           el.append(size);
         }
-        el.setAttribute("aria-label", p.size ? `${p.name}: ${p.size}` : p.name);
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           setActive(p.slug);
@@ -219,7 +241,23 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [points, locale, mode, labels.cluster]);
+  }, [points, locale, mode, labels.cluster, router]);
+
+  // Light/dark switch: swap the tiles and put the place names back in the visitor's language.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || themeAtCreate.current === theme) return;
+    themeAtCreate.current = theme;
+    map.setStyle(STYLES[theme]);
+    map.once("style.load", () => {
+      const nameField = ["coalesce", ["get", `name:${locale}`], ["get", locale === "en" ? "name_en" : "name"], ["get", "name"]];
+      for (const layer of map.getStyle().layers ?? []) {
+        if (layer.type === "symbol" && map.getLayoutProperty(layer.id, "text-field")) {
+          map.setLayoutProperty(layer.id, "text-field", nameField as never);
+        }
+      }
+    });
+  }, [theme, locale]);
 
   // Highlight the picked pin and bring its list row into view.
   useEffect(() => {
@@ -263,9 +301,14 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
           <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-col">
-                <span className="font-display text-lg font-medium">{activePoint.name}</span>
+                <Link href={`/${locale}/projects/${activePoint.slug}`} className="font-display text-lg font-medium text-ink no-underline hover:text-brass">
+                  {activePoint.name}
+                </Link>
                 <span className="text-[13px] text-muted">
-                  {activePoint.developer} · {activePoint.area}
+                  <Link href={`/${locale}/developers/${activePoint.developerSlug}`} className="text-muted underline-offset-2 hover:text-brass hover:underline">
+                    {activePoint.developer}
+                  </Link>{" "}
+                  · {activePoint.area}
                 </span>
               </div>
               <button type="button" aria-label="×" onClick={() => setActive(null)} className="size-8 flex-none rounded-full text-lg hover:bg-ground">

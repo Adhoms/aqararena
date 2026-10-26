@@ -17,6 +17,7 @@ export function toMapPoints(projects: Project[], developers: Developer[], insigh
         lng: p.location!.lng,
         name: p.name[locale],
         developer: devName.get(p.developerSlug) ?? "",
+        developerSlug: p.developerSlug,
         area: dict.areas[p.areaSlug],
         // Land area, not price: prices differ per unit, so the map shows size only.
         size: p.landFeddan ? fill(dict.projectPage.feddan, { n: p.landFeddan }) : undefined,

@@ -6,6 +6,7 @@ import { CompareTray } from "@/components/compare/compare-tray";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Spotlight } from "@/components/spotlight";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { MAX_COMPARE } from "@/lib/compare";
 import { fill } from "@/lib/format";
 import { getDictionary, getLocale } from "./dictionaries";
@@ -57,7 +58,12 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       lang={locale}
       dir={directionOf(locale)}
       className={`${plexArabic.variable} ${alexandria.variable} h-full antialiased`}
+      // The inline script below may set data-theme="dark" before React loads.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col font-sans leading-relaxed">
         <a
           href="#main"

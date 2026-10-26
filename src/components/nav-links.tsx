@@ -16,7 +16,7 @@ export function NavLinks({ links }: { links: { href: string; label: string }[] }
         className={`press relative my-2 rounded-full px-3.5 py-2 text-[15px] no-underline ${
           current
             ? "bg-brass-soft font-medium text-brass-dark hover:text-brass-dark"
-            : "text-body hover:bg-white/6 hover:text-ink"
+            : "text-body hover:bg-ink/5 hover:text-ink"
         }`}
       >
         {link.label}

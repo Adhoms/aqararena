@@ -235,33 +235,44 @@ export default async function HomePage() {
         </Container>
       )}
 
-      {/* ─── Developers ────────────────────────────────────────────── */}
-      <Container className="reveal flex flex-col gap-9 pt-24 pb-28 sm:pt-28">
-        <SectionHeading
-          title={dict.home.developersTitle}
-          action={
-            <Link href={`/${locale}/developers`} className="group inline-flex min-h-11 items-center gap-2 font-medium no-underline">
-              {dict.home.allDevelopers} <ArrowIcon locale={locale} />
-            </Link>
-          }
-        />
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,180px),1fr))] gap-4">
-          {developers.map((d) => (
-            <li key={d.slug}>
-              <Link
-                href={`/${locale}/developers/${d.slug}`}
-                className="spotlight flex h-full flex-col items-center gap-2.5 rounded-2xl border border-line bg-surface px-4 py-6 text-center text-ink no-underline transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-line-strong hover:text-ink"
-              >
-                <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-2xl bg-brand font-display text-xl text-brass-light">
-                  {d.name.en.replace("Developer ", "").charAt(0)}
-                </span>
-                <span className="font-semibold">{d.name[locale]}</span>
-                <span className="text-[13px] text-muted">{fill(dict.common.projectsCount, { n: devCounts[d.slug] ?? 0 })}</span>
+      {/* ─── Developers: a slow strip of names ─────────────────────── */}
+      <section aria-labelledby="developers-title" className="reveal pt-24 pb-28 sm:pt-28">
+        <Container>
+          <SectionHeading
+            title={<span id="developers-title">{dict.home.developersTitle}</span>}
+            action={
+              <Link href={`/${locale}/developers`} className="group inline-flex min-h-11 items-center gap-2 font-medium no-underline">
+                {dict.home.allDevelopers} <ArrowIcon locale={locale} />
               </Link>
-            </li>
-          ))}
-        </ul>
-      </Container>
+            }
+          />
+        </Container>
+        <div className="marquee mt-9 overflow-hidden border-y border-line py-6">
+          <div className="marquee-track flex w-max gap-4">
+            {[0, 1].map((copy) => (
+              <ul key={copy} aria-hidden={copy === 1 ? true : undefined} className="flex gap-4">
+                {developers.map((d) => (
+                  <li key={d.slug}>
+                    <Link
+                      href={`/${locale}/developers/${d.slug}`}
+                      tabIndex={copy === 1 ? -1 : undefined}
+                      className="press flex items-center gap-4 rounded-full border border-line bg-surface py-2 ps-2 pe-6 text-ink no-underline hover:border-brass hover:text-ink"
+                    >
+                      <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-brand font-display text-lg text-brass-light">
+                        {d.name.en.replace("Developer ", "").charAt(0)}
+                      </span>
+                      <span className="flex flex-col">
+                        <span className="font-semibold whitespace-nowrap">{d.name[locale]}</span>
+                        <span className="text-[13px] whitespace-nowrap text-muted">{fill(dict.common.projectsCount, { n: devCounts[d.slug] ?? 0 })}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </div>
+      </section>
     </>
   );
 }

@@ -4,13 +4,14 @@ import { BrandMark } from "./brand-mark";
 import { CompareLink } from "./compare/compare-link";
 import { LanguageSwitcher } from "./language-switcher";
 import { NavLinks } from "./nav-links";
+import { ThemeToggle } from "./theme-toggle";
 
 export async function SiteHeader() {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
   const target = locale === "ar" ? "en" : "ar";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-ground/72 shadow-[0_12px_32px_-24px_rgb(1_12_12/0.9)] backdrop-blur-xl backdrop-saturate-150 print:hidden">
+    <header className="sticky top-0 z-40 border-b border-line bg-ground/72 shadow-(--header-shadow) backdrop-blur-xl backdrop-saturate-150 print:hidden">
       <div className="mx-auto flex min-h-17 max-w-310 flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-6 md:gap-x-9">
         <Link href={`/${locale}`} aria-label={dict.nav.home} className="py-3 text-ink no-underline hover:text-ink">
           <BrandMark />
@@ -32,7 +33,8 @@ export async function SiteHeader() {
           />
         </nav>
 
-        <div className="ms-auto flex items-center gap-2 py-3 sm:gap-2.5 md:ms-0">
+        <div className="ms-auto flex items-center gap-1.5 py-3 sm:gap-2.5 md:ms-0">
+          <ThemeToggle toDark={dict.theme.toDark} toLight={dict.theme.toLight} />
           <LanguageSwitcher target={target} label={dict.language.switchTo} ariaLabel={dict.language.switchToLabel} />
           <CompareLink locale={locale} label={dict.nav.compareButton} countLabel={dict.nav.compareCount} />
         </div>

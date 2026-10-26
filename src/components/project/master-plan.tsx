@@ -32,7 +32,7 @@ export function MasterPlan({ zones, panels, labels }: Props) {
           {zones.map((z) => {
             const selected = z.id === active;
             const idle =
-              z.kind === "GREEN" ? "border-[#2f6650] bg-plan-green text-[#d6e8dc]" : "border-photo-deep bg-surface text-ink hover:border-ink";
+              z.kind === "GREEN" ? "border-brand-3/40 bg-plan-green text-ink" : "border-photo-deep bg-surface text-ink hover:border-ink";
             return (
               <button
                 key={z.id}

@@ -1,51 +1,111 @@
 @import "tailwindcss";
 
-/* AqarArena tokens, from the approved design: deep evergreen, quiet brass, stone neutrals.
-   Text/background pairs used in the components meet WCAG AA (4.5:1). */
+/* Dark mode is opt-in: <html data-theme="dark">. Light is the default. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* AqarArena tokens. Light ("Forest": green-tinted bone, forest-green ink and buttons, one amber
+   accent) is the default; the dark set below swaps in deep evergreen and brass.
+   Text/background pairs used in the components meet WCAG AA (4.5:1) in both. */
 @theme {
-  /* Dark luxury: deep evergreen ground, dark-glass surfaces, light hairlines. */
-  --color-ground: #081a1c;
-  /* Near-solid evergreen panel: readable over the blueprint without blurring scrolling content. */
-  --color-surface: rgb(14 39 41 / 0.9);
-  --color-line: rgb(255 255 255 / 0.1);
-  --color-line-strong: rgb(255 255 255 / 0.2);
-  --color-divider: rgb(255 255 255 / 0.07);
+  --color-ground: #edefe9;
+  --color-surface: rgb(251 252 249 / 0.94);
+  --color-line: rgb(16 38 33 / 0.1);
+  --color-line-strong: rgb(16 38 33 / 0.22);
+  --color-divider: rgb(16 38 33 / 0.07);
 
   /* Image placeholders until real photos arrive. */
-  --color-photo: #1d3a3d;
-  --color-photo-deep: #234548;
-  --color-plan: #10292b;
-  --color-plan-green: #1f4a3c;
+  --color-photo: #d5ddd6;
+  --color-photo-deep: #c4cfc6;
+  --color-plan: #e4e9e2;
+  --color-plan-green: #cfe1d3;
 
-  /* Text, light on dark. */
-  --color-ink: #f1f3f1;
-  --color-body: #c9d3d1;
-  --color-muted: #9fb1af;
+  --color-ink: #10231e;
+  --color-body: #34463f;
+  --color-muted: #586a63;
 
-  /* Buttons and dark bands: a lighter teal so they stand out from the ground. */
-  --color-brand: #24605c;
-  --color-brand-2: #2c716c;
-  --color-brand-3: #357d78;
-  --color-deep: #04100f;
-  --color-link: #e3c891;
-  --color-on-dark: #c8d2d1;
-  --color-on-dark-muted: #a9b8b7;
+  /* Buttons and green panels. */
+  --color-brand: #1d4a42;
+  --color-brand-2: #245a50;
+  --color-brand-3: #2c6a5e;
+  --color-deep: #0d221e;
+  --color-link: #8c5a0e;
+  --color-on-dark: #cfdbd6;
+  --color-on-dark-muted: #a8bbb4;
 
-  --color-brass: #d8b97e;
-  --color-brass-dark: #e8cf9e;
-  --color-brass-light: #cdae74;
-  --color-brass-soft: rgb(205 174 116 / 0.14);
-  --color-best: rgb(205 174 116 / 0.28);
+  /* Accent. "brass" = text on the page, "brass-light" = on green/dark panels and fills,
+     "brass-dark" = stronger text on the page, "brass-soft" = tinted chips. */
+  --color-brass: #8c5a0e;
+  --color-brass-dark: #74490a;
+  --color-brass-light: #e2a84a;
+  --color-brass-soft: rgb(201 138 30 / 0.14);
+  --color-best: rgb(201 138 30 / 0.24);
 
   --font-sans: var(--font-plex-arabic), system-ui, sans-serif;
   --font-display: var(--font-alexandria), var(--font-plex-arabic), system-ui, sans-serif;
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+    --bp-ink: #1d4a42;
+    --bp-nile: #2f7d8c;
+    --bp-opacity: 0.2;
+    --card-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 30px 60px -36px rgb(16 38 33 / 0.28);
+    --spot: rgb(201 138 30 / 0.5);
+    --grid-line: rgb(29 74 66 / 0.08);
+    --selection: rgb(226 168 74 / 0.35);
+    --header-shadow: 0 12px 32px -26px rgb(16 38 33 / 0.35);
+    --blob-a: rgba(226, 168, 74, 0.16);
+    --blob-b: rgba(120, 170, 150, 0.18);
+    --blob-c: rgba(29, 74, 66, 0.1);
+    --grain-opacity: 0.05;
+    --grain-blend: multiply;
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --color-ground: #081a1c;
+    --color-surface: rgb(14 39 41 / 0.9);
+    --color-line: rgb(255 255 255 / 0.1);
+    --color-line-strong: rgb(255 255 255 / 0.2);
+    --color-divider: rgb(255 255 255 / 0.07);
+    --color-photo: #1d3a3d;
+    --color-photo-deep: #234548;
+    --color-plan: #10292b;
+    --color-plan-green: #1f4a3c;
+    --color-ink: #f1f3f1;
+    --color-body: #c9d3d1;
+    --color-muted: #9fb1af;
+    --color-brand: #24605c;
+    --color-brand-2: #2c716c;
+    --color-brand-3: #357d78;
+    --color-deep: #04100f;
+    --color-link: #e3c891;
+    --color-on-dark: #c8d2d1;
+    --color-on-dark-muted: #a9b8b7;
+    --color-brass: #d8b97e;
+    --color-brass-dark: #e8cf9e;
+    --color-brass-light: #cdae74;
+    --color-brass-soft: rgb(205 174 116 / 0.14);
+    --color-best: rgb(205 174 116 / 0.28);
+
+    --bp-ink: #cdae74;
+    --bp-nile: #5fb3aa;
+    --bp-opacity: 0.45;
+    --card-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 30px 60px -32px rgb(1 12 12 / 0.85);
+    --spot: rgb(232 207 158 / 0.55);
+    --grid-line: rgb(205 174 116 / 0.09);
+    --selection: rgb(205 174 116 / 0.35);
+    --header-shadow: 0 12px 32px -24px rgb(1 12 12 / 0.9);
+    --blob-a: rgba(205, 174, 116, 0.26);
+    --blob-b: rgba(64, 140, 134, 0.34);
+    --blob-c: rgba(36, 96, 92, 0.5);
+    --grain-opacity: 0.09;
+    --grain-blend: overlay;
+  }
+
   html {
     scroll-behavior: smooth;
-    /* Native controls (selects, scrollbars) in dark style. */
-    color-scheme: dark;
   }
 
   body {
@@ -77,7 +137,7 @@
   }
 
   ::selection {
-    background: rgb(205 174 116 / 0.35);
+    background: var(--selection);
     color: var(--color-ink);
   }
 
@@ -152,10 +212,7 @@
 
 /* Cards get a soft lift and a light top edge (blur is kept for the fixed header and tray only). */
 .rounded-3xl.bg-surface {
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    inset 0 0 0 1px rgb(255 255 255 / 0.015),
-    0 30px 60px -32px rgb(1 12 12 / 0.85);
+  box-shadow: var(--card-shadow);
 }
 
 /* Ambient background: slow drifting light and film grain. */
@@ -245,7 +302,7 @@
   pointer-events: none;
   background: radial-gradient(
     420px circle at var(--mx, -999px) var(--my, -999px),
-    rgb(232 207 158 / 0.55),
+    var(--spot),
     transparent 45%
   );
   -webkit-mask:
@@ -280,7 +337,21 @@
 .plan-grid {
   background-image:
     radial-gradient(120% 90% at 85% 10%, transparent 30%, var(--color-plan) 78%),
-    linear-gradient(rgb(205 174 116 / 0.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(205 174 116 / 0.09) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 100% 100%, 28px 28px, 28px 28px;
+}
+
+/* Developer strip: two copies of the list slide by half their width, so the loop is seamless.
+   Pauses on hover/focus; static (and scrollable) for reduced-motion visitors. */
+@keyframes marquee { to { transform: translateX(-50%); } }
+@keyframes marquee-rtl { to { transform: translateX(50%); } }
+@media (prefers-reduced-motion: no-preference) {
+  .marquee-track { animation: marquee 48s linear infinite; }
+  [dir="rtl"] .marquee-track { animation-name: marquee-rtl; }
+  .marquee:hover .marquee-track,
+  .marquee:focus-within .marquee-track { animation-play-state: paused; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee { overflow-x: auto; }
 }

@@ -10,7 +10,7 @@ export function BrandMark({ onDark = false }: { onDark?: boolean }) {
       >
         A
       </span>
-      <span dir="ltr" className="font-display text-[21px] font-medium tracking-tight">
+      <span dir="ltr" className="font-display text-lg font-medium tracking-tight sm:text-[21px]">
         Aqar<span className={onDark ? "text-brass-light" : "text-brass"}>Arena</span>
       </span>
     </span>

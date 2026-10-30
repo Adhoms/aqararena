@@ -13,7 +13,7 @@ import type { Developer, Project } from "./types";
 //   (e.g. a preview build with no database).
 //
 // Results are cached for an hour under the "catalog" tag. After changing data, call
-// revalidateTag("catalog") (the future developer portal will) or wait for the hour to pass.
+// updateTag("catalog") (the admin actions in src/app/admin/actions.ts do) or wait for the hour to pass.
 
 export type { Developer, MasterPlanZone, PaymentPlan, Photo, Project, ProjectSummary, Text, Typology } from "./types";
 export { isCashPlan, monthlyFor, summarize } from "./summary";

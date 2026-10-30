@@ -1,0 +1,55 @@
+@reference "../globals.css";
+
+/* Admin-only building blocks. Plain and dense: this is a data-entry tool. */
+
+.admin-input {
+  @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20;
+}
+.admin-input[aria-invalid="true"] {
+  @apply border-red-600 ring-2 ring-red-600/15;
+}
+
+.admin-btn {
+  @apply inline-flex cursor-pointer items-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-medium text-white no-underline transition-colors hover:bg-brand-2 hover:text-white disabled:cursor-wait disabled:opacity-60;
+}
+.admin-btn-ghost {
+  @apply inline-flex cursor-pointer items-center gap-2 rounded-full border border-line-strong px-4 py-1.5 text-sm text-ink no-underline transition-colors hover:border-brand hover:text-ink;
+}
+.admin-btn-danger {
+  @apply inline-flex cursor-pointer items-center rounded-full border border-red-600/40 px-4 py-1.5 text-sm text-red-700 transition-colors hover:bg-red-600 hover:text-white dark:text-red-300;
+}
+
+.admin-panel {
+  @apply rounded-2xl border border-line bg-surface p-5 sm:p-6;
+}
+
+/* One saved row (unit type, plan, zone…) inside a panel. */
+.admin-item {
+  @apply rounded-xl border border-line p-4;
+}
+.admin-item > summary {
+  @apply flex cursor-pointer list-none flex-wrap items-center justify-between gap-2;
+}
+.admin-item > summary::-webkit-details-marker {
+  display: none;
+}
+.admin-item[open] > summary {
+  @apply mb-4 border-b border-divider pb-3;
+}
+
+.admin-table {
+  @apply w-full text-sm;
+}
+.admin-table th {
+  @apply border-b border-line px-3 py-2 text-start font-medium text-muted;
+}
+.admin-table td {
+  @apply border-b border-divider px-3 py-2.5 align-middle;
+}
+
+.admin-badge {
+  @apply inline-flex items-center rounded-full bg-brass-soft px-2.5 py-0.5 text-xs text-brass-dark;
+}
+.admin-badge-off {
+  @apply inline-flex items-center rounded-full bg-divider px-2.5 py-0.5 text-xs text-muted;
+}

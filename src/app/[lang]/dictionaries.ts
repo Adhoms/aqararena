@@ -13,8 +13,9 @@ const dictionaries: Record<Locale, () => Promise<Dictionary>> = {
 
 /** Current locale from the URL; 404s on anything other than ar/en. */
 export async function getLocale(): Promise<Locale> {
+  // `lang` is undefined under the /admin root layout, which has no locale.
   const locale = await lang();
-  if (!hasLocale(locale)) notFound();
+  if (!locale || !hasLocale(locale)) notFound();
   return locale;
 }
 

@@ -81,6 +81,12 @@ export type Project = {
   categories: PropertyCategory[];
   status: ProjectStatus;
   launchYear?: number;
+  /** ISO date of the launch, when known. */
+  launchDate?: string;
+  /** Refundable amount to reserve a unit at launch (EOI), in EGP. */
+  bookingFee?: number;
+  /** Official brochure (PDF) from the developer. */
+  brochureUrl?: string;
   deliveryYear: number;
   progressPct?: number;
   landFeddan?: number;
@@ -104,6 +110,8 @@ export type ProjectSummary = {
   minDownPct: number;
   maxYears: number;
   maxCashDiscountPct: number;
+  /** Lowest monthly equivalent for the cheapest unit across installment plans (0 when only cash). */
+  minMonthly: number;
   areaRange: [number, number];
   subTypes: SubType[];
   finishings: Finishing[];

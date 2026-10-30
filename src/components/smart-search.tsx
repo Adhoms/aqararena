@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { SearchResponse } from "@/app/api/search/route";
 import type { Locale } from "@/i18n/config";
 import { fill, formatMillions } from "@/lib/format";
-import type { AreaSlug, PropertyCategory, SubType } from "@/lib/property";
+import type { AreaSlug, FinishGroup, PropertyCategory, SubType } from "@/lib/property";
 import { filtersToSearchParams, parseSmartQuery, withoutChip, type Chip } from "@/lib/smart-search";
 
 export type SmartLabels = {
@@ -22,7 +22,8 @@ export type SmartLabels = {
   seeAll: string;
   searching: string;
   remove: string;
-  chips: Record<"maxPrice" | "maxDownPct" | "minYears" | "minBedrooms" | "deliveryBy" | "ready" | "q", string>;
+  chips: Record<"maxPrice" | "minPrice" | "maxDownPct" | "minYears" | "minBedrooms" | "deliveryBy" | "ready" | "q", string>;
+  finishGroups: Record<FinishGroup, string>;
   subTypes: Record<SubType, string>;
   categories: Record<PropertyCategory, string>;
   areas: Record<AreaSlug, string>;
@@ -45,6 +46,10 @@ function chipLabel(c: Chip, l: SmartLabels) {
       return l.chips.ready;
     case "maxPrice":
       return fill(l.chips.maxPrice, { n: Math.round((c.value / 1_000_000) * 100) / 100 });
+    case "minPrice":
+      return fill(l.chips.minPrice, { n: Math.round((c.value / 1_000_000) * 100) / 100 });
+    case "finish":
+      return l.finishGroups[c.value];
     case "q":
       return fill(l.chips.q, { q: c.value });
     default:

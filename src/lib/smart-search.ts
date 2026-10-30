@@ -4,7 +4,7 @@
 // and turns it into the same filters the projects page uses. Runs in the browser
 // (live chips as you type) and on the server (the results). No AI service involved.
 
-import type { AreaSlug, PropertyCategory, ProjectStatus, SubType } from "@/lib/property";
+import type { AreaSlug, FinishGroup, PropertyCategory, ProjectStatus, SubType } from "@/lib/property";
 
 export type SmartFilters = {
   q?: string;
@@ -16,6 +16,8 @@ export type SmartFilters = {
   maxDownPct?: number;
   minYears?: number;
   minBedrooms?: number;
+  finishes?: FinishGroup[];
+  minPrice?: number;
   maxPrice?: number;
 };
 
@@ -30,6 +32,8 @@ export type Chip =
   | { key: "minYears"; value: number }
   | { key: "minBedrooms"; value: number }
   | { key: "maxPrice"; value: number }
+  | { key: "minPrice"; value: number }
+  | { key: "finish"; value: FinishGroup }
   | { key: "q"; value: string };
 
 /** Letters that are written several ways in Arabic are folded to one form before matching. */
@@ -106,8 +110,37 @@ export function parseSmartQuery(input: string): { filters: SmartFilters; chips: 
     return m;
   };
 
+  // Price range: "من 3 ل 6 مليون", "بين 3 و 6 مليون", "3 to 6m"
+  const range = take(/(?:من|بين|from|between)?\s*(\d+(?:\.\d+)?)\s*(?:ل|الى|لحد|و|-|to|and)\s*(\d+(?:\.\d+)?)\s*(?:مليون|ملايين|million|mil|m)(?= |$)/);
+  if (range) {
+    const [lo, hi] = [Number(range[1]), Number(range[2])].sort((a, b) => a - b);
+    filters.minPrice = Math.round(lo * 1_000_000);
+    filters.maxPrice = Math.round(hi * 1_000_000);
+    chips.push({ key: "minPrice", value: filters.minPrice }, { key: "maxPrice", value: filters.maxPrice });
+  }
+
+  // Price floor: "فوق 5 مليون", "اكتر من 5 مليون", "over 5m"
+  const floor = range ? null : take(/(?:فوق|اكتر من|اكثر من|ابتداء من|over|above|more than|from)\s*(\d+(?:\.\d+)?)\s*(?:مليون|ملايين|million|mil|m)(?= |$)/);
+  if (floor) {
+    filters.minPrice = Math.round(Number(floor[1]) * 1_000_000);
+    chips.push({ key: "minPrice", value: filters.minPrice });
+  }
+
+  // Finishing: "متشطب", "تشطيب كامل", "نص تشطيب", "من غير تشطيب", "على المحاره", "fully finished", "core and shell"
+  const FINISH_WORDS: [FinishGroup, RegExp][] = [
+    ["semi", /(?:نص تشطيب|نصف تشطيب|semi finished|semi-finished)/],
+    ["core", /(?:من غير تشطيب|بدون تشطيب|علي المحاره|على المحاره|طوب احمر|core and shell|core & shell|unfinished)/],
+    ["full", /(?:تشطيب كامل|كامل التشطيب|متشطبه|متشطب|مفروشه|مفروش|fully finished|finished|furnished)/],
+  ];
+  for (const [group, re] of FINISH_WORDS) {
+    if (take(re)) {
+      (filters.finishes ??= []).push(group);
+      chips.push({ key: "finish", value: group });
+    }
+  }
+
   // Price ceiling: "تحت 6 مليون", "اقل من 6.5 مليون", "under 6m", "6 مليون"
-  const price = take(/(?:(?:اقل من|اقل|تحت|حتي|حتى|لحد|في حدود|بحد اقصي|under|below|max|up to|less than)\s*)?(\d+(?:\.\d+)?)\s*(?:مليون|ملايين|million|mil|m)(?= |$)/);
+  const price = range ? null : take(/(?:(?:اقل من|اقل|تحت|حتي|حتى|لحد|في حدود|بحد اقصي|under|below|max|up to|less than)\s*)?(\d+(?:\.\d+)?)\s*(?:مليون|ملايين|million|mil|m)(?= |$)/);
   if (price) {
     filters.maxPrice = Math.round(Number(price[1]) * 1_000_000);
     chips.push({ key: "maxPrice", value: filters.maxPrice });
@@ -208,6 +241,9 @@ export function withoutChip(filters: SmartFilters, chip: Chip): SmartFilters {
     case "category":
       delete next.category;
       break;
+    case "finish":
+      next.finishes = next.finishes?.filter((g) => g !== chip.value);
+      break;
     default:
       delete next[chip.key];
   }
@@ -226,6 +262,8 @@ export function filtersToSearchParams(f: SmartFilters): URLSearchParams {
   if (f.maxDownPct) p.set("down", String(f.maxDownPct));
   if (f.minYears) p.set("years", String(f.minYears));
   if (f.minBedrooms) p.set("beds", String(f.minBedrooms));
+  f.finishes?.forEach((g) => p.append("finish", g));
+  if (f.minPrice) p.set("min", String(f.minPrice));
   if (f.maxPrice) p.set("max", String(f.maxPrice));
   return p;
 }

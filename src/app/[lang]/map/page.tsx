@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
+import { pageAlternates } from "@/lib/site";
 import { mapLabels, toMapPoints } from "@/components/map/map-points";
 import { ProjectMap } from "@/components/map/project-map";
 import { getMarketInsights, listDevelopers, listProjects } from "@/lib/catalog";
 import { getDictionary, getLocale } from "../dictionaries";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const dict = await getDictionary();
-  return { title: dict.map.title };
+  const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
+  return { title: dict.map.title, alternates: pageAlternates(locale, "/map") };
 }
 
 export default async function MapPage() {

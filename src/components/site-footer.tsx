@@ -21,7 +21,8 @@ export async function SiteFooter() {
             <span className="font-semibold text-ink">{dict.footer.explore}</span>
             <Link href={`/${locale}/projects`} className={link}>{dict.nav.projects}</Link>
             <Link href={`/${locale}/developers`} className={link}>{dict.nav.developers}</Link>
-            <Link href={`/${locale}#areas`} className={link}>{dict.nav.areas}</Link>
+            <Link href={`/${locale}/areas`} className={link}>{dict.nav.areas}</Link>
+            <Link href={`/${locale}/new-launches`} className={link}>{dict.nav.newLaunches}</Link>
             <Link href={`/${locale}/compare`} className={link}>{dict.nav.compare}</Link>
           </div>
           <div className="flex flex-col gap-2">

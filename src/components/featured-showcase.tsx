@@ -7,8 +7,9 @@ import {
   type Project,
   type ProjectValue,
 } from "@/lib/catalog";
-import { fill, formatMillions } from "@/lib/format";
+import { fill, formatMillions, formatMoney } from "@/lib/format";
 import { CompareButton } from "./compare/compare-button";
+import { FavoriteButton } from "./favorites/favorite-button";
 import { ValueRing, valueText } from "./insights";
 import { artKindFor, ProjectArt } from "./project-art";
 import { ArrowIcon } from "./ui";
@@ -97,6 +98,11 @@ export function FeaturedShowcase({
                           {valueText(value, dict)}
                         </span>
                       )}
+                      {s.minMonthly > 0 && (
+                        <span className="w-full text-[13px] text-on-dark">
+                          {fill(dict.common.monthlyFrom, { amount: formatMoney(s.minMonthly, locale) })}
+                        </span>
+                      )}
                     </div>
                     <dl className="grid grid-cols-3 gap-3 border-t border-white/12 pt-4">
                       {[
@@ -120,16 +126,19 @@ export function FeaturedShowcase({
                         </div>
                       ))}
                     </dl>
-                    <CompareButton
-                      slug={project.slug}
-                      name={project.name}
-                      labels={{
-                        add: dict.common.addToCompare,
-                        added: dict.common.inCompare,
-                      }}
-                      variant="onImage"
-                    className="relative z-10 rounded-full"
-                    />
+                    <div className="relative z-10 flex gap-2">
+                      <CompareButton
+                        slug={project.slug}
+                        name={project.name}
+                        labels={{
+                          add: dict.common.addToCompare,
+                          added: dict.common.inCompare,
+                        }}
+                        variant="onImage"
+                      className="flex-1 rounded-full"
+                      />
+                      <FavoriteButton slug={project.slug} variant="onImage" labels={{ add: dict.favorites.add, remove: dict.favorites.remove }} />
+                    </div>
                   </div>
                 </div>
               </div>

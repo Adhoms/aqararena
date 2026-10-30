@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageAlternates } from "@/lib/site";
 import Link from "next/link";
 import { Container, SectionHeading } from "@/components/ui";
 import { countProjectsByDeveloper, listDevelopers } from "@/lib/catalog";
@@ -6,8 +7,8 @@ import { fill } from "@/lib/format";
 import { getDictionary, getLocale } from "../dictionaries";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const dict = await getDictionary();
-  return { title: dict.meta.developersTitle };
+  const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
+  return { title: dict.meta.developersTitle, alternates: pageAlternates(locale, "/developers") };
 }
 
 export default async function DevelopersPage() {

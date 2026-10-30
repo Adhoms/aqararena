@@ -1,5 +1,6 @@
 import { Check } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
+import { pageAlternates } from "@/lib/site";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { CompareShell, CompareSync, ProjectPicker, RestoreSavedList } from "@/components/compare/compare-client";
@@ -15,8 +16,8 @@ import { getDictionary, getLocale, type Dictionary } from "../dictionaries";
 type Locale = "ar" | "en";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const dict = await getDictionary();
-  return { title: dict.meta.compareTitle };
+  const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
+  return { title: dict.meta.compareTitle, alternates: pageAlternates(locale, "/compare") };
 }
 
 export default async function ComparePage({ searchParams }: PageProps<"/[lang]/compare">) {
@@ -266,6 +267,7 @@ function buildRows(
     row(r.startingPrice, sums.map((x) => formatMoney(x.startingPrice, locale)), sums.map((x) => x.startingPrice), "low"),
     row(r.pricePerM2, sums.map((x) => formatMoney(x.avgPricePerM2, locale)), sums.map((x) => x.avgPricePerM2), "low"),
     row(r.minDown, sums.map((x) => `${x.minDownPct}%`), sums.map((x) => x.minDownPct), "low"),
+    row(r.monthly, sums.map((x) => (x.minMonthly ? formatMoney(x.minMonthly, locale) : "-")), sums.map((x) => x.minMonthly || Infinity), "low"),
     row(r.maxYears, sums.map((x) => fill(dict.common.years, { n: x.maxYears })), sums.map((x) => x.maxYears), "high"),
     row(r.cash, sums.map((x) => (x.maxCashDiscountPct ? `${x.maxCashDiscountPct}%` : "-")), sums.map((x) => x.maxCashDiscountPct), "high"),
     row(r.maintenance, projects.map((p) => (p.fees.maintenancePct !== undefined ? `${formatNumber(p.fees.maintenancePct, locale)}%` : "-"))),

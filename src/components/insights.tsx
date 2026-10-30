@@ -46,7 +46,7 @@ export function AreaPriceBars({ insights, dict, locale, linkAreas = true }: { in
         return (
           <li key={a.area} className="grid grid-cols-[minmax(84px,160px)_minmax(0,1fr)] items-center gap-3 sm:gap-4">
             {linkAreas ? (
-              <Link href={`/${locale}/projects?area=${a.area}`} className="text-sm font-medium text-ink no-underline hover:text-brass-dark">
+              <Link href={`/${locale}/areas/${a.area}`} className="text-sm font-medium text-ink no-underline hover:text-brass-dark">
                 {name}
                 <span className="block text-xs font-normal text-muted">{fill(dict.insights.projects, { n: a.projects })}</span>
               </Link>

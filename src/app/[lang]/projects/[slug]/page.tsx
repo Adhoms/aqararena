@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CompareButton } from "@/components/compare/compare-button";
+import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { ContactGrid, ContactStack } from "@/components/contact-list";
+import { JsonLd } from "@/components/json-ld";
 import { MasterPlan } from "@/components/project/master-plan";
 import { ShareButton } from "@/components/share-button";
 import { Tabs, type Tab } from "@/components/tabs";
@@ -16,6 +18,7 @@ import {
   getMarketInsights,
   getProject,
   isCashPlan,
+  monthlyFor,
   listProjectSlugs,
   searchProjects,
   summarize,
@@ -27,6 +30,7 @@ import {
 import { compareHref } from "@/lib/compare";
 import { fill, formatMillions, formatMoney, formatNumber } from "@/lib/format";
 import { INSTALLMENTS_PER_YEAR, PHOTO_GROUPS, type SubType } from "@/lib/property";
+import { pageAlternates, SITE_URL } from "@/lib/site";
 import { getDictionary, getLocale, type Dictionary } from "../../dictionaries";
 
 type Locale = "ar" | "en";
@@ -39,7 +43,12 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/projects/[
   const [{ slug }, locale] = await Promise.all([params, getLocale()]);
   const project = await getProject(slug);
   if (!project) return {};
-  return { title: project.name[locale], description: project.description[locale] };
+  return {
+    title: project.name[locale],
+    description: project.description[locale],
+    alternates: pageAlternates(locale, `/projects/${slug}`),
+    openGraph: { title: project.name[locale], description: project.description[locale], url: `/${locale}/projects/${slug}`, type: "website" },
+  };
 }
 
 // Unit-type tabs, in the order they appear on the page.
@@ -116,8 +125,46 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
     [dict.common.delivery, String(project.deliveryYear)],
   ];
 
+  const url = `${SITE_URL}/${locale}/projects/${project.slug}`;
   return (
     <>
+      {/* What search engines read: a real-estate listing with its price range, place and developer. */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "RealEstateListing",
+          name: project.name[locale],
+          description: project.description[locale],
+          url,
+          inLanguage: locale,
+          ...(project.pricesUpdated && { dateModified: project.pricesUpdated }),
+          offers: {
+            "@type": "AggregateOffer",
+            priceCurrency: "EGP",
+            lowPrice: s.startingPrice,
+            highPrice: Math.max(...project.typologies.map((t) => t.priceFrom)),
+            offerCount: project.typologies.length,
+          },
+          about: {
+            "@type": "ApartmentComplex",
+            name: project.name[locale],
+            address: { "@type": "PostalAddress", addressLocality: dict.areas[project.areaSlug], addressCountry: "EG" },
+            ...(project.location && { geo: { "@type": "GeoCoordinates", latitude: project.location.lat, longitude: project.location.lng } }),
+          },
+          provider: { "@type": "Organization", name: developer.name[locale], url: `${SITE_URL}/${locale}/developers/${developer.slug}` },
+        }}
+      />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: dict.nav.homeShort, item: `${SITE_URL}/${locale}` },
+            { "@type": "ListItem", position: 2, name: dict.nav.projects, item: `${SITE_URL}/${locale}/projects` },
+            { "@type": "ListItem", position: 3, name: project.name[locale], item: url },
+          ],
+        }}
+      />
       {/* ─── Hero: the project's scene, full width, with the key numbers on top ─── */}
       <section className="relative isolate overflow-hidden bg-deep text-white">
         <ProjectArt seed={project.slug} kind={kind} tone={kind === "coastal" ? "day" : "dusk"} className="absolute inset-0 -z-10 size-full" />
@@ -132,7 +179,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               {dict.nav.projects}
             </Link>
             <span aria-hidden="true">/</span>
-            <Link href={`/${locale}/projects?area=${project.areaSlug}`} className="text-on-dark hover:text-white">
+            <Link href={`/${locale}/areas/${project.areaSlug}`} className="text-on-dark hover:text-white">
               {dict.areas[project.areaSlug]}
             </Link>
             <span aria-hidden="true">/</span>
@@ -174,6 +221,17 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                   labels={{ add: dict.common.addToCompare, added: dict.common.inCompare }}
                   className="press min-h-12 rounded-full border-0 bg-brass-light! px-5.5 text-brand! hover:bg-[#d8bc86]!"
                 />
+                <FavoriteButton slug={project.slug} variant="onImage" labels={{ add: dict.favorites.add, remove: dict.favorites.remove }} className="size-12" />
+                {project.brochureUrl && (
+                  <a
+                    href={project.brochureUrl}
+                    target="_blank"
+                    rel="noopener"
+                    className="press inline-flex min-h-12 items-center rounded-full border border-white/30 bg-white/10 px-5 text-[15px] text-white no-underline backdrop-blur hover:bg-white/20 hover:text-white"
+                  >
+                    {p.brochure}
+                  </a>
+                )}
               </div>
             </div>
             <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/15 bg-white/10 backdrop-blur-md sm:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
@@ -328,6 +386,15 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               </span>
             )}
           </div>
+          {project.bookingFee && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-brass/40 bg-brass-soft px-5 py-4">
+              <span className="flex flex-col">
+                <span className="font-semibold">{dict.newLaunches.bookingFee}</span>
+                <span className="text-[13px] text-muted">{dict.newLaunches.bookingNote}</span>
+              </span>
+              <span className="font-display text-2xl text-brass">{formatMoney(project.bookingFee, locale)}</span>
+            </div>
+          )}
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-5">
             {project.paymentPlans.map((plan, i) => (
               <li key={i}>
@@ -540,11 +607,19 @@ function PlanCard({ plan, price, locale, dict }: { plan: PaymentPlan; price: num
   const example = cash
     ? formatMoney(price * (1 - (plan.cashDiscountPct ?? 0) / 100), locale)
     : `~${formatMoney(Math.round(installment / 50) * 50, locale)} ${dict.frequencyPer[plan.frequency]}`;
+  const round = (n: number) => formatMoney(Math.round(n / 50) * 50, locale);
   const rows: [string, string][] = [
     [p.planYears, cash ? "-" : fill(dict.common.years, { n: plan.years })],
     [p.planFrequency, cash ? p.oneOff : dict.frequency[plan.frequency]],
     [p.planDelivery, cash ? "-" : plan.deliveryPaymentPct ? `${plan.deliveryPaymentPct}%` : p.none],
     [fill(p.planExample, { price: formatMillions(price, locale) }), example],
+    ...(cash
+      ? []
+      : ([
+          [p.downAmount, round((price * plan.downPaymentPct) / 100)],
+          ...(plan.deliveryPaymentPct ? [[p.deliveryAmount, round((price * plan.deliveryPaymentPct) / 100)]] : []),
+          ...(plan.frequency !== "MONTHLY" ? [[p.monthlyEq, `~${round(monthlyFor(price, plan))}`]] : []),
+        ] as [string, string][])),
   ];
   return (
     <article className="flex h-full flex-col gap-4 rounded-3xl border border-line bg-surface p-6">

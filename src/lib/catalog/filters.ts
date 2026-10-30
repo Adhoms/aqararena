@@ -1,4 +1,4 @@
-import type { AreaSlug, ProjectStatus, PropertyCategory, SubType } from "@/lib/property";
+import { finishingsOf, type AreaSlug, type FinishGroup, type ProjectStatus, type PropertyCategory, type SubType } from "@/lib/property";
 import { summarize } from "./summary";
 import type { Developer, Project } from "./types";
 
@@ -14,14 +14,17 @@ export type ProjectFilters = {
   deliveryBy?: number;
   maxDownPct?: number;
   minYears?: number;
-  /** A project matches when one of its unit types has the type, bedrooms and price asked for. */
+  /** A project matches when one of its unit types has the type, bedrooms, finishing and price asked for. */
   subTypes?: SubType[];
   minBedrooms?: number;
+  finishes?: FinishGroup[];
+  minPrice?: number;
   maxPrice?: number;
   sort?: Sort;
 };
 
-export const needsUnitMatch = (f: ProjectFilters) => Boolean(f.subTypes?.length || f.minBedrooms || f.maxPrice);
+export const needsUnitMatch = (f: ProjectFilters) =>
+  Boolean(f.subTypes?.length || f.minBedrooms || f.finishes?.length || f.minPrice || f.maxPrice);
 
 export function sortProjects(list: Project[], sort: Sort = "newest"): Project[] {
   const by: Record<Sort, (a: Project, b: Project) => number> = {
@@ -37,6 +40,7 @@ export function sortProjects(list: Project[], sort: Sort = "newest"): Project[] 
 export function filterProjects(list: Project[], developers: Developer[], f: ProjectFilters): Project[] {
   const q = f.q?.trim().toLowerCase();
   const devNames = new Map(developers.map((d) => [d.slug, `${d.name.ar} ${d.name.en}`.toLowerCase()]));
+  const finishings = f.finishes?.length ? finishingsOf(f.finishes) : undefined;
   return list.filter((p) => {
     const s = summarize(p);
     if (q && !`${p.name.ar} ${p.name.en} ${devNames.get(p.developerSlug) ?? ""}`.toLowerCase().includes(q)) return false;
@@ -53,6 +57,8 @@ export function filterProjects(list: Project[], developers: Developer[], f: Proj
         (t) =>
           (!f.subTypes?.length || f.subTypes.includes(t.subType)) &&
           (!f.minBedrooms || (t.bedrooms ?? 0) >= f.minBedrooms) &&
+          (!finishings || finishings.includes(t.finishing)) &&
+          (!f.minPrice || t.priceFrom >= f.minPrice) &&
           (!f.maxPrice || t.priceFrom <= f.maxPrice),
       )
     )

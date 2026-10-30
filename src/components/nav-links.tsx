@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /** Main menu links; marks the section the visitor is in. */
-export function NavLinks({ links }: { links: { href: string; label: string }[] }) {
+export function NavLinks({ links }: { links: { href: string; label: string; mobileOnly?: boolean }[] }) {
   const pathname = usePathname();
   return links.map((link) => {
     const current = !link.href.includes("#") && pathname.startsWith(link.href);
@@ -13,7 +13,7 @@ export function NavLinks({ links }: { links: { href: string; label: string }[] }
         key={link.href}
         href={link.href}
         aria-current={current ? "page" : undefined}
-        className={`press relative my-2 rounded-full px-3.5 py-2 text-[15px] no-underline ${
+        className={`press relative my-2 rounded-full px-3.5 py-2 text-[15px] no-underline ${link.mobileOnly ? "md:hidden" : ""} ${
           current
             ? "bg-brass-soft font-medium text-brass-dark hover:text-brass-dark"
             : "text-body hover:bg-ink/5 hover:text-ink"

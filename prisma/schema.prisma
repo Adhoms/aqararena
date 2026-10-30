@@ -181,6 +181,8 @@ model Project {
   progressPct     Int?
   /// When the developer last confirmed the prices and payment plans.
   pricesUpdatedAt DateTime?     @db.Date
+  /// Refundable amount to reserve a unit at launch (EOI), in EGP.
+  bookingFee      Decimal?      @db.Decimal(12, 2)
   /// Amenity keys such as "clubhouse", "underground_parking", "mall", "school".
   amenities       String[]
   /// Base URL of the tiled master-plan image set.

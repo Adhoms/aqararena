@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageAlternates } from "@/lib/site";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FilterForm } from "@/components/filter-form";
@@ -9,12 +10,12 @@ import { readFilters } from "@/lib/catalog/read-filters";
 import { smartLabels } from "@/components/smart-labels";
 import { SmartSearch } from "@/components/smart-search";
 import { fill } from "@/lib/format";
-import { AREA_SLUGS, PROJECT_STATUSES, PROPERTY_CATEGORIES } from "@/lib/property";
+import { AREA_SLUGS, FINISH_GROUP_KEYS, PROJECT_STATUSES, PROPERTY_CATEGORIES } from "@/lib/property";
 import { getDictionary, getLocale, type Dictionary } from "../dictionaries";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const dict = await getDictionary();
-  return { title: dict.meta.projectsTitle };
+  const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
+  return { title: dict.meta.projectsTitle, alternates: pageAlternates(locale, "/projects") };
 }
 
 type Search = Record<string, string | string[] | undefined>;
@@ -61,6 +62,8 @@ function withParam(locale: string, params: Search, key: string, value: string | 
 const select =
   "min-h-11.5 w-full rounded-xl border border-line-strong bg-surface px-3 text-[15px] font-normal text-ink focus:border-brand focus:outline-none";
 const legend = "mb-1.5 p-0 text-sm font-semibold";
+/** Price choices in the sidebar, in EGP. */
+const PRICE_STEPS = [2, 3, 5, 8, 12, 20, 30, 50].map((m) => m * 1_000_000);
 
 async function Results({ searchParams, locale, dict }: { searchParams: Promise<Search>; locale: "ar" | "en"; dict: Dictionary }) {
   const params = await searchParams;
@@ -74,7 +77,6 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
   const smartChips = [
     ...(f.subTypes ?? []).map((t) => ({ label: dict.subTypes[t], href: withoutValue(locale, params, "type", t) })),
     ...(f.minBedrooms ? [{ label: fill(dict.smart.chips.minBedrooms, { n: f.minBedrooms }), href: withParam(locale, params, "beds", undefined) }] : []),
-    ...(f.maxPrice ? [{ label: fill(dict.smart.chips.maxPrice, { n: Math.round((f.maxPrice / 1e6) * 100) / 100 }), href: withParam(locale, params, "max", undefined) }] : []),
     ...(f.q ? [{ label: fill(dict.smart.chips.q, { q: f.q }), href: withParam(locale, params, "q", undefined) }] : []),
   ];
 
@@ -88,7 +90,6 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
       {f.q && <input type="hidden" name="q" value={f.q} />}
       {f.subTypes?.map((t) => <input key={t} type="hidden" name="type" value={t} />)}
       {f.minBedrooms && <input type="hidden" name="beds" value={f.minBedrooms} />}
-      {f.maxPrice && <input type="hidden" name="max" value={f.maxPrice} />}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -176,6 +177,39 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
               <label key={s} className="flex min-h-9 items-center gap-2.5 text-[15px]">
                 <input type="checkbox" name="status" value={s} defaultChecked={f.statuses?.includes(s)} className="size-4.5 accent-brand" />
                 {dict.status[s]}
+              </label>
+            ))}
+          </fieldset>
+
+          <fieldset className="m-0 flex flex-col border-0 p-0">
+            <legend className={legend}>{p.price}</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(["min", "max"] as const).map((key) => {
+                const current = key === "min" ? f.minPrice : f.maxPrice;
+                const steps = [...new Set([...PRICE_STEPS, ...(current ? [current] : [])])].sort((a, b) => a - b);
+                return (
+                  <label key={key} className="flex flex-col gap-1 text-xs font-medium text-muted">
+                    {key === "min" ? p.priceFrom : p.priceTo}
+                    <select name={key} defaultValue={current ?? ""} className={select}>
+                      <option value="">{p.anyPrice}</option>
+                      {steps.map((n) => (
+                        <option key={n} value={n}>
+                          {fill(p.millions, { n: Math.round((n / 1e6) * 100) / 100 })}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset className="m-0 flex flex-col border-0 p-0">
+            <legend className={legend}>{p.finishing}</legend>
+            {FINISH_GROUP_KEYS.map((g) => (
+              <label key={g} className="flex min-h-9 items-center gap-2.5 text-[15px]">
+                <input type="checkbox" name="finish" value={g} defaultChecked={f.finishes?.includes(g)} className="size-4.5 accent-brand" />
+                {dict.finishGroups[g]}
               </label>
             ))}
           </fieldset>

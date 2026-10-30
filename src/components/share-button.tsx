@@ -3,11 +3,26 @@
 import { useState } from "react";
 
 /** Opens the phone's share sheet, or copies the page link on desktop. */
-export function ShareButton({ label, copiedLabel, title, className = "" }: { label: string; copiedLabel: string; title: string; className?: string }) {
+/** `addQuery` (e.g. "shared=1") is added to the shared link only, not to the page the visitor is on. */
+export function ShareButton({
+  label,
+  copiedLabel,
+  title,
+  addQuery,
+  className = "",
+}: {
+  label: string;
+  copiedLabel: string;
+  title: string;
+  addQuery?: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function share() {
-    const url = window.location.href;
+    const link = new URL(window.location.href);
+    if (addQuery) new URLSearchParams(addQuery).forEach((v, k) => link.searchParams.set(k, v));
+    const url = link.toString();
     if (navigator.share) {
       try {
         await navigator.share({ title, url });

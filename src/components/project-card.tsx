@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import type { Locale } from "@/i18n/config";
-import { summarize, type Developer, type Project, type ProjectValue } from "@/lib/catalog";
+import { summarize, type BudgetFit, type Developer, type Project, type ProjectValue } from "@/lib/catalog";
 import { fill, formatMillions, formatMoney } from "@/lib/format";
 import { CompareButton } from "./compare/compare-button";
 import { FavoriteButton } from "./favorites/favorite-button";
@@ -18,9 +18,11 @@ type Props = {
   /** "feature" for the lead project on the home page, "large" for the home page, "compact" for result grids. */
   size?: "feature" | "large" | "compact";
   badge?: "featured" | "status";
+  /** During a budget search: the best unit type and plan the visitor's budget covers. */
+  fit?: BudgetFit;
 };
 
-export function ProjectCard({ project, developer, locale, dict, value, size = "compact", badge = "status" }: Props) {
+export function ProjectCard({ project, developer, locale, dict, value, size = "compact", badge = "status", fit }: Props) {
   const s = summarize(project);
   const href = `/${locale}/projects/${project.slug}`;
   const feature = size === "feature";
@@ -76,8 +78,15 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
         {value && (
           <span className={`text-[13px] font-medium ${value.vsAreaPct < -1 ? "text-link" : "text-muted"}`}>{valueText(value, dict)}</span>
         )}
-        {s.minMonthly > 0 && (
-          <span className="text-[13px] text-body">{fill(dict.common.monthlyFrom, { amount: formatMoney(s.minMonthly, locale) })}</span>
+        {fit ? (
+          <BudgetFitLine fit={fit} locale={locale} dict={dict} />
+        ) : (
+          s.entryDown > 0 && (
+            // The down payment in pounds next to the monthly figure of the same plan, never a monthly figure alone.
+            <span className="text-[13px] text-body">
+              {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale), monthly: formatMoney(s.entryMonthly, locale) })}
+            </span>
+          )
         )}
 
         <div className="grid grid-cols-3 gap-2 border-y border-divider py-3">
@@ -99,5 +108,22 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
         </div>
       </div>
     </article>
+  );
+}
+
+function BudgetFitLine({ fit, locale, dict }: { fit: BudgetFit; locale: Locale; dict: Dictionary }) {
+  const b = dict.budget;
+  const unit = fit.typology.name[locale];
+  const money = (n: number) => formatMoney(Math.round(n / 1000) * 1000, locale);
+  return (
+    <span className="flex flex-col gap-0.5 rounded-2xl bg-brass-soft px-3.5 py-2.5 text-[13px] text-ink">
+      <span className="font-semibold text-link">{b.fitTitle}</span>
+      <span>
+        {fit.monthly
+          ? fill(b.fitLine, { unit, down: money(fit.down), monthly: formatMoney(Math.round(fit.monthly / 100) * 100, locale) })
+          : fill(b.fitCash, { unit, total: money(fit.down) })}
+      </span>
+      {fit.delivery > 0 && <span className="text-muted">{fill(b.fitDelivery, { amount: money(fit.delivery) })}</span>}
+    </span>
   );
 }

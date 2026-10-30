@@ -355,7 +355,8 @@
       "maxYears": "Longest installment term",
       "cash": "Cash discount",
       "maintenance": "Maintenance deposit",
-      "monthly": "Lowest monthly"
+      "monthly": "Lowest monthly",
+      "downAmount": "Lowest down payment (EGP)"
     },
     "masterPlanPreview": "Master plan preview",
     "projectPage": "Project page",
@@ -526,5 +527,68 @@
     "call": "Call the developer",
     "empty": "No new launches right now. Check back soon.",
     "count": "{n} launches"
+  },
+  "budget": {
+    "eyebrow": "Search by budget",
+    "title": "Tell us what you have. We'll show you what it buys.",
+    "text": "Most sites ask for a unit price. We ask what actually matters: the cash you have for the down payment and the installment you can pay each month. We check it against every unit type and every payment plan.",
+    "cash": "Cash for the down payment (EGP)",
+    "monthly": "Highest monthly installment (EGP)",
+    "cashPlaceholder": "e.g. 1000000",
+    "monthlyPlaceholder": "e.g. 30000",
+    "submit": "Show me what fits",
+    "examplesLabel": "Or try:",
+    "examples": [
+      {
+        "label": "400K down · 30K a month",
+        "cash": 400000,
+        "monthly": 30000
+      },
+      {
+        "label": "1M down · 40K a month",
+        "cash": 1000000,
+        "monthly": 40000
+      },
+      {
+        "label": "3M in cash",
+        "cash": 3000000,
+        "monthly": 0
+      }
+    ],
+    "filterTitle": "Your budget",
+    "filterHint": "We work out the down payment and installment for every unit type and plan.",
+    "fitTitle": "Fits your budget",
+    "fitLine": "{unit}: {down} down, then ~{monthly} a month",
+    "fitCash": "{unit}: {total} cash",
+    "fitDelivery": "+ {amount} at handover",
+    "entryLine": "{down} down, then ~{monthly} a month",
+    "chipCash": "Down up to {amount}",
+    "chipMonthly": "Up to {amount} a month",
+    "emptyBudget": "No unit in these projects fits this budget. Try a higher down payment or installment, or remove other filters.",
+    "note": "Approximate: (unit price − down payment − handover payment) ÷ months, from the developer's published prices."
+  },
+  "calculator": {
+    "title": "Work out your plan in pounds",
+    "sub": "Pick a unit type and a payment plan to see every pound you'll pay, and when.",
+    "unit": "Unit type",
+    "plan": "Payment plan",
+    "price": "Unit price",
+    "cashPrice": "Price after cash discount",
+    "atContract": "Due at contract",
+    "installment": "Installment",
+    "installmentsCount": "{n} installments over {years} years",
+    "monthlyEq": "Monthly equivalent",
+    "delivery": "Handover payment",
+    "maintenance": "Maintenance deposit ({pct}%)",
+    "firstYear": "Paid in the first year",
+    "total": "Total you'll pay",
+    "split": "How the payments split",
+    "parts": {
+      "down": "Down payment",
+      "installments": "Installments",
+      "delivery": "Handover",
+      "maintenance": "Maintenance"
+    },
+    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest."
   }
 }

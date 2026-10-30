@@ -1,7 +1,7 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { AreaSlug } from "@/lib/property";
-import { filterProjects, sortProjects, type ProjectFilters } from "./filters";
+import { filterProjects, sortProjects, withinBudget, type ProjectFilters } from "./filters";
 import { computeInsights, type MarketInsights } from "./insights";
 import * as sample from "./sample-data";
 import type { Developer, Project } from "./types";
@@ -18,6 +18,7 @@ import type { Developer, Project } from "./types";
 export type { Developer, MasterPlanZone, PaymentPlan, Photo, Project, ProjectSummary, Text, Typology } from "./types";
 export { isCashPlan, monthlyFor, summarize } from "./summary";
 export { SORTS, type ProjectFilters, type Sort } from "./filters";
+export { bestBudgetFit, budgetFits, hasBudget, type Budget, type BudgetFit } from "./budget";
 export type { AreaInsight, MarketInsights, ProjectValue } from "./insights";
 
 export const CATALOG_TAG = "catalog";
@@ -61,7 +62,8 @@ export async function searchProjects(filters: ProjectFilters): Promise<Project[]
   const found = usesDatabase
     ? await (await source()).dbProjects((await source()).filtersToWhere(filters))
     : filterProjects(sample.projects, sample.developers, filters);
-  return sortProjects(found, filters.sort);
+  // The budget check needs every unit type × plan, so it runs here for both sources.
+  return sortProjects(withinBudget(found, filters), filters.sort);
 }
 
 export async function getMarketInsights(): Promise<MarketInsights> {

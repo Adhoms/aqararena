@@ -112,6 +112,13 @@ export type ProjectSummary = {
   maxCashDiscountPct: number;
   /** Lowest monthly equivalent for the cheapest unit across installment plans (0 when only cash). */
   minMonthly: number;
+  /**
+   * The cheapest way in: the cheapest unit on the plan with the lowest down payment. Cards show the
+   * down payment in EGP next to the monthly figure of that same plan, so the two always belong together.
+   * Both 0 when the project only sells for cash.
+   */
+  entryDown: number;
+  entryMonthly: number;
   areaRange: [number, number];
   subTypes: SubType[];
   finishings: Finishing[];

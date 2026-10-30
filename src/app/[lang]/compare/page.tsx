@@ -267,6 +267,12 @@ function buildRows(
     row(r.startingPrice, sums.map((x) => formatMoney(x.startingPrice, locale)), sums.map((x) => x.startingPrice), "low"),
     row(r.pricePerM2, sums.map((x) => formatMoney(x.avgPricePerM2, locale)), sums.map((x) => x.avgPricePerM2), "low"),
     row(r.minDown, sums.map((x) => `${x.minDownPct}%`), sums.map((x) => x.minDownPct), "low"),
+    row(
+      r.downAmount,
+      sums.map((x) => (x.entryDown ? formatMoney(x.entryDown, locale) : "-")),
+      sums.map((x) => x.entryDown || Infinity),
+      "low",
+    ),
     row(r.monthly, sums.map((x) => (x.minMonthly ? formatMoney(x.minMonthly, locale) : "-")), sums.map((x) => x.minMonthly || Infinity), "low"),
     row(r.maxYears, sums.map((x) => fill(dict.common.years, { n: x.maxYears })), sums.map((x) => x.maxYears), "high"),
     row(r.cash, sums.map((x) => (x.maxCashDiscountPct ? `${x.maxCashDiscountPct}%` : "-")), sums.map((x) => x.maxCashDiscountPct), "high"),

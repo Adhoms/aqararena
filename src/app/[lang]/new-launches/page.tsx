@@ -93,7 +93,11 @@ export default async function NewLaunchesPage() {
                       ))}
                     </ul>
                   </div>
-                  {s.minMonthly > 0 && <span className="text-[13px] text-body">{fill(dict.common.monthlyFrom, { amount: formatMoney(s.minMonthly, locale) })}</span>}
+                  {s.entryDown > 0 && (
+                    <span className="text-[13px] text-body">
+                      {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale), monthly: formatMoney(s.entryMonthly, locale) })}
+                    </span>
+                  )}
                 </div>
 
                 {/* Booking deposit and actions */}

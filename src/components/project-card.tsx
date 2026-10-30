@@ -2,8 +2,9 @@ import Link from "next/link";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import type { Locale } from "@/i18n/config";
 import { summarize, type Developer, type Project, type ProjectValue } from "@/lib/catalog";
-import { fill, formatMillions } from "@/lib/format";
+import { fill, formatMillions, formatMoney } from "@/lib/format";
 import { CompareButton } from "./compare/compare-button";
+import { FavoriteButton } from "./favorites/favorite-button";
 import { ValueRing, valueText } from "./insights";
 import { artKindFor, ProjectArt } from "./project-art";
 import { Stat } from "./ui";
@@ -75,6 +76,9 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
         {value && (
           <span className={`text-[13px] font-medium ${value.vsAreaPct < -1 ? "text-link" : "text-muted"}`}>{valueText(value, dict)}</span>
         )}
+        {s.minMonthly > 0 && (
+          <span className="text-[13px] text-body">{fill(dict.common.monthlyFrom, { amount: formatMoney(s.minMonthly, locale) })}</span>
+        )}
 
         <div className="grid grid-cols-3 gap-2 border-y border-divider py-3">
           <Stat label={dict.common.lowestDown} value={`${s.minDownPct}%`} />
@@ -91,6 +95,7 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
             labels={{ add: dict.common.addToCompare, added: dict.common.inCompare }}
             className="flex-1"
           />
+          <FavoriteButton slug={project.slug} labels={{ add: dict.favorites.add, remove: dict.favorites.remove }} />
         </div>
       </div>
     </article>

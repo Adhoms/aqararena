@@ -40,6 +40,16 @@ export const FINISHING_TYPES = [
 ] as const;
 export type Finishing = (typeof FINISHING_TYPES)[number];
 
+/** How visitors filter by finishing: three plain choices, each covering one or more finishing types. */
+export const FINISH_GROUPS = {
+  core: ["CORE_AND_SHELL"],
+  semi: ["SEMI_FINISHED"],
+  full: ["FULLY_FINISHED", "FULLY_FINISHED_WITH_AC", "FURNISHED"],
+} as const satisfies Record<string, readonly Finishing[]>;
+export type FinishGroup = keyof typeof FINISH_GROUPS;
+export const FINISH_GROUP_KEYS = Object.keys(FINISH_GROUPS) as FinishGroup[];
+export const finishingsOf = (groups: FinishGroup[]): Finishing[] => groups.flatMap((g) => [...FINISH_GROUPS[g]]);
+
 export const PROJECT_STATUSES = ["LAUNCH", "UNDER_CONSTRUCTION", "READY", "DELIVERED"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
@@ -99,4 +109,5 @@ export const INSTALLMENTS_PER_YEAR: Record<InstallmentFrequency, number> = {
 };
 
 export const isSubType = (v: unknown): v is SubType => isOneOf(SUB_TYPES, v);
+export const isFinishGroup = (v: unknown): v is FinishGroup => isOneOf(FINISH_GROUP_KEYS, v);
 export const isAmenity = (v: unknown): v is Amenity => isOneOf(AMENITIES, v);

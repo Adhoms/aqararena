@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/json-ld";
+import { pageAlternates, SITE_URL } from "@/lib/site";
 import { ValueRing, AreaPriceBars, valueText } from "@/components/insights";
 import { mapLabels, toMapPoints } from "@/components/map/map-points";
 import { ProjectMap } from "@/components/map/project-map";
@@ -24,6 +27,10 @@ import { getDictionary, getLocale, type Dictionary } from "./dictionaries";
 // One icon per "what every project page shows" item, in the dictionary's order.
 const PILLAR_ICONS = [MapTrifold, Coins, Buildings, Images, Phone];
 
+export async function generateMetadata(): Promise<Metadata> {
+  return { alternates: pageAlternates(await getLocale()) };
+}
+
 export default async function HomePage() {
   const [locale, dict, featured, all, developers, devCounts, insights] = await Promise.all([
     getLocale(),
@@ -41,6 +48,21 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Lets search engines show a search box for the site, wired to the smart search. */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "AqarArena",
+          url: `${SITE_URL}/${locale}`,
+          inLanguage: locale,
+          potentialAction: {
+            "@type": "SearchAction",
+            target: `${SITE_URL}/${locale}/projects?q={search_term_string}`,
+            "query-input": "required name=search_term_string",
+          },
+        }}
+      />
       {/* ─── Hero: full screen, the search is the star ─────────────── */}
       <section className="relative isolate overflow-hidden bg-deep text-white">
         {heroProject && (

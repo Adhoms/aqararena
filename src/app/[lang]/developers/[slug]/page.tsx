@@ -10,6 +10,7 @@ import { artKindFor, ProjectArt } from "@/components/project-art";
 import { getDeveloper, getProjectsByDeveloper, listDevelopers, summarize } from "@/lib/catalog";
 import { fill, formatMoney } from "@/lib/format";
 import { AREA_SLUGS } from "@/lib/property";
+import { pageAlternates } from "@/lib/site";
 import { getDictionary, getLocale } from "../../dictionaries";
 
 export async function generateStaticParams() {
@@ -19,7 +20,9 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/[lang]/developers/[slug]">): Promise<Metadata> {
   const [{ slug }, locale] = await Promise.all([params, getLocale()]);
   const developer = await getDeveloper(slug);
-  return developer ? { title: developer.name[locale], description: developer.about[locale] } : {};
+  return developer
+    ? { title: developer.name[locale], description: developer.about[locale], alternates: pageAlternates(locale, `/developers/${slug}`) }
+    : {};
 }
 
 const badgeTone = {

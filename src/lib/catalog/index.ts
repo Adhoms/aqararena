@@ -16,7 +16,7 @@ import type { Developer, Project } from "./types";
 // revalidateTag("catalog") (the future developer portal will) or wait for the hour to pass.
 
 export type { Developer, MasterPlanZone, PaymentPlan, Photo, Project, ProjectSummary, Text, Typology } from "./types";
-export { isCashPlan, summarize } from "./summary";
+export { isCashPlan, monthlyFor, summarize } from "./summary";
 export { SORTS, type ProjectFilters, type Sort } from "./filters";
 export type { AreaInsight, MarketInsights, ProjectValue } from "./insights";
 

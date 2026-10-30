@@ -18,7 +18,9 @@
     "compareButton": "Compare",
     "compareCount": "{n} in compare",
     "map": "Map",
-    "skip": "Skip to content"
+    "skip": "Skip to content",
+    "favorites": "Favorites",
+    "newLaunches": "New launches"
   },
   "language": {
     "switchTo": "العربية",
@@ -132,7 +134,8 @@
     "photo": "Project photo",
     "logo": "Logo",
     "seeAll": "See all",
-    "placeholderImage": "Photo"
+    "placeholderImage": "Photo",
+    "monthlyFrom": "Monthly from {amount}"
   },
   "home": {
     "eyebrow": "Egypt's real estate project guide",
@@ -219,7 +222,13 @@
     "yearsPlus": "{n}+ years",
     "apply": "Show results",
     "empty": "No projects match these filters. Try removing some.",
-    "loading": "Loading projects…"
+    "loading": "Loading projects…",
+    "finishing": "Finishing",
+    "price": "Price",
+    "priceFrom": "From",
+    "priceTo": "To",
+    "anyPrice": "Any price",
+    "millions": "EGP {n}M"
   },
   "projectPage": {
     "by": "by",
@@ -297,7 +306,11 @@
     "similarTitle": "Compare with similar projects",
     "openCompare": "Open compare",
     "compareWith": "Compare with {name}",
-    "mainImage": "Hero image: project render"
+    "mainImage": "Hero image: project render",
+    "downAmount": "Down payment",
+    "monthlyEq": "Monthly equivalent",
+    "deliveryAmount": "On delivery",
+    "brochure": "Download brochure"
   },
   "comparePage": {
     "eyebrow": "Project vs project",
@@ -341,7 +354,8 @@
       "minDown": "Lowest down payment",
       "maxYears": "Longest installment term",
       "cash": "Cash discount",
-      "maintenance": "Maintenance deposit"
+      "maintenance": "Maintenance deposit",
+      "monthly": "Lowest monthly"
     },
     "masterPlanPreview": "Master plan preview",
     "projectPage": "Project page",
@@ -407,7 +421,8 @@
       "minBedrooms": "{n}+ bedrooms",
       "deliveryBy": "Delivery by {n}",
       "ready": "Ready to move",
-      "q": "Name: {q}"
+      "q": "Name: {q}",
+      "minPrice": "Over {n}M"
     }
   },
   "insights": {
@@ -452,5 +467,64 @@
   "theme": {
     "toDark": "Dark mode",
     "toLight": "Light mode"
+  },
+  "finishGroups": {
+    "core": "Core & shell",
+    "semi": "Semi-finished",
+    "full": "Fully finished"
+  },
+  "favorites": {
+    "title": "My favorites",
+    "subtitle": "Projects you saved. Kept on this device with no sign-in, and you can send the list to anyone.",
+    "empty": "No saved projects yet. Tap the heart on any project and it shows up here.",
+    "browse": "Browse projects",
+    "share": "Share the list",
+    "copied": "Link copied",
+    "sharedTitle": "A favorites list someone sent you",
+    "saveShared": "Save to my favorites",
+    "savedShared": "Saved to your favorites",
+    "add": "Save to favorites",
+    "remove": "Remove from favorites",
+    "count": "{n} projects",
+    "compareAll": "Compare the first 4"
+  },
+  "areasPage": {
+    "title": "Areas",
+    "subtitle": "Every area with its projects, average price per m² and map.",
+    "metaTitle": "Projects in {area}",
+    "metaDescription": "Every project in {area}: prices, payment plans, average price per m² and official developer numbers, on an interactive map.",
+    "projects": "Projects",
+    "avgPerM2": "Average price per m²",
+    "lowest": "Lowest starting price",
+    "developers": "Developers",
+    "view": "Projects in this area",
+    "allAreas": "All areas",
+    "mapTitle": "Projects on the area map",
+    "listTitle": "Projects in {area}",
+    "compareTop": "Compare the two cheapest",
+    "filterLink": "Filter this area's projects",
+    "empty": "No published projects in this area yet.",
+    "intro": {
+      "new-cairo": "East of Cairo, home to the Fifth and First Settlements. Egypt's largest market for residential compounds, close to the Ring Road and 90th Street.",
+      "sheikh-zayed": "West of Cairo next to 6th of October: calm compounds and green space near the Cairo–Alexandria Desert Road and 26th of July Corridor.",
+      "new-capital": "The New Administrative Capital east of Cairo, with the government and business districts and many residential, office and retail projects.",
+      "north-coast": "The Mediterranean coast: summer and hotel projects from west of Alexandria to El Alamein and Ras El Hekma.",
+      "ain-sokhna": "Ain Sokhna on the Gulf of Suez, a short drive from Cairo, with chalets and resorts on the Red Sea.",
+      "mostakbal-city": "Mostakbal City between New Cairo and the New Capital on the Suez Road: new residential projects at lower prices than New Cairo.",
+      "6th-of-october": "6th of October City west of Cairo, one of the largest new cities, with residential and commercial projects and many universities."
+    }
+  },
+  "newLaunches": {
+    "title": "New launches",
+    "subtitle": "Newly launched projects: launch prices and booking deposits, straight from the developer with no middleman.",
+    "launched": "Launched {date}",
+    "bookingFee": "Booking deposit",
+    "bookingNote": "Refundable per the developer's terms",
+    "types": "Unit types and launch prices",
+    "from": "From",
+    "view": "Project details",
+    "call": "Call the developer",
+    "empty": "No new launches right now. Check back soon.",
+    "count": "{n} launches"
   }
 }

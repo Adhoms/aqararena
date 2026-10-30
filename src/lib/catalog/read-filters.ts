@@ -1,4 +1,4 @@
-import { isAreaSlug, isProjectStatus, isPropertyCategory, isSubType } from "@/lib/property";
+import { isAreaSlug, isFinishGroup, isProjectStatus, isPropertyCategory, isSubType } from "@/lib/property";
 import { SORTS, type ProjectFilters, type Sort } from "./filters";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -34,6 +34,8 @@ export function readFilters(params: Params): ProjectFilters {
     minYears: num(params.years),
     subTypes: all(params.type).filter(isSubType),
     minBedrooms: num(params.beds),
+    finishes: all(params.finish).filter(isFinishGroup),
+    minPrice: num(params.min),
     maxPrice: num(params.max),
     sort: (SORTS as readonly string[]).includes(sort ?? "") ? (sort as Sort) : "newest",
   };

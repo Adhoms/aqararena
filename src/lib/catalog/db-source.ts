@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { isAmenity, isAreaSlug, isSubType, type AreaSlug } from "@/lib/property";
+import { finishingsOf, isAmenity, isAreaSlug, isSubType, type AreaSlug } from "@/lib/property";
 import type { Developer, Project, Text } from "./types";
 import { needsUnitMatch, type ProjectFilters } from "./filters";
 
@@ -22,7 +22,7 @@ const projectInclude = {
   paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
   zones: { orderBy: { sortOrder: "asc" } },
   distances: { orderBy: { sortOrder: "asc" } },
-  media: { where: { kind: "IMAGE" }, orderBy: { sortOrder: "asc" } },
+  media: { where: { kind: { in: ["IMAGE", "BROCHURE"] } }, orderBy: { sortOrder: "asc" } },
 } satisfies Prisma.ProjectInclude;
 
 type ProjectRow = Prisma.ProjectGetPayload<{ include: typeof projectInclude }>;
@@ -61,6 +61,9 @@ function toProject(p: ProjectRow): Project {
     categories: p.categories.length ? p.categories : [...new Set(p.typologies.map((t) => t.category))],
     status: p.status,
     launchYear: p.launchDate?.getUTCFullYear(),
+    launchDate: p.launchDate?.toISOString().slice(0, 10),
+    bookingFee: num(p.bookingFee),
+    brochureUrl: p.media.find((m) => m.kind === "BROCHURE")?.url,
     deliveryYear: p.deliveryDate.getUTCFullYear(),
     progressPct: p.progressPct ?? undefined,
     landFeddan: land ? Math.round(land / FEDDAN_M2) : undefined,
@@ -105,7 +108,7 @@ function toProject(p: ProjectRow): Project {
     })),
     fees: { maintenancePct: num(p.paymentPlans.find((plan) => plan.maintenancePct !== null)?.maintenancePct) },
     photos: p.media
-      .filter((m) => m.group)
+      .filter((m) => m.kind === "IMAGE" && m.group)
       .map((m) => ({ group: m.group!, caption: text(m.captionAr, m.captionEn) })),
     distances: p.distances.map((d) => ({ place: text(d.placeAr, d.placeEn), minutes: d.minutes })),
     isFeatured: p.isFeatured,
@@ -168,7 +171,10 @@ export function filtersToWhere(f: ProjectFilters): Prisma.ProjectWhereInput {
         some: {
           ...(f.subTypes?.length && { subType: { in: f.subTypes } }),
           ...(f.minBedrooms && { bedrooms: { gte: f.minBedrooms } }),
-          ...(f.maxPrice && { priceFrom: { lte: f.maxPrice } }),
+          ...(f.finishes?.length && { finishing: { in: finishingsOf(f.finishes) } }),
+          ...((f.minPrice || f.maxPrice) && {
+            priceFrom: { ...(f.minPrice && { gte: f.minPrice }), ...(f.maxPrice && { lte: f.maxPrice }) },
+          }),
         },
       },
     });

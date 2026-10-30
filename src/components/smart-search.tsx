@@ -1,5 +1,6 @@
 "use client";
 
+import { MagnifyingGlass, Sparkle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -124,17 +125,14 @@ export function SmartSearch({ locale, labels, variant = "hero", initialText = ""
           e.preventDefault();
           if (active) router.push(resultsHref);
         }}
-        className={`overflow-hidden rounded-[22px] text-ink ${onDark ? "bg-[#0d2426]/85 backdrop-blur-xl border border-white/15" : "bg-surface"} ${onDark ? "shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]" : "border border-line"}`}
+        className={`overflow-hidden rounded-3xl text-ink ${onDark ? "border border-line-strong bg-surface shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]" : "border border-line bg-surface"}`}
       >
         <div className="flex items-center gap-2 p-2">
           <label htmlFor={inputId} className="sr-only">
             {labels.label}
           </label>
           <span aria-hidden="true" className="flex size-11 flex-none items-center justify-center rounded-2xl bg-brass-soft text-brass">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" />
-              <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
-            </svg>
+            <Sparkle size={20} aria-hidden="true" />
           </span>
           <input
             ref={inputRef}
@@ -153,10 +151,7 @@ export function SmartSearch({ locale, labels, variant = "hero", initialText = ""
             type="submit"
             className="inline-flex min-h-13 flex-none items-center gap-2 rounded-2xl bg-brand px-5 font-medium text-white hover:bg-brand-2 sm:px-7"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20 20l-3.5-3.5" />
-            </svg>
+            <MagnifyingGlass size={18} aria-hidden="true" />
             <span className="hidden sm:inline">{labels.go}</span>
           </button>
         </div>

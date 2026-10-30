@@ -17,7 +17,8 @@
     "compare": "Compare",
     "compareButton": "Compare",
     "compareCount": "{n} in compare",
-    "map": "Map"
+    "map": "Map",
+    "skip": "Skip to content"
   },
   "language": {
     "switchTo": "العربية",
@@ -148,7 +149,7 @@
     "statDevelopers": "Developers",
     "statProjects": "Projects",
     "statAreas": "Areas",
-    "heroPhoto": "Architectural photo — featured project",
+    "heroPhoto": "Architectural photo: featured project",
     "heroPlan": "Master plan detail",
     "heroInterior": "Interior",
     "pillarsEyebrow": "On every project page",
@@ -296,7 +297,7 @@
     "similarTitle": "Compare with similar projects",
     "openCompare": "Open compare",
     "compareWith": "Compare with {name}",
-    "mainImage": "Hero image — project render"
+    "mainImage": "Hero image: project render"
   },
   "comparePage": {
     "eyebrow": "Project vs project",
@@ -317,7 +318,7 @@
     "loading": "Preparing the comparison…",
     "best": "Best",
     "yes": "Available",
-    "no": "—",
+    "no": "-",
     "sections": {
       "about": "About the project",
       "units": "Units",
@@ -378,7 +379,10 @@
   },
   "notFound": {
     "title": "This page doesn't exist",
-    "back": "Back to home"
+    "back": "Back to home",
+    "text": "The link may have changed or the project may have been removed. Try searching for it or browse all projects.",
+    "projects": "Browse all projects",
+    "code": "Error 404"
   },
   "smart": {
     "label": "Search in a sentence",
@@ -436,12 +440,17 @@
     "label": "Projects map",
     "teaserEyebrow": "Map",
     "teaserTitle": "Every project on the map of Egypt",
-    "teaserText": "See each project where it really is, and compare areas as you move around."
+    "teaserText": "See each project where it really is, and compare areas as you move around.",
+    "cluster": "{n} projects here. Click to zoom in"
   },
   "hero": {
     "kicker": "Egypt's real estate project guide",
     "line1": "Type what you're looking for,",
     "line2": "we'll find it.",
     "sub": "Every developer project in one place: master plans, prices and payment plans, unit types and official developer numbers. Compare smartly before you decide."
+  },
+  "theme": {
+    "toDark": "Dark mode",
+    "toLight": "Light mode"
   }
 }

@@ -1,3 +1,4 @@
+import { Check } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
@@ -95,9 +96,9 @@ async function CompareBody({
             label={c.share}
             copiedLabel={c.copied}
             title={c.title}
-            className="inline-flex min-h-12 items-center rounded-full border border-line-strong bg-surface px-5 text-[15px] hover:border-ink"
+            className="press inline-flex min-h-12 items-center rounded-full border border-line-strong bg-surface px-5 text-[15px] hover:border-ink"
           />
-          <PrintButton label={c.print} className="inline-flex min-h-12 items-center rounded-full bg-brand px-5.5 text-[15px] font-medium text-white hover:bg-brand-2" />
+          <PrintButton label={c.print} className="press inline-flex min-h-12 items-center rounded-full bg-brand px-5.5 text-[15px] font-medium text-white hover:bg-brand-2" />
         </>
       }
     >
@@ -157,9 +158,7 @@ async function CompareBody({
                 {row.cells.map((cell, i) => (
                   <div role="cell" key={i} className="flex flex-wrap items-center gap-2 border-s border-divider px-5 py-3.5">
                     {cell.yes && (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8fd0c9" strokeWidth="2.2" aria-hidden="true">
-                        <path d="M5 12l5 5L20 7" />
-                      </svg>
+                      <Check size={18} weight="bold" className="text-brass" aria-hidden="true" />
                     )}
                     <span className="font-medium">{cell.text}</span>
                     {cell.best && <span className="rounded-full bg-best px-2.5 py-px text-xs font-semibold text-brass-dark">{c.best}</span>}
@@ -181,7 +180,7 @@ async function CompareBody({
               const tel = telHref(hotline);
               return (
                 <div role="cell" key={p.slug} className="flex flex-col gap-2.5 border-s border-divider p-5">
-                  <div className="flex h-30 items-center justify-center rounded-[14px] border border-line bg-plan text-xs text-body">{c.masterPlanPreview}</div>
+                  <div className="flex h-30 items-center justify-center rounded-2xl border border-line bg-plan text-xs text-body">{c.masterPlanPreview}</div>
                   {hotline && (
                     <ContactChip href={tel}>
                       <span>{dict.projectPage.hotline}</span>
@@ -256,20 +255,20 @@ function buildRows(
     row(r.developer, projects.map((p) => developerName(p.developerSlug))),
     row(r.area, projects.map((p) => dict.areas[p.areaSlug])),
     row(r.type, projects.map((p) => p.categories.map((c) => dict.categories[c]).join(" · "))),
-    row(r.land, projects.map((p) => (p.landFeddan ? fill(dict.projectPage.feddan, { n: p.landFeddan }) : "—"))),
+    row(r.land, projects.map((p) => (p.landFeddan ? fill(dict.projectPage.feddan, { n: p.landFeddan }) : "-"))),
     row(r.status, projects.map((p) => dict.status[p.status])),
     row(r.delivery, projects.map((p) => String(p.deliveryYear)), projects.map((p) => p.deliveryYear), "low"),
     { section: s.units },
     row(r.unitTypes, sums.map((x) => x.subTypes.map((t) => dict.subTypes[t]).join(" · "))),
-    row(r.areaRange, sums.map((x) => `${x.areaRange[0]} – ${x.areaRange[1]} ${m2}`)),
+    row(r.areaRange, sums.map((x) => `${x.areaRange[0]}-${x.areaRange[1]} ${m2}`)),
     row(r.finishing, sums.map((x) => x.finishings.map((f) => dict.finishing[f]).join(" · "))),
     { section: s.prices },
     row(r.startingPrice, sums.map((x) => formatMoney(x.startingPrice, locale)), sums.map((x) => x.startingPrice), "low"),
     row(r.pricePerM2, sums.map((x) => formatMoney(x.avgPricePerM2, locale)), sums.map((x) => x.avgPricePerM2), "low"),
     row(r.minDown, sums.map((x) => `${x.minDownPct}%`), sums.map((x) => x.minDownPct), "low"),
     row(r.maxYears, sums.map((x) => fill(dict.common.years, { n: x.maxYears })), sums.map((x) => x.maxYears), "high"),
-    row(r.cash, sums.map((x) => (x.maxCashDiscountPct ? `${x.maxCashDiscountPct}%` : "—")), sums.map((x) => x.maxCashDiscountPct), "high"),
-    row(r.maintenance, projects.map((p) => (p.fees.maintenancePct !== undefined ? `${formatNumber(p.fees.maintenancePct, locale)}%` : "—"))),
+    row(r.cash, sums.map((x) => (x.maxCashDiscountPct ? `${x.maxCashDiscountPct}%` : "-")), sums.map((x) => x.maxCashDiscountPct), "high"),
+    row(r.maintenance, projects.map((p) => (p.fees.maintenancePct !== undefined ? `${formatNumber(p.fees.maintenancePct, locale)}%` : "-"))),
     { section: s.amenities },
     ...amenities.map(amenityRow),
   ];

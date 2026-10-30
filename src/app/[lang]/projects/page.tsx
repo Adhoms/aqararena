@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { FilterForm } from "@/components/filter-form";
 import { ProjectCard } from "@/components/project-card";
-import { Container } from "@/components/ui";
+import { Container, CardGridSkeleton } from "@/components/ui";
 import { getMarketInsights, listDevelopers, searchProjects, SORTS, totalProjects } from "@/lib/catalog";
 import { readFilters } from "@/lib/catalog/read-filters";
 import { smartLabels } from "@/components/smart-labels";
@@ -32,7 +32,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/[lang]/
         </nav>
         <h1 className="font-display text-4xl font-normal tracking-tight sm:text-[38px]">{dict.projectsPage.title}</h1>
       </div>
-      <Suspense fallback={<p className="rounded-[20px] border border-line bg-surface p-10 text-muted">{dict.projectsPage.loading}</p>}>
+      <Suspense fallback={<CardGridSkeleton label={dict.projectsPage.loading} />}>
         <Results searchParams={searchParams} locale={locale} dict={dict} />
       </Suspense>
     </Container>
@@ -140,7 +140,7 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
       </nav>
 
       <div className="flex flex-wrap items-start gap-7">
-        <aside aria-label={p.filters} className="flex flex-[1_1_260px] flex-col gap-5.5 rounded-[20px] border border-line bg-surface p-5.5">
+        <aside aria-label={p.filters} className="flex flex-[1_1_260px] flex-col gap-5.5 rounded-3xl border border-line bg-surface p-5.5">
           <div className="flex items-center justify-between">
             <span className="font-display text-lg font-medium">{p.filters}</span>
             <Link href={`/${locale}/projects`} className="inline-flex min-h-11 items-center text-sm">
@@ -224,7 +224,7 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
 
         <section aria-label={fill(p.results, { n: results.length })} className="flex min-w-0 flex-[999_1_640px] flex-col gap-5">
           {results.length === 0 ? (
-            <p className="rounded-[20px] border border-dashed border-line-strong bg-surface p-10 text-center text-body">{p.empty}</p>
+            <p className="rounded-3xl border border-dashed border-line-strong bg-surface p-10 text-center text-body">{p.empty}</p>
           ) : (
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-5">
               {results.map((project) => (

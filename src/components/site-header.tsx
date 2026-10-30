@@ -4,14 +4,15 @@ import { BrandMark } from "./brand-mark";
 import { CompareLink } from "./compare/compare-link";
 import { LanguageSwitcher } from "./language-switcher";
 import { NavLinks } from "./nav-links";
+import { ThemeToggle } from "./theme-toggle";
 
 export async function SiteHeader() {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
   const target = locale === "ar" ? "en" : "ar";
 
   return (
-    <header className="border-b border-line bg-surface print:hidden">
-      <div className="mx-auto flex min-h-19 max-w-310 flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-6 md:gap-x-9">
+    <header className="sticky top-0 z-40 border-b border-line bg-ground/72 shadow-(--header-shadow) backdrop-blur-xl backdrop-saturate-150 print:hidden">
+      <div className="mx-auto flex min-h-17 max-w-310 flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-6 md:gap-x-9">
         <Link href={`/${locale}`} aria-label={dict.nav.home} className="py-3 text-ink no-underline hover:text-ink">
           <BrandMark />
         </Link>
@@ -19,7 +20,7 @@ export async function SiteHeader() {
         {/* Phones: its own swipeable row under the logo. Desktop: inline between logo and buttons. */}
         <nav
           aria-label={dict.nav.label}
-          className="order-last -mx-4 flex w-[calc(100%+2rem)] gap-x-7 overflow-x-auto px-4 whitespace-nowrap md:order-none md:mx-0 md:w-auto md:flex-1 md:px-0"
+          className="order-last -mx-4 flex w-[calc(100%+2rem)] gap-x-1 [scrollbar-width:none] overflow-x-auto px-4 whitespace-nowrap md:order-none md:mx-0 md:w-auto md:flex-1 md:px-0"
         >
           <NavLinks
             links={[
@@ -32,7 +33,8 @@ export async function SiteHeader() {
           />
         </nav>
 
-        <div className="ms-auto flex items-center gap-2 py-3 sm:gap-2.5 md:ms-0">
+        <div className="ms-auto flex items-center gap-1.5 py-3 sm:gap-2.5 md:ms-0">
+          <ThemeToggle toDark={dict.theme.toDark} toLight={dict.theme.toLight} />
           <LanguageSwitcher target={target} label={dict.language.switchTo} ariaLabel={dict.language.switchToLabel} />
           <CompareLink locale={locale} label={dict.nav.compareButton} countLabel={dict.nav.compareCount} />
         </div>

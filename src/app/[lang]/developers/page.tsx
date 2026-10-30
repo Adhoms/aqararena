@@ -24,7 +24,7 @@ export default async function DevelopersPage() {
           <li key={d.slug}>
             <Link
               href={`/${locale}/developers/${d.slug}`}
-              className="flex h-full items-center gap-4 rounded-[20px] border border-line bg-surface p-5 text-ink no-underline hover:border-ink hover:text-ink"
+              className="flex h-full items-center gap-4 rounded-3xl border border-line bg-surface p-5 text-ink no-underline hover:border-ink hover:text-ink"
             >
               <span aria-hidden="true" className="flex size-16 flex-none items-center justify-center rounded-2xl bg-divider text-xs text-muted">
                 {dict.common.logo}

@@ -46,7 +46,7 @@ export function AreaPriceBars({ insights, dict, locale, linkAreas = true }: { in
         return (
           <li key={a.area} className="grid grid-cols-[minmax(84px,160px)_minmax(0,1fr)] items-center gap-3 sm:gap-4">
             {linkAreas ? (
-              <Link href={`/${locale}/projects?area=${a.area}`} className="text-sm font-medium text-ink no-underline hover:text-brand">
+              <Link href={`/${locale}/projects?area=${a.area}`} className="text-sm font-medium text-ink no-underline hover:text-brass-dark">
                 {name}
                 <span className="block text-xs font-normal text-muted">{fill(dict.insights.projects, { n: a.projects })}</span>
               </Link>
@@ -54,8 +54,8 @@ export function AreaPriceBars({ insights, dict, locale, linkAreas = true }: { in
               <span className="text-sm font-medium">{name}</span>
             )}
             <div className="flex items-center gap-3">
-              <div className="h-3 flex-1 overflow-hidden rounded-full bg-divider">
-                <div className="reveal-bar h-full rounded-full bg-linear-to-l from-brass-light to-brand-3" style={{ width: `${pct}%` }} />
+              <div className="h-2.5 flex-1">
+                <div className="reveal-bar h-full rounded-full bg-linear-to-l from-brass-light to-brass-light/35 ltr:bg-linear-to-r" style={{ width: `${pct}%` }} />
               </div>
               <span className="w-24 flex-none text-end font-display text-[13px] font-medium sm:w-28 sm:text-sm">
                 {formatNumber(a.avgPricePerM2, locale)} <span className="text-xs font-normal text-muted">{dict.insights.perM2}</span>
@@ -109,7 +109,7 @@ export function ProjectVsMarket({
                 {formatNumber(v, locale)} <span className="text-xs font-normal text-muted">{dict.insights.perM2}</span>
               </b>
             </span>
-            <span className="h-2.5 overflow-hidden rounded-full bg-divider">
+            <span className="h-2.5">
               <span className={`reveal-bar block h-full rounded-full ${tone}`} style={{ width: `${(v / max) * 100}%` }} />
             </span>
           </li>

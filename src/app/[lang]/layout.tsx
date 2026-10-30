@@ -5,6 +5,8 @@ import { AmbientBackground } from "@/components/ambient-background";
 import { CompareTray } from "@/components/compare/compare-tray";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { Spotlight } from "@/components/spotlight";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { MAX_COMPARE } from "@/lib/compare";
 import { fill } from "@/lib/format";
 import { getDictionary, getLocale } from "./dictionaries";
@@ -29,13 +31,22 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const dict = await getDictionary();
+  const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
   return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://aqararena.vercel.app"),
     title: { default: dict.meta.title, template: "%s | AqarArena" },
     description: dict.meta.description,
     alternates: {
       languages: Object.fromEntries(locales.map((l) => [l, `/${l}`])),
     },
+    openGraph: {
+      type: "website",
+      siteName: "AqarArena",
+      title: dict.meta.title,
+      description: dict.meta.description,
+      locale: locale === "ar" ? "ar_EG" : "en_US",
+    },
+    twitter: { card: "summary_large_image", title: dict.meta.title, description: dict.meta.description },
   };
 }
 
@@ -47,12 +58,24 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       lang={locale}
       dir={directionOf(locale)}
       className={`${plexArabic.variable} ${alexandria.variable} h-full antialiased`}
+      // The inline script below may set data-theme="dark" before React loads.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col font-sans leading-relaxed">
+        <a
+          href="#main"
+          className="press fixed top-3 start-3 z-50 -translate-y-24 rounded-full bg-brass-light px-5 py-2.5 font-medium text-deep no-underline transition-transform focus:translate-y-0 hover:text-deep"
+        >
+          {dict.nav.skip}
+        </a>
         <AmbientBackground locale={locale} />
+        <Spotlight />
         <p className="bg-brass-soft px-4 py-1.5 text-center text-xs text-brass-dark print:hidden">{dict.demoNotice}</p>
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <main id="main" tabIndex={-1} className="flex-1 outline-none">{children}</main>
         <SiteFooter />
         <CompareTray
           locale={locale}

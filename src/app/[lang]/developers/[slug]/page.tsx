@@ -1,3 +1,4 @@
+import { SealCheck } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -73,7 +74,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
             <span aria-current="page">{developer.name[locale]}</span>
           </nav>
           <div className="flex flex-wrap items-center gap-7">
-            <span aria-hidden="true" className="flex size-35 items-center justify-center rounded-[28px] bg-surface text-[13px] text-muted">
+            <span aria-hidden="true" className="flex size-35 items-center justify-center rounded-3xl bg-surface text-[13px] text-muted">
               {dict.common.logo}
             </span>
             <div className="flex flex-[1_1_420px] flex-col gap-2">
@@ -81,9 +82,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
                 <h1 className="font-display text-4xl leading-tight font-light sm:text-[46px]">{developer.name[locale]}</h1>
                 {developer.verified && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-brass-light px-3 py-0.5 text-[13px] font-medium text-brand">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
+                    <SealCheck size={16} aria-hidden="true" />
                     {d.verified}
                   </span>
                 )}
@@ -91,7 +90,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
               {developer.foundedYear && <span className="text-[17px] text-on-dark">{fill(d.founded, { year: developer.foundedYear })}</span>}
             </div>
           </div>
-          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[20px] bg-brand-3 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl bg-brand-3 sm:grid-cols-4">
             {[
               [d.onPlatform, projects.length],
               [d.delivered, delivered],
@@ -113,7 +112,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
             <h2 className="font-display text-3xl font-normal">{d.about}</h2>
             <p className="max-w-3xl text-[17px] text-body">{developer.about[locale]}</p>
           </div>
-          <aside aria-label={d.officialNumbers} className="flex flex-[1_1_340px] flex-col gap-2.5 rounded-[22px] border border-line bg-surface p-6">
+          <aside aria-label={d.officialNumbers} className="flex flex-[1_1_340px] flex-col gap-2.5 rounded-3xl border border-line bg-surface p-6">
             <h2 className="font-display text-xl font-medium">{d.officialNumbers}</h2>
             <p className="text-[13px] text-muted">{d.noMiddleman}</p>
             <ContactStack developer={developer} dict={dict} locale={locale} />
@@ -140,7 +139,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
                 node: (
                   <Link
                     href={`/${locale}/projects/${p.slug}`}
-                    className="flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-surface text-ink no-underline hover:border-ink hover:text-ink"
+                    className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface text-ink no-underline hover:border-ink hover:text-ink"
                   >
                     <span className="relative block h-52 overflow-hidden">
                       <ProjectArt seed={p.slug} kind={artKindFor(p)} tone="dusk" className="absolute inset-0 size-full" />

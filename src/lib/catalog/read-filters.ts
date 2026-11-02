@@ -37,6 +37,8 @@ export function readFilters(params: Params): ProjectFilters {
     finishes: all(params.finish).filter(isFinishGroup),
     minPrice: num(params.min),
     maxPrice: num(params.max),
+    cash: num(params.cash),
+    monthly: num(params.monthly),
     sort: (SORTS as readonly string[]).includes(sort ?? "") ? (sort as Sort) : "newest",
   };
 }

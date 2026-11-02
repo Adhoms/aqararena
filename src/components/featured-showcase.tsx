@@ -98,9 +98,9 @@ export function FeaturedShowcase({
                           {valueText(value, dict)}
                         </span>
                       )}
-                      {s.minMonthly > 0 && (
+                      {s.entryDown > 0 && (
                         <span className="w-full text-[13px] text-on-dark">
-                          {fill(dict.common.monthlyFrom, { amount: formatMoney(s.minMonthly, locale) })}
+                          {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale), monthly: formatMoney(s.entryMonthly, locale) })}
                         </span>
                       )}
                     </div>

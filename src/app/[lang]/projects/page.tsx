@@ -5,11 +5,11 @@ import { Suspense } from "react";
 import { FilterForm } from "@/components/filter-form";
 import { ProjectCard } from "@/components/project-card";
 import { Container, CardGridSkeleton } from "@/components/ui";
-import { getMarketInsights, listDevelopers, searchProjects, SORTS, totalProjects } from "@/lib/catalog";
+import { bestBudgetFit, getMarketInsights, hasBudget, listDevelopers, searchProjects, SORTS, totalProjects } from "@/lib/catalog";
 import { readFilters } from "@/lib/catalog/read-filters";
 import { smartLabels } from "@/components/smart-labels";
 import { SmartSearch } from "@/components/smart-search";
-import { fill } from "@/lib/format";
+import { fill, formatMoney } from "@/lib/format";
 import { AREA_SLUGS, FINISH_GROUP_KEYS, PROJECT_STATUSES, PROPERTY_CATEGORIES } from "@/lib/property";
 import { getDictionary, getLocale, type Dictionary } from "../dictionaries";
 
@@ -78,7 +78,12 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
     ...(f.subTypes ?? []).map((t) => ({ label: dict.subTypes[t], href: withoutValue(locale, params, "type", t) })),
     ...(f.minBedrooms ? [{ label: fill(dict.smart.chips.minBedrooms, { n: f.minBedrooms }), href: withParam(locale, params, "beds", undefined) }] : []),
     ...(f.q ? [{ label: fill(dict.smart.chips.q, { q: f.q }), href: withParam(locale, params, "q", undefined) }] : []),
+    ...(f.cash ? [{ label: fill(dict.budget.chipCash, { amount: formatMoney(f.cash, locale) }), href: withParam(locale, params, "cash", undefined) }] : []),
+    ...(f.monthly
+      ? [{ label: fill(dict.budget.chipMonthly, { amount: formatMoney(f.monthly, locale) }), href: withParam(locale, params, "monthly", undefined) }]
+      : []),
   ];
+  const budgetOn = hasBudget(f);
 
   return (
     <div className="flex flex-col gap-6">
@@ -148,6 +153,38 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
               {p.clearAll}
             </Link>
           </div>
+
+          {/* Budget first: what the visitor has and can pay, not a unit price. */}
+          <fieldset className="m-0 flex flex-col gap-2.5 rounded-2xl border-0 bg-brass-soft p-4">
+            <legend className="float-start mb-1 p-0 font-display text-base font-medium">{dict.budget.filterTitle}</legend>
+            <label className="clear-both flex flex-col gap-1 text-xs font-medium text-body">
+              {dict.budget.cash}
+              <input
+                type="number"
+                name="cash"
+                min={0}
+                step={50000}
+                inputMode="numeric"
+                defaultValue={f.cash ?? ""}
+                placeholder={dict.budget.cashPlaceholder}
+                className={select}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-body">
+              {dict.budget.monthly}
+              <input
+                type="number"
+                name="monthly"
+                min={0}
+                step={1000}
+                inputMode="numeric"
+                defaultValue={f.monthly ?? ""}
+                placeholder={dict.budget.monthlyPlaceholder}
+                className={select}
+              />
+            </label>
+            <span className="text-xs text-muted">{dict.budget.filterHint}</span>
+          </fieldset>
 
           <fieldset className="m-0 flex flex-col border-0 p-0">
             <legend className={legend}>{p.area}</legend>
@@ -258,18 +295,28 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
 
         <section aria-label={fill(p.results, { n: results.length })} className="flex min-w-0 flex-[999_1_640px] flex-col gap-5">
           {results.length === 0 ? (
-            <p className="rounded-3xl border border-dashed border-line-strong bg-surface p-10 text-center text-body">{p.empty}</p>
+            <p className="rounded-3xl border border-dashed border-line-strong bg-surface p-10 text-center text-body">
+              {budgetOn ? dict.budget.emptyBudget : p.empty}
+            </p>
           ) : (
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-5">
               {results.map((project) => (
                 <li key={project.slug} className="flex">
                   <div className="w-full">
-                    <ProjectCard project={project} developer={devBySlug.get(project.developerSlug)} value={insights.values[project.slug]} locale={locale} dict={dict} />
+                    <ProjectCard
+                      project={project}
+                      developer={devBySlug.get(project.developerSlug)}
+                      value={insights.values[project.slug]}
+                      fit={budgetOn ? bestBudgetFit(project, f) : undefined}
+                      locale={locale}
+                      dict={dict}
+                    />
                   </div>
                 </li>
               ))}
             </ul>
           )}
+          {budgetOn && <p className="text-xs text-muted">{dict.budget.note}</p>}
         </section>
       </div>
     </FilterForm>

@@ -8,6 +8,7 @@ import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { ContactGrid, ContactStack } from "@/components/contact-list";
 import { JsonLd } from "@/components/json-ld";
 import { MasterPlan } from "@/components/project/master-plan";
+import { PaymentCalculator } from "@/components/project/payment-calculator";
 import { ShareButton } from "@/components/share-button";
 import { Tabs, type Tab } from "@/components/tabs";
 import { ProjectVsMarket, ValueRing, valueText } from "@/components/insights";
@@ -394,6 +395,21 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               </span>
               <span className="font-display text-2xl text-brass">{formatMoney(project.bookingFee, locale)}</span>
             </div>
+          )}
+          {project.typologies.length > 0 && project.paymentPlans.length > 0 && (
+            <PaymentCalculator
+              units={[...project.typologies]
+                .sort((a, b) => a.priceFrom - b.priceFrom)
+                .map((t) => ({ code: t.code, name: t.name[locale], price: t.priceFrom }))}
+              plans={project.paymentPlans}
+              maintenancePct={project.fees.maintenancePct}
+              locale={locale}
+              labels={{
+                ...dict.calculator,
+                frequencyPer: dict.frequencyPer,
+                planNames: project.paymentPlans.map((plan) => plan.name[locale]),
+              }}
+            />
           )}
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-5">
             {project.paymentPlans.map((plan, i) => (

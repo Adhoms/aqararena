@@ -1,4 +1,5 @@
 import { finishingsOf, type AreaSlug, type FinishGroup, type ProjectStatus, type PropertyCategory, type SubType } from "@/lib/property";
+import { bestBudgetFit, hasBudget } from "./budget";
 import { summarize } from "./summary";
 import type { Developer, Project } from "./types";
 
@@ -20,8 +21,15 @@ export type ProjectFilters = {
   finishes?: FinishGroup[];
   minPrice?: number;
   maxPrice?: number;
+  /** Budget search: cash for the down payment and the highest monthly installment, in EGP. */
+  cash?: number;
+  monthly?: number;
   sort?: Sort;
 };
+
+/** Keeps projects with at least one unit type and plan inside the budget. Used for both data sources. */
+export const withinBudget = (list: Project[], f: ProjectFilters): Project[] =>
+  hasBudget(f) ? list.filter((p) => bestBudgetFit(p, f)) : list;
 
 export const needsUnitMatch = (f: ProjectFilters) =>
   Boolean(f.subTypes?.length || f.minBedrooms || f.finishes?.length || f.minPrice || f.maxPrice);

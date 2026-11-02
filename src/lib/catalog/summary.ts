@@ -13,7 +13,10 @@ export function summarize(project: Project): ProjectSummary {
   const areas = project.typologies.map((t) => t.buaM2);
   const installments = project.paymentPlans.filter((p) => !isCashPlan(p));
   const startingPrice = Math.min(...prices);
+  const entryPlan = [...installments].sort((a, b) => a.downPaymentPct - b.downPaymentPct || b.years - a.years)[0];
   return {
+    entryDown: entryPlan ? Math.round((startingPrice * entryPlan.downPaymentPct) / 100 / 1000) * 1000 : 0,
+    entryMonthly: entryPlan ? Math.round(monthlyFor(startingPrice, entryPlan) / 100) * 100 : 0,
     startingPrice,
     avgPricePerM2: Math.round(perM2.reduce((a, b) => a + b, 0) / perM2.length / 50) * 50,
     minDownPct: installments.length ? Math.min(...installments.map((p) => p.downPaymentPct)) : 100,

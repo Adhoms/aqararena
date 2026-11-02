@@ -10,7 +10,7 @@ import { FeaturedShowcase } from "@/components/featured-showcase";
 import { smartLabels } from "@/components/smart-labels";
 import { SmartSearch } from "@/components/smart-search";
 import { ArrowIcon, Container, Eyebrow, SectionHeading } from "@/components/ui";
-import { Buildings, Check, Coins, Images, MapTrifold, Phone } from "@phosphor-icons/react/ssr";
+import { Buildings, Check, Coins, Images, MapTrifold, Phone, Wallet } from "@phosphor-icons/react/ssr";
 import {
   countProjectsByDeveloper,
   getFeaturedProjects,
@@ -108,6 +108,9 @@ export default async function HomePage() {
           ))}
         </dl>
       </Container>
+
+      {/* ─── Search by budget: down payment + monthly, not a unit price ─ */}
+      <BudgetSearch locale={locale} dict={dict} />
 
       {/* ─── Featured projects: an expanding gallery ────────────────── */}
       <Container className="reveal flex flex-col gap-9 pt-24 sm:pt-28">
@@ -357,5 +360,63 @@ function FaceOff({ locale, dict, a, b }: { locale: "ar" | "en"; dict: Dictionary
         ))}
       </ul>
     </div>
+  );
+}
+
+/** "Tell us what you have": cash for the down payment + the monthly installment → matching projects. */
+function BudgetSearch({ locale, dict }: { locale: "ar" | "en"; dict: Dictionary }) {
+  const b = dict.budget;
+  const field =
+    "min-h-13 w-full rounded-2xl border border-line-strong bg-surface px-4 text-base text-ink focus:border-brand focus:outline-none";
+  return (
+    <section aria-labelledby="budget-title" className="reveal pt-24 sm:pt-28">
+      <Container>
+        <div className="grid grid-cols-1 gap-8 rounded-3xl border border-line bg-surface p-6 sm:p-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-12">
+          <div className="flex flex-col gap-4">
+            <span className="flex items-center gap-2.5 text-brass">
+              <Wallet size={26} weight="light" aria-hidden="true" />
+              <Eyebrow>{b.eyebrow}</Eyebrow>
+            </span>
+            <h2 id="budget-title" className="font-display text-[30px] leading-[1.25] font-light tracking-[-0.015em] sm:text-[40px]">
+              {b.title}
+            </h2>
+            <p className="max-w-[52ch] text-body">{b.text}</p>
+          </div>
+          <div className="flex flex-col gap-4">
+            <form action={`/${locale}/projects`} method="get" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+                {b.cash}
+                <input type="number" name="cash" min={0} step={50000} inputMode="numeric" placeholder={b.cashPlaceholder} className={field} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+                {b.monthly}
+                <input type="number" name="monthly" min={0} step={1000} inputMode="numeric" placeholder={b.monthlyPlaceholder} className={field} />
+              </label>
+              <button
+                type="submit"
+                className="press min-h-13 rounded-2xl bg-brand px-6 font-semibold text-white hover:bg-brand-2 sm:col-span-2"
+              >
+                {b.submit}
+              </button>
+            </form>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted">{b.examplesLabel}</span>
+              {b.examples.map((ex) => {
+                const qs = new URLSearchParams({ cash: String(ex.cash), ...(ex.monthly ? { monthly: String(ex.monthly) } : {}) });
+                return (
+                  <Link
+                    key={ex.label}
+                    href={`/${locale}/projects?${qs}`}
+                    className="inline-flex min-h-10 items-center rounded-full border border-line-strong px-4 text-ink no-underline hover:border-ink hover:text-ink"
+                  >
+                    {ex.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Container>
+    </section>
   );
 }

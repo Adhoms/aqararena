@@ -21,7 +21,10 @@ export function PortalShell({
       <header className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
           <Link href="/portal" className="font-display text-lg text-ink no-underline">
-            AqarArena <span className="text-sm text-muted">· بوابة المطورين</span>
+            <span dir="ltr" className="tracking-[0.18em]">
+              AQAR <span className="font-light text-brass">ARENA</span>
+            </span> 
+            <span className="text-sm text-muted">· بوابة المطورين</span>
           </Link>
           <span className="admin-badge">{company}</span>
           <nav className="flex flex-wrap gap-4 text-sm">

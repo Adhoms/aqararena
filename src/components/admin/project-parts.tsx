@@ -6,6 +6,7 @@ import { options } from "@/lib/admin/labels";
 import { AdminForm, DeleteButton } from "./admin-form";
 import { Checkbox, CheckboxGroup, Panel, Row, Select, TextArea, TextField } from "./fields";
 import { isoDate } from "./project-form";
+import { BulkMediaUpload, UploadField } from "./upload";
 
 // The repeating parts of a project (unit types, payment plans, zones, media, distances).
 // Each saved row is a collapsible form with its own Save and Delete; a blank form at the end adds one.
@@ -25,6 +26,7 @@ function PartList<T extends { id: string }>({
   fields,
   action,
   empty,
+  extra,
   id,
 }: {
   projectId: string;
@@ -36,11 +38,14 @@ function PartList<T extends { id: string }>({
   fields: (item?: T) => ReactNode;
   action: Action;
   empty?: ReactNode;
+  /** Shown above the saved rows (e.g. the bulk upload box). */
+  extra?: ReactNode;
   id: string;
 }) {
   return (
     <Panel title={`${title} (${items.length})`} id={id}>
       <div className="flex flex-col gap-3">
+        {extra}
         {items.length === 0 && empty}
         {items.map((item) => (
           <details key={item.id} className="admin-item">
@@ -239,6 +244,14 @@ export function MediaList({ projectId, items }: { projectId: string; items: Medi
       addLabel="إضافة صورة أو ملف"
       items={items}
       action={saveMedia}
+      extra={
+        <BulkMediaUpload
+          projectId={projectId}
+          folder={`projects/${projectId}`}
+          kinds={options.mediaKinds.filter((k) => ["IMAGE", "FLOOR_PLAN_2D", "MASTER_PLAN", "LAYOUT_SKETCH", "BROCHURE", "VIDEO"].includes(k.value))}
+          groups={options.photoGroups}
+        />
+      }
       summary={(m) => (
         <>
           <strong>{options.mediaKinds.find((o) => o.value === m.kind)?.label.split(" (")[0]}</strong>
@@ -255,7 +268,14 @@ export function MediaList({ projectId, items }: { projectId: string; items: Medi
             <Select name="group" label="تبويب الصورة" emptyLabel="— للصور فقط —" defaultValue={m?.group} options={options.photoGroups} />
             <TextField name="sortOrder" type="number" label="الترتيب" defaultValue={m?.sortOrder} />
           </Row>
-          <TextField name="url" type="url" label="الرابط *" defaultValue={m?.url} placeholder="https://…/brochure.pdf" hint="رابط مباشر للصورة أو ملف PDF للبروشور" />
+          <UploadField
+            name="url"
+            label="الملف *"
+            defaultValue={m?.url}
+            folder={`projects/${projectId}`}
+            accept="image/*,application/pdf,video/mp4,video/webm"
+            hint="ارفع من جهازك أو الصق رابطًا مباشرًا للصورة أو ملف PDF"
+          />
           <Row>
             <TextField name="captionAr" label="التعليق بالعربية" defaultValue={m?.captionAr} />
             <TextField name="captionEn" label="التعليق بالإنجليزية" defaultValue={m?.captionEn} dir="ltr" />

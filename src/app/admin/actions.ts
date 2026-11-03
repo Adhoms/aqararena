@@ -2,27 +2,20 @@
 
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { CATALOG_TAG } from "@/lib/catalog";
 import { endSession, passwordMatches, requireAdmin, startSession } from "@/lib/admin/auth";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
-import {
-  AMENITIES,
-  FINISHING_TYPES,
-  INSTALLMENT_FREQUENCIES,
-  PHOTO_GROUPS,
-  PROJECT_STATUSES,
-  PROPERTY_CATEGORIES,
-  SUB_TYPES,
-  ZONE_KINDS,
-} from "@/lib/property";
+import { BLOB_HOST_SUFFIX } from "@/lib/admin/upload-config";
+import { readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
+import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
 // Every admin write goes through here. Each action checks the session first and refreshes
 // the public catalog cache ("catalog" tag) after saving, so the site shows the change at once.
 
-const FEDDAN_M2 = 4200.83;
 const SAVED: FormState = { ok: true, message: "تم الحفظ ✓" };
 
 function published() {
@@ -63,24 +56,7 @@ export async function saveDeveloper(_: FormState, data: FormData): Promise<FormS
   await requireAdmin();
   const f = new FormReader(data);
   const id = f.id("id");
-  const nameEn = f.requiredText("nameEn", 200);
-  const values = {
-    nameAr: f.requiredText("nameAr", 200),
-    nameEn,
-    slug: f.slug("slug", nameEn),
-    foundedYear: f.int("foundedYear", { min: 1900, max: 2100 }),
-    aboutAr: f.text("aboutAr"),
-    aboutEn: f.text("aboutEn"),
-    logoUrl: f.url("logoUrl"),
-    website: f.url("website"),
-    hotline: f.text("hotline", { max: 40 }),
-    salesPhone: f.text("salesPhone", { max: 40 }),
-    whatsapp: f.text("whatsapp", { max: 40 }),
-    email: f.text("email", { max: 200 }),
-    hqAddressAr: f.text("hqAddressAr", { max: 500 }),
-    hqAddressEn: f.text("hqAddressEn", { max: 500 }),
-    verified: f.bool("verified"),
-  };
+  const values = readDeveloper(f);
   if (!f.ok) return f.result();
 
   let newId: string | undefined;
@@ -126,41 +102,11 @@ export async function saveProject(_: FormState, data: FormData): Promise<FormSta
   await requireAdmin();
   const f = new FormReader(data);
   const id = f.id("id");
-  const nameEn = f.requiredText("nameEn", 200);
   const developerId = f.id("developerId");
   const areaId = f.id("areaId");
   if (!developerId) f.errors.developerId = "اختر المطور";
   if (!areaId) f.errors.areaId = "اختر المنطقة";
-  const landFeddan = f.number("landFeddan", { min: 0 });
-  const lat = f.number("latitude", { min: 21, max: 32 });
-  const lng = f.number("longitude", { min: 24, max: 37 });
-  if ((lat === null) !== (lng === null)) f.errors.longitude = "أدخل خط العرض وخط الطول معًا";
-
-  const values = {
-    nameAr: f.requiredText("nameAr", 200),
-    nameEn,
-    slug: f.slug("slug", nameEn),
-    descriptionAr: f.text("descriptionAr"),
-    descriptionEn: f.text("descriptionEn"),
-    districtAr: f.text("districtAr", { max: 200 }),
-    districtEn: f.text("districtEn", { max: 200 }),
-    categories: f.many("categories", PROPERTY_CATEGORIES),
-    status: f.oneOf("status", PROJECT_STATUSES, { required: true }) ?? "LAUNCH",
-    launchDate: f.date("launchDate"),
-    deliveryDate: f.date("deliveryDate", { required: true }) ?? new Date(),
-    progressPct: f.int("progressPct", { min: 0, max: 100 }),
-    pricesUpdatedAt: f.date("pricesUpdatedAt"),
-    bookingFee: f.number("bookingFee", { min: 0 }),
-    landAreaM2: landFeddan === null ? null : Math.round(landFeddan * FEDDAN_M2 * 100) / 100,
-    footprintPct: f.pct("footprintPct"),
-    unitsCount: f.int("unitsCount", { min: 0 }),
-    amenities: f.many("amenities", AMENITIES),
-    latitude: lat,
-    longitude: lng,
-    masterPlanUrl: f.url("masterPlanUrl"),
-    isFeatured: f.bool("isFeatured"),
-    published: f.bool("published"),
-  };
+  const values = readProject(f);
   if (!f.ok || !developerId || !areaId) return f.result();
 
   const relations = { developer: { connect: { id: developerId } }, area: { connect: { id: areaId } } };
@@ -196,23 +142,7 @@ export async function saveTypology(_: FormState, data: FormData): Promise<FormSt
   const f = new FormReader(data);
   const id = f.id("id");
   const projectId = f.id("projectId");
-  const bua = f.number("buaM2", { required: true, min: 1 });
-  const price = f.number("priceFrom", { required: true, min: 0 });
-  const values = {
-    code: f.requiredText("code", 40),
-    nameAr: f.text("nameAr", { max: 200 }),
-    nameEn: f.text("nameEn", { max: 200 }),
-    category: f.oneOf("category", PROPERTY_CATEGORIES, { required: true }) ?? "RESIDENTIAL",
-    subType: f.oneOf("subType", SUB_TYPES, { required: true }) ?? "APARTMENT",
-    buaM2: bua ?? 0,
-    bedrooms: f.int("bedrooms", { min: 0, max: 20 }),
-    bathrooms: f.int("bathrooms", { min: 0, max: 20 }),
-    gardenM2: f.number("gardenM2", { min: 0 }),
-    roofM2: f.number("roofM2", { min: 0 }),
-    finishing: f.oneOf("finishing", FINISHING_TYPES, { required: true }) ?? "CORE_AND_SHELL",
-    priceFrom: price,
-    pricePerM2From: price && bua ? Math.round(price / bua) : null,
-  };
+  const values = readTypology(f);
   if (!f.ok || !projectId) return f.result();
   try {
     if (id) await db.typology.update({ where: { id, projectId }, data: values });
@@ -232,24 +162,7 @@ export async function savePaymentPlan(_: FormState, data: FormData): Promise<For
   const f = new FormReader(data);
   const id = f.id("id");
   const projectId = f.id("projectId");
-  const down = f.pct("downPaymentPct", { required: true });
-  const delivery = f.pct("deliveryPaymentPct") ?? 0;
-  if (down !== null && down + delivery > 100) f.errors.deliveryPaymentPct = "المقدم + دفعة الاستلام أكثر من 100%";
-  const values = {
-    nameAr: f.text("nameAr", { max: 200 }),
-    nameEn: f.text("nameEn", { max: 200 }),
-    typologyId: f.id("typologyId"),
-    downPaymentPct: down ?? 0,
-    deliveryPaymentPct: delivery,
-    years: f.int("years", { required: true, min: 0, max: 30 }) ?? 0,
-    frequency: f.oneOf("frequency", INSTALLMENT_FREQUENCIES, { required: true }) ?? "QUARTERLY",
-    cashDiscountPct: f.pct("cashDiscountPct"),
-    maintenancePct: f.pct("maintenancePct"),
-    garageFee: f.number("garageFee", { min: 0 }),
-    clubFee: f.number("clubFee", { min: 0 }),
-    validUntil: f.date("validUntil"),
-    isActive: f.bool("isActive"),
-  };
+  const values = { ...readPaymentPlan(f), typologyId: f.id("typologyId") };
   if (!f.ok || !projectId) return f.result();
   if (id) await db.paymentPlan.update({ where: { id, projectId }, data: values });
   else await db.paymentPlan.create({ data: { ...values, projectId } });
@@ -317,6 +230,61 @@ export async function saveMedia(_: FormState, data: FormData): Promise<FormState
   return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };
 }
 
+/** Saves many uploaded files of one kind at once (from the "upload several files" box). */
+export async function addMediaBatch(input: {
+  projectId: string;
+  kind: string;
+  group: string | null;
+  items: { url: string; width?: number; height?: number }[];
+}): Promise<FormState> {
+  await requireAdmin();
+  const kind = (MEDIA_KINDS as readonly string[]).includes(input.kind) ? (input.kind as (typeof MEDIA_KINDS)[number]) : null;
+  const group = kind === "IMAGE" && (PHOTO_GROUPS as readonly string[]).includes(input.group ?? "") ? (input.group as (typeof PHOTO_GROUPS)[number]) : null;
+  if (!kind || (kind === "IMAGE" && !group)) return { ok: false, message: "اختر النوع والتبويب" };
+  const items = input.items.filter((i) => typeof i.url === "string" && /^https:\/\/\S+$/.test(i.url) && i.url.length <= 2000).slice(0, 200);
+  if (!items.length) return { ok: false, message: "لا توجد ملفات صالحة" };
+
+  const project = await db.project.findUnique({ where: { id: input.projectId }, select: { id: true } });
+  if (!project) return { ok: false, message: "المشروع غير موجود" };
+  const last = await db.media.aggregate({ where: { projectId: project.id, kind }, _max: { sortOrder: true } });
+  const start = (last._max.sortOrder ?? -1) + 1;
+  const size = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n > 0 && n < 100000 ? n : null);
+
+  await db.media.createMany({
+    data: items.map((i, n) => ({
+      projectId: project.id,
+      kind,
+      group,
+      url: i.url,
+      width: size(i.width),
+      height: size(i.height),
+      sortOrder: start + n,
+    })),
+  });
+  published();
+  return { ok: true, message: `تمت إضافة ${items.length} ملف ✓` };
+}
+
+/**
+ * Removes a file from Vercel Blob once nothing points to it any more. Links to other sites are
+ * left alone, and a failure here never undoes the delete in the database.
+ */
+async function deleteIfUnused(url: string | null | undefined) {
+  if (!url || !process.env.BLOB_READ_WRITE_TOKEN) return;
+  try {
+    if (!new URL(url).hostname.endsWith(BLOB_HOST_SUFFIX)) return;
+    const [media, projects, developers] = await Promise.all([
+      db.media.count({ where: { url } }),
+      db.project.count({ where: { masterPlanUrl: url } }),
+      db.developer.count({ where: { OR: [{ logoUrl: url }, { coverUrl: url }] } }),
+    ]);
+    if (media + projects + developers > 0) return;
+    await del(url);
+  } catch (e) {
+    console.error("Could not delete stored file", url, e);
+  }
+}
+
 // ─── Distances ──────────────────────────────────────────────────────────
 
 export async function saveDistance(_: FormState, data: FormData): Promise<FormState> {
@@ -354,7 +322,8 @@ export async function deleteProjectPart(data: FormData) {
   const projectId = f.id("projectId");
   const part = data.get("part");
   if (!id || !projectId || typeof part !== "string" || !(part in PARTS)) return;
-  await PARTS[part as keyof typeof PARTS](id, projectId);
+  const removed = await PARTS[part as keyof typeof PARTS](id, projectId);
+  if (part === "media" && "url" in removed) await deleteIfUnused(removed.url);
   if (part === "typology" || part === "plan") await touchPrices(projectId);
   published();
 }

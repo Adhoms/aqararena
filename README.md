@@ -70,6 +70,6 @@ Skip the three `db:` steps (and leave `DATABASE_URL` out of `.env`) to run on th
 | Web app | Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4 |
 | Type | Alexandria (headings) + IBM Plex Sans Arabic (text), via `next/font` |
 | Database | PostgreSQL (managed: Supabase or Neon; local: `prisma dev`), Prisma 7. PostGIS arrives with map search. |
-| Media | Cloudflare R2 + CDN, images converted to WebP/AVIF, tiled master plans |
+| Media | Vercel Blob (uploaded from `/admin`; photos resized to WebP in the browser) |
 | Mobile (later) | React Native (Expo), same data |
 | Hosting | Vercel |

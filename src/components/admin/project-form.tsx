@@ -3,6 +3,7 @@ import { saveProject, saveArea } from "@/app/admin/actions";
 import { options } from "@/lib/admin/labels";
 import { AdminForm } from "./admin-form";
 import { Checkbox, CheckboxGroup, Panel, Row, Select, TextArea, TextField } from "./fields";
+import { UploadField } from "./upload";
 
 const FEDDAN_M2 = 4200.83;
 export const isoDate = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : undefined);
@@ -85,12 +86,19 @@ export function ProjectForm({
 
       <Panel title="المساحة والموقع">
         <div className="flex flex-col gap-4">
-          <Row cols={4}>
+          <Row cols={3}>
             <TextField name="landFeddan" type="number" label="مساحة الأرض (فدان)" defaultValue={landFeddan} />
             <TextField name="footprintPct" type="number" label="نسبة المباني %" defaultValue={dec(p?.footprintPct)} hint="الباقي مساحات خضراء ومفتوحة" />
             <TextField name="unitsCount" type="number" label="عدد الوحدات" defaultValue={p?.unitsCount} />
-            <TextField name="masterPlanUrl" type="url" label="رابط صورة الماستر بلان" defaultValue={p?.masterPlanUrl} />
           </Row>
+          <UploadField
+            name="masterPlanUrl"
+            label="صورة الماستر بلان"
+            defaultValue={p?.masterPlanUrl}
+            folder={`projects/${p?.id ?? "new"}`}
+            plan
+            hint="صورة واضحة بجودة عالية (تُحفظ حتى 4000 بكسل)"
+          />
           <Row cols={4}>
             <TextField name="latitude" type="number" label="خط العرض" defaultValue={dec(p?.latitude)} placeholder="30.0300" hint="من خرائط جوجل: كليك يمين على الموقع" />
             <TextField name="longitude" type="number" label="خط الطول" defaultValue={dec(p?.longitude)} placeholder="31.4700" />

@@ -2,6 +2,7 @@ import type { Developer } from "@/generated/prisma/client";
 import { saveDeveloper } from "@/app/admin/actions";
 import { AdminForm } from "./admin-form";
 import { Checkbox, Panel, Row, TextArea, TextField } from "./fields";
+import { UploadField } from "./upload";
 
 export function DeveloperForm({ developer }: { developer?: Developer }) {
   const d = developer;
@@ -23,8 +24,8 @@ export function DeveloperForm({ developer }: { developer?: Developer }) {
               dir="ltr"
             />
             <TextField name="foundedYear" type="number" label="سنة التأسيس" defaultValue={d?.foundedYear} />
-            <TextField name="logoUrl" type="url" label="رابط الشعار" defaultValue={d?.logoUrl} />
           </Row>
+          <UploadField name="logoUrl" label="الشعار" defaultValue={d?.logoUrl} folder={`developers/${d?.id ?? "new"}`} hint="PNG أو SVG بخلفية شفافة إن أمكن" />
           <Row>
             <TextArea name="aboutAr" label="نبذة بالعربية" defaultValue={d?.aboutAr} rows={4} />
             <TextArea name="aboutEn" label="نبذة بالإنجليزية" defaultValue={d?.aboutEn} rows={4} dir="ltr" />

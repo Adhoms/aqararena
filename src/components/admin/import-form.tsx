@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { runImport } from "@/app/admin/import/actions";
 
 const SHEET_NAMES = [
@@ -19,7 +19,19 @@ export function ImportForm() {
   return (
     <section className="admin-panel flex flex-col gap-4">
       <h2 className="font-display text-xl">2. ارفع الملف بعد ما تملاه</h2>
-      <form action={dispatch} className="flex flex-col gap-4">
+      <form
+        action={dispatch}
+        className="flex flex-col gap-4"
+        // Submit by hand: React resets a form after its action runs, which would empty the file
+        // box after "check" and leave nothing for "import".
+        onSubmit={(e) => {
+          e.preventDefault();
+          const data = new FormData(e.currentTarget);
+          const button = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+          if (button?.name) data.set(button.name, button.value);
+          startTransition(() => dispatch(data));
+        }}
+      >
         <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-line-strong p-8 text-center hover:border-brand">
           <span className="font-medium" dir="auto">
             {fileName || "اختار ملف xlsx"}

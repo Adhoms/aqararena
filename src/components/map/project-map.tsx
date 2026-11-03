@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n/config";
 import { useTheme } from "@/components/theme-toggle";
 import type { ProjectStatus, PropertyCategory } from "@/lib/property";
 import { matchesQuery } from "@/lib/search-text";
+import { formatMillions } from "@/lib/format";
 
 export type MapPoint = {
   slug: string;
@@ -23,6 +24,8 @@ export type MapPoint = {
   size?: string;
   /** "يبدأ من 6.50 مليون" */
   price?: string;
+  /** The starting price in EGP, for the "from …" line on grouped pins. */
+  priceValue?: number;
   down: string;
   delivery: number;
   category: PropertyCategory;
@@ -48,6 +51,12 @@ type Labels = {
   searchResults: string;
   searchNone: string;
   searchClear: string;
+  /** "{n} projects": Arabic counts take "مشروعين" for 2 and "مشروعات" for 3 to 10. */
+  clusterCount: string;
+  clusterCountTwo: string;
+  clusterCountFew: string;
+  /** "from {price}" */
+  clusterFrom: string;
 };
 
 // Free vector map tiles, no API key (https://openfreemap.org). Map data © OpenStreetMap contributors.
@@ -60,14 +69,59 @@ const pinClass = (active: boolean) =>
     active ? "bg-brass-light text-brand border-brand scale-110 z-10" : "bg-brand text-white border-white/70 hover:scale-105"
   }`;
 
-// Pins closer than this on screen (in px) are merged into one numbered circle.
-const GROUP_DX = 130;
+// Pins closer than this on screen (in px) are merged into one group marker.
+const GROUP_DX = 140;
 const GROUP_DY = 64;
 // From this zoom on, every pin shows on its own.
 const NO_GROUP_ZOOM = 13;
 
-const clusterClass =
-  "flex size-12 items-center justify-center rounded-full border-2 border-deep bg-brass-light font-display text-lg font-semibold text-deep shadow-[0_0_0_6px_rgb(205_174_116/0.25)] transition-transform cursor-pointer hover:scale-110";
+/**
+ * A group of nearby projects, drawn like the logo: one brass dot per project, laid out as a
+ * sunflower (golden-angle) spiral with a solid dot in the middle, next to the count and the
+ * lowest starting price in the group.
+ */
+function clusterElement(group: MapPoint[], labels: Labels, locale: Locale) {
+  const n = Math.min(group.length, 24);
+  const r = n <= 6 ? 3.1 : n <= 12 ? 2.4 : 1.8;
+  // Small groups stay compact; big ones fill the badge.
+  const spread = 5 + 7.5 * Math.min(1, n / 14);
+  const dots = Array.from({ length: n }, (_, i) => {
+    const dist = i === 0 ? 0 : spread * Math.sqrt(i / (n - 1 || 1));
+    const angle = i * 2.39996;
+    const cx = (18 + dist * Math.cos(angle)).toFixed(2);
+    const cy = (18 + dist * Math.sin(angle)).toFixed(2);
+    // The middle dot is solid, the rest fade towards the edge.
+    const opacity = i === 0 ? 1 : (0.95 - (0.45 * i) / n).toFixed(2);
+    return `<circle cx="${cx}" cy="${cy}" r="${i === 0 ? r + 0.9 : r}" fill-opacity="${opacity}"/>`;
+  }).join("");
+
+  const prices = group.map((g) => g.priceValue).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  const from = prices.length ? labels.clusterFrom.replace("{price}", formatMillions(Math.min(...prices), locale)) : "";
+
+  const el = document.createElement("div");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className =
+    "cluster-pop flex cursor-pointer items-center gap-2 rounded-full border border-brass-light/60 bg-brand/95 py-1.5 ps-1.5 pe-4 text-white shadow-[0_12px_28px_-12px_rgb(0_0_0/0.7)] backdrop-blur-sm transition-transform duration-200 hover:-translate-y-0.5 hover:border-brass-light";
+  button.title = group.map((g) => g.name).join(" · ");
+  button.setAttribute("aria-label", labels.cluster.replace("{n}", String(group.length)));
+  button.innerHTML = `
+    <span class="flex size-10 flex-none items-center justify-center rounded-full bg-deep/70 ring-1 ring-brass-light/25">
+      <svg viewBox="0 0 36 36" class="size-9 text-brass-light" fill="currentColor" aria-hidden="true">${dots}</svg>
+    </span>
+    <span class="flex flex-col items-start leading-tight">
+      <span class="font-display text-[15px] font-medium whitespace-nowrap"></span>
+      <span class="text-[11px] whitespace-nowrap text-brass-light"></span>
+    </span>`;
+  const [count, price] = button.querySelectorAll<HTMLElement>("span.flex-col > span");
+  const total = group.length;
+  const countLabel = total === 2 ? labels.clusterCountTwo : total <= 10 ? labels.clusterCountFew : labels.clusterCount;
+  count.textContent = countLabel.replace("{n}", String(total));
+  price.textContent = from;
+  if (!from) price.remove();
+  el.append(button);
+  return { el, button };
+}
 
 function boundsOf(points: MapPoint[]): [[number, number], [number, number]] {
   const lngs = points.map((p) => p.lng);
@@ -221,15 +275,11 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
             markerMap.get(p.slug)!.el.style.display = "";
             continue;
           }
-          const el = document.createElement("button");
-          el.type = "button";
-          el.className = clusterClass;
-          el.textContent = String(group.length);
-          el.title = group.map((g) => g.name).join(" · ");
-          el.setAttribute("aria-label", labels.cluster.replace("{n}", String(group.length)));
+          // MapLibre positions `el`; the styled, animated button sits inside it.
+          const { el, button } = clusterElement(group, labels, locale);
           const lng = group.reduce((t, g) => t + g.lng, 0) / group.length;
           const lat = group.reduce((t, g) => t + g.lat, 0) / group.length;
-          el.addEventListener("click", (e) => {
+          button.addEventListener("click", (e) => {
             e.stopPropagation();
             // Fit the group, but always zoom in at least 1.5 levels so every click splits it further.
             const fit = map.cameraForBounds(boundsOf(group), { padding: 60 });
@@ -273,7 +323,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [points, locale, mode, labels.cluster, router]);
+  }, [points, locale, mode, labels, router]);
 
   // Light/dark switch: swap the tiles and put the place names back in the visitor's language.
   useEffect(() => {

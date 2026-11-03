@@ -462,7 +462,11 @@
     "search": "Search a project, developer or area",
     "searchResults": "{n} found",
     "searchNone": "No projects match",
-    "searchClear": "Clear search"
+    "searchClear": "Clear search",
+    "clusterCount": "{n} projects",
+    "clusterFrom": "from {price}",
+    "clusterCountTwo": "2 projects",
+    "clusterCountFew": "{n} projects"
   },
   "hero": {
     "kicker": "Egypt's real estate project guide",

@@ -462,7 +462,11 @@
     "search": "ابحث بالمشروع أو المطور أو المنطقة",
     "searchResults": "{n} نتيجة",
     "searchNone": "مافيش مشروعات بالاسم ده",
-    "searchClear": "مسح البحث"
+    "searchClear": "مسح البحث",
+    "clusterCount": "{n} مشروع",
+    "clusterFrom": "من {price}",
+    "clusterCountTwo": "مشروعين",
+    "clusterCountFew": "{n} مشروعات"
   },
   "hero": {
     "kicker": "دليل المشروعات العقارية في مصر",

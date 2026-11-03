@@ -9,7 +9,10 @@ export function AdminShell({ title, children, actions, back }: { title: ReactNod
       <header className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
           <Link href="/admin" className="font-display text-lg text-ink no-underline">
-            AqarArena <span className="text-sm text-muted">· لوحة التحكم</span>
+            <span dir="ltr" className="tracking-[0.18em]">
+              AQAR <span className="font-light text-brass">ARENA</span>
+            </span> 
+            <span className="text-sm text-muted">· لوحة التحكم</span>
           </Link>
           <nav className="flex flex-wrap gap-4 text-sm">
             <Link href="/admin">الرئيسية</Link>

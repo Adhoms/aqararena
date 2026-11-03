@@ -25,6 +25,7 @@ export function toMapPoints(projects: Project[], developers: Developer[], insigh
         // Land area, not price, on the pin: prices differ per unit. The card shows the starting price.
         size: p.landFeddan ? fill(dict.projectPage.feddan, { n: p.landFeddan }) : undefined,
         price: Number.isFinite(s.startingPrice) ? `${dict.common.startingFrom} ${formatMillions(s.startingPrice, locale)}` : undefined,
+        priceValue: Number.isFinite(s.startingPrice) ? s.startingPrice : undefined,
         down: `${dict.common.lowestDown} ${s.minDownPct}%`,
         delivery: p.deliveryYear,
         category: p.categories[0],
@@ -53,5 +54,9 @@ export function mapLabels(dict: Dictionary) {
     searchResults: dict.map.searchResults,
     searchNone: dict.map.searchNone,
     searchClear: dict.map.searchClear,
+    clusterCount: dict.map.clusterCount,
+    clusterCountTwo: dict.map.clusterCountTwo,
+    clusterCountFew: dict.map.clusterCountFew,
+    clusterFrom: dict.map.clusterFrom,
   };
 }

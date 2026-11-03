@@ -6,7 +6,7 @@ A showcase of every real-estate developer project in Egypt: master plans, price 
 
 ## Status
 
-The public site is built from the [approved design](https://claude.ai/artifact/XPigMkPtbo1h3d6ezkWV3s) and reads from **PostgreSQL** through Prisma. The database currently holds the demo developers and projects (placeholder names and numbers) until real data is entered. Without a database the site falls back to the same demo data. See:
+Live at **https://aqararena.com** (Vercel + Neon). The public site is built from the [approved design](https://claude.ai/artifact/XPigMkPtbo1h3d6ezkWV3s) and reads from **PostgreSQL** through Prisma. The database currently holds the demo developers and projects (placeholder names and numbers) until real data is entered. Without a database the site falls back to the same demo data. See:
 
 - [docs/ROADMAP.md](docs/ROADMAP.md): build phases and what's out of scope
 - [docs/DATA-MODEL.md](docs/DATA-MODEL.md): the database model in plain words

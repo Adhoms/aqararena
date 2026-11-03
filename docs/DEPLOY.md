@@ -76,6 +76,19 @@ $env:ALLOW_DEMO_SEED=1; npm run db:seed
 - كل pull request بياخد رابط معاينة (Preview) خاص بيه.
 - الأسعار والبيانات بتتحدّث في الموقع كل ساعة، وفورًا عند الحفظ من لوحة التحكم.
 
+## 4-ب) الدومين: aqararena.com
+
+الدومين **aqararena.com** متسجّل من Vercel نفسه (3 نوفمبر 2026)، وبيتجدد تلقائيًا كل سنة (حوالي 12 دولار، التجديد الجاي 3 نوفمبر 2027). الـ DNS على Vercel، فمافيش إعدادات DNS محتاجة تتعمل.
+
+- **Project → Settings → Domains**:
+  - `aqararena.com` ← Production
+  - `www.aqararena.com` ← تحويل دائم (308) على `aqararena.com`
+  - `aqararena.vercel.app` ← لسه شغال كعنوان احتياطي
+- **Environment Variables**: `NEXT_PUBLIC_SITE_URL = https://aqararena.com` (Production). ده اللي بيخلّي الـ sitemap و robots.txt والـ canonical وروابط المشاركة تستخدم الدومين. لو غيّرت الدومين، غيّر المتغير ده واعمل **Redeploy**.
+- أي تغيير في المتغيرات مش بيبان غير بعد **Redeploy**، و Vercel ممكن يطلب كود تأكيد على الإيميل.
+
+**خطوة جاية مستحسنة:** سجّل الموقع في [Google Search Console](https://search.google.com/search-console) (نوع Domain: `aqararena.com`)، وابعتله `https://aqararena.com/sitemap.xml`.
+
 ## 5) إدخال البيانات الحقيقية من لوحة التحكم
 
 1. افتح `https://<الموقع>/admin` وادخل بكلمة المرور (`ADMIN_PASSWORD`).

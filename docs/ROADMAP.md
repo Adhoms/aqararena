@@ -10,9 +10,10 @@ The goal of each phase is something real users can open.
 - [x] Prisma schema from [DATA-MODEL.md](DATA-MODEL.md)
 - [x] Approved visual design: [design canvas](https://claude.ai/artifact/XPigMkPtbo1h3d6ezkWV3s) (palette, type, page layouts)
 - [x] PostgreSQL schema and first migration; local development database (`prisma dev`) with demo seed
-- [ ] Hosted PostgreSQL (Supabase or Neon) for the live site, migrations applied with `prisma migrate deploy`
+- [x] Hosted PostgreSQL (Neon) for the live site, migrations applied with `prisma migrate deploy`
 - [ ] Seed script with 10–20 real developers and their projects, entered by hand
-- [ ] Deploy preview on Vercel on every push
+- [x] Deploy on Vercel on every push (preview per pull request)
+- [x] Own domain: https://aqararena.com (www redirects to it)
 
 ## Phase 1: Public site (MVP)
 

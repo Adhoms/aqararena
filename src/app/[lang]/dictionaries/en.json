@@ -458,7 +458,11 @@
     "teaserEyebrow": "Map",
     "teaserTitle": "Every project on the map of Egypt",
     "teaserText": "See each project where it really is, and compare areas as you move around.",
-    "cluster": "{n} projects here. Click to zoom in"
+    "cluster": "{n} projects here. Click to zoom in",
+    "search": "Search a project, developer or area",
+    "searchResults": "{n} found",
+    "searchNone": "No projects match",
+    "searchClear": "Clear search"
   },
   "hero": {
     "kicker": "Egypt's real estate project guide",

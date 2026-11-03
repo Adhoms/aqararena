@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { Locale } from "@/i18n/config";
 import { useTheme } from "@/components/theme-toggle";
-import type { PropertyCategory } from "@/lib/property";
+import type { ProjectStatus, PropertyCategory } from "@/lib/property";
+import { matchesQuery } from "@/lib/search-text";
 
 export type MapPoint = {
   slug: string;
@@ -17,12 +18,18 @@ export type MapPoint = {
   developer: string;
   developerSlug: string;
   area: string;
+  district?: string;
   /** Land area, e.g. "85 فدان". */
   size?: string;
+  /** "يبدأ من 6.50 مليون" */
+  price?: string;
   down: string;
   delivery: number;
   category: PropertyCategory;
+  status: ProjectStatus;
   score?: number;
+  /** Names in both languages, developer, area and district, normalized for search. */
+  search: string;
 };
 
 type Labels = {
@@ -35,6 +42,12 @@ type Labels = {
   all: string;
   viewProject: string;
   categories: Record<PropertyCategory, string>;
+  statuses: Record<ProjectStatus, string>;
+  search: string;
+  /** "{n} results" */
+  searchResults: string;
+  searchNone: string;
+  searchClear: string;
 };
 
 // Free vector map tiles, no API key (https://openfreemap.org). Map data © OpenStreetMap contributors.
@@ -77,7 +90,8 @@ type Props = {
 export function ProjectMap({ points, locale, labels, mode = "explore", className = "" }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const markers = useRef(new Map<string, { marker: Marker; el: HTMLElement }>());
+  // `el` is the marker element MapLibre positions (its classes are MapLibre's); `pin` is the styled pin inside it.
+  const markers = useRef(new Map<string, { marker: Marker; el: HTMLElement; pin: HTMLElement }>());
   const router = useRouter();
   const theme = useTheme();
   // The style the map was created with; later mode changes swap it in place (see below).
@@ -87,13 +101,30 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
   const [active, setActive] = useState<string | null>(null);
   const [visible, setVisible] = useState<string[]>(points.map((p) => p.slug));
   const [category, setCategory] = useState<PropertyCategory | "all">("all");
+  const [status, setStatus] = useState<ProjectStatus | "all">("all");
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
   // Read by the map's grouping, which runs outside React's render.
   const activeRef = useRef(active);
-  const categoryRef = useRef(category);
   const regroupRef = useRef<() => void>(() => {});
 
   const categories = useMemo(() => [...new Set(points.map((p) => p.category))], [points]);
-  const shown = points.filter((p) => (category === "all" || p.category === category) && visible.includes(p.slug));
+  const statuses = useMemo(() => [...new Set(points.map((p) => p.status))], [points]);
+  // Everything the chips and the search box let through, wherever it is on the map.
+  const matching = useMemo(
+    () =>
+      points.filter(
+        (p) =>
+          (category === "all" || p.category === category) &&
+          (status === "all" || p.status === status) &&
+          (!query.trim() || matchesQuery(p.search, query)),
+      ),
+    [points, category, status, query],
+  );
+  const matchingRef = useRef(new Set(matching.map((p) => p.slug)));
+  const shown = matching.filter((p) => visible.includes(p.slug));
+  const searching = query.trim().length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -123,9 +154,11 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
         // Pin: developer (link to the developer page), project (link to the project page), land area.
         // Clicking the pin anywhere else selects it and opens the summary card.
         const el = document.createElement("div");
-        el.className = pinClass(false);
-        el.setAttribute("role", "group");
-        el.setAttribute("aria-label", p.size ? `${p.name}: ${p.size}` : p.name);
+        const pin = document.createElement("div");
+        pin.className = pinClass(false);
+        pin.setAttribute("role", "group");
+        pin.setAttribute("aria-label", p.size ? `${p.name}: ${p.size}` : p.name);
+        el.append(pin);
         const link = (href: string, text: string, className: string) => {
           const a = document.createElement("a");
           a.href = href;
@@ -140,27 +173,26 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
           });
           return a;
         };
-        el.append(link(`/${locale}/developers/${p.developerSlug}`, p.developer, "text-[11px] opacity-85"));
-        el.append(link(`/${locale}/projects/${p.slug}`, p.name, "text-[13px] font-semibold"));
+        pin.append(link(`/${locale}/developers/${p.developerSlug}`, p.developer, "text-[11px] opacity-85"));
+        pin.append(link(`/${locale}/projects/${p.slug}`, p.name, "text-[13px] font-semibold"));
         if (p.size) {
           const size = document.createElement("span");
           size.className = "text-[11px] opacity-80";
           size.textContent = p.size;
-          el.append(size);
+          pin.append(size);
         }
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           setActive(p.slug);
         });
         const marker = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([p.lng, p.lat]).addTo(map);
-        markerMap.set(p.slug, { marker, el });
+        markerMap.set(p.slug, { marker, el, pin });
       }
 
       // Merge pins that would overlap on screen into a numbered circle; clicking it zooms in until they split.
       const regroup = () => {
         clusterMarkers.splice(0).forEach((m) => m.remove());
-        const cat = categoryRef.current;
-        const candidates = points.filter((p) => cat === "all" || p.category === cat);
+        const candidates = points.filter((p) => matchingRef.current.has(p.slug));
         markerMap.forEach(({ el }) => (el.style.display = "none"));
         const pos = new Map(candidates.map((p) => [p.slug, map.project([p.lng, p.lat])]));
         const grouping = map.getZoom() < NO_GROUP_ZOOM;
@@ -261,17 +293,38 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
 
   // Highlight the picked pin and bring its list row into view.
   useEffect(() => {
-    markers.current.forEach(({ el }, slug) => (el.className = pinClass(slug === active)));
+    markers.current.forEach(({ el, pin }, slug) => {
+      pin.className = pinClass(slug === active);
+      // Keep the picked pin above its neighbours.
+      el.style.zIndex = slug === active ? "5" : "";
+    });
     activeRef.current = active;
     regroupRef.current();
     if (active) listRefs.current.get(active)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [active]);
 
-  // Category chips hide the other pins (and regroup the rest).
+  // Chips and search hide the other pins and regroup the rest.
   useEffect(() => {
-    categoryRef.current = category;
+    matchingRef.current = new Set(matching.map((p) => p.slug));
     regroupRef.current();
-  }, [category]);
+  }, [matching]);
+
+  // While searching, frame the results after a short pause in typing; a single result opens its card.
+  useEffect(() => {
+    if (!searching) return;
+    const t = setTimeout(() => {
+      const map = mapRef.current;
+      if (!map || matching.length === 0) return;
+      if (matching.length === 1) {
+        const p = matching[0];
+        setActive(p.slug);
+        map.flyTo({ center: [p.lng, p.lat], zoom: Math.max(map.getZoom(), 11), speed: 1.4 });
+      } else {
+        map.fitBounds(boundsOf(matching), { padding: 90, maxZoom: 12, duration: 800 });
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [matching, searching]);
 
   const activePoint = points.find((p) => p.slug === active);
 
@@ -289,9 +342,27 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       {!ready && (
         <div className="absolute inset-0 flex items-center justify-center bg-plan text-sm text-body">{labels.loading}</div>
       )}
+      <MapSearch
+        query={query}
+        onQuery={(q) => {
+          setQuery(q);
+          setHighlight(0);
+          setSearchOpen(true);
+        }}
+        open={searchOpen && searching}
+        onOpen={setSearchOpen}
+        results={matching}
+        highlight={highlight}
+        onHighlight={setHighlight}
+        onPick={(p) => {
+          setSearchOpen(false);
+          flyTo(p);
+        }}
+        labels={labels}
+      />
       <button
         type="button"
-        onClick={() => mapRef.current?.fitBounds(boundsOf(points), { padding: 70, maxZoom: 11 })}
+        onClick={() => mapRef.current?.fitBounds(boundsOf(matching.length ? matching : points), { padding: 70, maxZoom: 11 })}
         className="press absolute bottom-8 start-3 rounded-full border border-line bg-surface/95 px-4 py-2 text-[13px] font-medium shadow backdrop-blur hover:border-ink"
       >
         {labels.showAll}
@@ -315,10 +386,12 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
                 ×
               </button>
             </div>
-            <div className="flex gap-4 text-[13px]">
-              {activePoint.size && <b className="font-display text-base font-medium">{activePoint.size}</b>}
+            {activePoint.price && <b className="font-display text-xl font-medium text-ink">{activePoint.price}</b>}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+              {activePoint.size && <span className="font-medium">{activePoint.size}</span>}
               <span>{activePoint.down}</span>
               <span>{activePoint.delivery}</span>
+              <span className="text-brass">{labels.statuses[activePoint.status]}</span>
             </div>
             <Link
               href={`/${locale}/projects/${activePoint.slug}`}
@@ -356,6 +429,23 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
               </button>
             ))}
           </div>
+          {statuses.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {(["all", ...statuses] as const).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  aria-pressed={status === st}
+                  onClick={() => setStatus(st)}
+                  className={`min-h-8 rounded-full border px-3 text-[12px] ${
+                    status === st ? "border-brass bg-brass-soft font-medium text-ink" : "border-line hover:border-ink"
+                  }`}
+                >
+                  {st === "all" ? labels.all : labels.statuses[st]}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <ul className="flex-1 overflow-y-auto">
           {shown.map((p) => (
@@ -369,19 +459,23 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
               <button
                 type="button"
                 onClick={() => flyTo(p)}
-                onMouseEnter={() => markers.current.get(p.slug)?.el.classList.add("scale-110")}
-                onMouseLeave={() => markers.current.get(p.slug)?.el.classList.remove("scale-110")}
+                onMouseEnter={() => markers.current.get(p.slug)?.pin.classList.add("scale-110")}
+                onMouseLeave={() => markers.current.get(p.slug)?.pin.classList.remove("scale-110")}
                 className={`flex w-full flex-col gap-0.5 border-b border-divider px-4 py-3 text-start hover:bg-ground ${active === p.slug ? "bg-brass-soft" : ""}`}
               >
                 <span className="flex items-center justify-between gap-3">
                   <span className="font-display font-medium">{p.name}</span>
-                  {p.size && <span className="font-display text-sm font-medium text-muted">{p.size}</span>}
+                  {p.price ? (
+                    <span className="font-display text-sm font-medium text-ink">{p.price}</span>
+                  ) : (
+                    p.size && <span className="font-display text-sm font-medium text-muted">{p.size}</span>
+                  )}
                 </span>
                 <span className="flex justify-between gap-3 text-[13px] text-muted">
                   <span>
                     {p.developer} · {p.area}
                   </span>
-                  <span className="text-brass">{labels.categories[p.category]}</span>
+                  <span className="text-brass">{labels.statuses[p.status]}</span>
                 </span>
               </button>
             </li>
@@ -389,6 +483,105 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
         </ul>
       </aside>
       <div className="relative min-h-[55vh] flex-1">{mapBox}</div>
+    </div>
+  );
+}
+
+/** The search box over the map: filters the pins as you type and lists the matches to jump to. */
+function MapSearch({
+  query,
+  onQuery,
+  open,
+  onOpen,
+  results,
+  highlight,
+  onHighlight,
+  onPick,
+  labels,
+}: {
+  query: string;
+  onQuery: (q: string) => void;
+  open: boolean;
+  onOpen: (open: boolean) => void;
+  results: MapPoint[];
+  highlight: number;
+  onHighlight: (i: number) => void;
+  onPick: (p: MapPoint) => void;
+  labels: Labels;
+}) {
+  const list = results.slice(0, 7);
+  const searching = query.trim().length > 0;
+  return (
+    <div className="absolute end-14 top-3 start-3 z-10 max-w-md">
+      <div className="flex items-center gap-2 rounded-2xl border border-line bg-surface/95 px-3 shadow-lg backdrop-blur focus-within:border-brand">
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5 flex-none text-muted" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          type="search"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="map-search-results"
+          aria-label={labels.search}
+          placeholder={labels.search}
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          onFocus={() => onOpen(true)}
+          onBlur={() => setTimeout(() => onOpen(false), 150)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              onHighlight(Math.min(highlight + 1, list.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              onHighlight(Math.max(highlight - 1, 0));
+            } else if (e.key === "Enter" && list[highlight]) {
+              e.preventDefault();
+              onPick(list[highlight]);
+            } else if (e.key === "Escape") {
+              onQuery("");
+            }
+          }}
+          className="min-h-11 w-full min-w-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+        />
+        {searching && (
+          <>
+            <span aria-live="polite" className="flex-none text-[12px] whitespace-nowrap text-muted">
+              {results.length ? labels.searchResults.replace("{n}", String(results.length)) : labels.searchNone}
+            </span>
+            <button
+              type="button"
+              aria-label={labels.searchClear}
+              onClick={() => onQuery("")}
+              className="flex size-7 flex-none items-center justify-center rounded-full text-lg text-muted hover:bg-ground hover:text-ink"
+            >
+              ×
+            </button>
+          </>
+        )}
+      </div>
+      {open && list.length > 0 && (
+        <ul id="map-search-results" role="listbox" className="mt-1.5 overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
+          {list.map((p, i) => (
+            <li key={p.slug} role="option" aria-selected={i === highlight}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => onHighlight(i)}
+                onClick={() => onPick(p)}
+                className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start ${i === highlight ? "bg-brass-soft" : ""}`}
+              >
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate font-display font-medium text-ink">{p.name}</span>
+                  <span className="truncate text-[12px] text-muted">{[p.developer, p.district, p.area].filter(Boolean).join(" · ")}</span>
+                </span>
+                {p.price && <span className="flex-none text-[12px] font-medium text-ink">{p.price}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

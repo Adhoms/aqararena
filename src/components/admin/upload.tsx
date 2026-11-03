@@ -54,7 +54,11 @@ export function checkFile(file: File): string | null {
   return null;
 }
 
-export async function uploadFile(file: File, folder: string, opts: { plan?: boolean; onProgress?: (pct: number) => void } = {}): Promise<Uploaded> {
+export async function uploadFile(
+  file: File,
+  folder: string,
+  opts: { plan?: boolean; onProgress?: (pct: number) => void; handleUploadUrl?: string } = {},
+): Promise<Uploaded> {
   const problem = checkFile(file);
   if (problem) throw new Error(problem);
 
@@ -72,7 +76,7 @@ export async function uploadFile(file: File, folder: string, opts: { plan?: bool
   try {
     const result = await upload(`${folder}/${safeName(file.name, contentType)}`, body, {
       access: "public",
-      handleUploadUrl: "/admin/upload",
+      handleUploadUrl: opts.handleUploadUrl ?? "/admin/upload",
       contentType,
       multipart: body.size > 8 * 1024 * 1024,
       onUploadProgress: ({ percentage }) => opts.onProgress?.(percentage),

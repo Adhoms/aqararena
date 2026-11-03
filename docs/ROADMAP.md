@@ -29,8 +29,9 @@ The goal of each phase is something real users can open.
 
 ## Phase 2: Developer portal and revenue
 
-- [ ] Developer accounts and roles
-- [ ] Self-service editing of projects, unit types, price plans, photos and master plans
+- [x] Developer accounts: request from `/for-developers` or created by the admin, username + password, temporary passwords
+- [x] Developer portal (`/portal`): developers edit their company profile and projects (unit types, payment plans, photos, distances); every change waits for admin approval with a before/after review
+- [ ] Master-plan zones in the developer portal (admin only for now)
 - [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings
 

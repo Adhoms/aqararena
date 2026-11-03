@@ -98,6 +98,26 @@ enum MediaGroup {
 }
 
 /// What a clickable master-plan zone contains.
+/// A developer login. Requests from the "for developers" page start as PENDING.
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+}
+
+enum SubmissionKind {
+  DEVELOPER_PROFILE
+  PROJECT
+}
+
+/// DRAFT: the developer is still editing. PENDING: waiting for the admin.
+enum SubmissionStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ZoneKind {
   RESIDENTIAL
   VILLAS
@@ -128,8 +148,8 @@ model Area {
 // ─── Developers & projects ──────────────────────────────────────────────
 
 model Developer {
-  id          String        @id @default(cuid())
-  slug        String        @unique
+  id          String             @id @default(cuid())
+  slug        String             @unique
   nameAr      String
   nameEn      String
   logoUrl     String?
@@ -144,11 +164,13 @@ model Developer {
   email       String?
   hqAddressAr String?
   hqAddressEn String?
-  verified    Boolean       @default(false)
-  plan        DeveloperPlan @default(BASIC)
+  verified    Boolean            @default(false)
+  plan        DeveloperPlan      @default(BASIC)
   projects    Project[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  accounts    DeveloperAccount[]
+  submissions Submission[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 }
 
 model Project {
@@ -198,6 +220,7 @@ model Project {
   offers              Offer[]
   constructionUpdates ConstructionUpdate[]
   priceHistory        PriceHistory[]
+  submissions         Submission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -403,4 +426,65 @@ model ConstructionUpdate {
   createdAt   DateTime @default(now())
 
   @@index([projectId, date])
+}
+
+// ─── Developer portal ───────────────────────────────────────────────────
+
+/// A sign-in for a developer's staff. Nothing a developer sends goes live until the admin approves it.
+model DeveloperAccount {
+  id                 String        @id @default(cuid())
+  username           String        @unique
+  /// scrypt hash, see src/lib/portal/password.ts
+  passwordHash       String
+  status             AccountStatus @default(PENDING)
+  /// Set when the account is approved (or created by the admin).
+  developerId        String?
+  developer          Developer?    @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  /// What the developer typed when asking for an account.
+  companyNameAr      String?
+  companyNameEn      String?
+  contactName        String?
+  phone              String?
+  email              String?
+  note               String?
+  /// Set after the admin creates the account or resets its password.
+  mustChangePassword Boolean       @default(false)
+  /// Raised to sign the account out everywhere (password change, disable).
+  sessionVersion     Int           @default(0)
+  lastLoginAt        DateTime?
+  submissions        Submission[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([status])
+  @@index([developerId])
+}
+
+/// A developer's proposed change: their company profile, or one project with its unit types,
+/// payment plans, photos and distances. `data` holds the whole proposed version as typed in the
+/// portal; approving it writes it to the live tables.
+model Submission {
+  id          String           @id @default(cuid())
+  kind        SubmissionKind
+  status      SubmissionStatus @default(DRAFT)
+  accountId   String
+  account     DeveloperAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  developerId String
+  developer   Developer        @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  /// The live project being changed; empty for a new project (set once approved).
+  projectId   String?
+  project     Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  /// Project or company name, for lists.
+  title       String
+  data        Json
+  /// The admin's reason when sending it back.
+  reviewNote  String?
+  submittedAt DateTime?
+  reviewedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([status, submittedAt])
+  @@index([developerId, status])
+  @@index([projectId])
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { pageAlternates } from "@/lib/site";
 import Link from "next/link";
-import { Container, SectionHeading } from "@/components/ui";
+import { ArrowIcon, Container, SectionHeading } from "@/components/ui";
 import { countProjectsByDeveloper, listDevelopers } from "@/lib/catalog";
 import { fill } from "@/lib/format";
 import { getDictionary, getLocale } from "../dictionaries";
@@ -20,6 +20,15 @@ export default async function DevelopersPage() {
         <SectionHeading as="h1" eyebrow={dict.home.developersEyebrow} title={dict.developersPage.title} />
         <p className="text-muted">{dict.developersPage.subtitle}</p>
       </div>
+      <Link
+        href={`/${locale}/for-developers`}
+        className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-brass/40 bg-brass-soft px-6 py-4 text-ink no-underline hover:border-brass hover:text-ink"
+      >
+        <span className="font-medium">{dict.forDevelopersPage.title}</span>
+        <span className="inline-flex items-center gap-1.5 text-sm text-brass-dark">
+          {dict.forDevelopersPage.ctaRequest} <ArrowIcon locale={locale} size={16} />
+        </span>
+      </Link>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-5">
         {developers.map((d) => (
           <li key={d.slug}>

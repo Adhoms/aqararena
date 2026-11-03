@@ -21,6 +21,9 @@ Live at **https://aqararena.com** (Vercel + Neon). The public site is built from
 | `/ar/projects/[slug]` | Project: gallery, overview, interactive master plan, unit types, price plans, photos, location, developer contacts |
 | `/ar/compare?p=a,b,c` | Project-vs-project comparison (up to 4), "differences only", share link, print / PDF |
 | `/ar/developers`, `/ar/developers/[slug]` | Developer directory and profile with portfolio by area |
+| `/ar/for-developers` | Landing page for developers: why list, how it works, request an account |
+| `/portal` | Developer portal (Arabic): sign in, request an account, edit company and projects, send for review |
+| `/admin` | Admin: data entry, Excel import, review of developer changes, developer accounts |
 
 ## Getting started
 

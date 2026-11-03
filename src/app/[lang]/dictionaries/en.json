@@ -390,7 +390,8 @@
     "contactUs": "Contact us",
     "language": "Language",
     "neutrality": "AqarArena is a showcase platform only. We don't sell, rent or broker; all data is provided by developers.",
-    "rights": "All rights reserved"
+    "rights": "All rights reserved",
+    "developerLogin": "Developer sign-in"
   },
   "notFound": {
     "title": "This page doesn't exist",
@@ -590,5 +591,60 @@
       "maintenance": "Maintenance"
     },
     "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest."
+  },
+  "forDevelopersPage": {
+    "metaTitle": "For developers: list your projects for free",
+    "metaDescription": "Add your projects, prices, payment plans and photos to AqarArena yourself. Buyers contact you directly on your official numbers, with no broker in between.",
+    "eyebrow": "For real-estate developers",
+    "title": "Put your projects in front of serious buyers, with your own numbers",
+    "sub": "AqarArena is a neutral guide to every project in Egypt. Add your projects, prices, payment plans and photos from your company's own portal, and buyers reach you directly, with no broker.",
+    "ctaRequest": "Request an account",
+    "ctaLogin": "Developer sign-in",
+    "benefitsTitle": "Why AqarArena",
+    "benefits": [
+      {
+        "title": "Only your official numbers",
+        "text": "Every call and WhatsApp button on your project page goes to your hotline and sales team, never to a broker."
+      },
+      {
+        "title": "No commission",
+        "text": "We only show projects. We don't sell, and we take no cut of any sale."
+      },
+      {
+        "title": "Always up to date",
+        "text": "Update prices, payment plans and photos any time; visitors see when they were last updated."
+      },
+      {
+        "title": "Fair comparison",
+        "text": "Your project appears in budget search, on the map and in comparisons, on the same terms as every other."
+      }
+    ],
+    "stepsTitle": "How it works",
+    "steps": [
+      {
+        "title": "Request an account",
+        "text": "Enter your company details and choose a username and password. We check the request and activate the account."
+      },
+      {
+        "title": "Add your projects",
+        "text": "For each project: details, unit types with areas and prices, payment plans, photos, master plan and brochure."
+      },
+      {
+        "title": "We review and publish",
+        "text": "Our team checks every addition and change for accuracy, and it goes live as soon as we approve it."
+      }
+    ],
+    "includesTitle": "What you can add",
+    "includes": [
+      "Company details and official numbers",
+      "Projects and their location on the map",
+      "Unit types with areas and prices",
+      "Payment plans, down payments and cash discounts",
+      "Exterior, interior and construction photos",
+      "Master plan, floor plans and brochure"
+    ],
+    "closingTitle": "Ready to start?",
+    "closingText": "Accounts are free. All you need is your company's details; add your projects at your own pace.",
+    "portalNote": "The developer portal is in Arabic."
   }
 }

@@ -2,14 +2,13 @@
 
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { CATALOG_TAG } from "@/lib/catalog";
 import { endSession, passwordMatches, requireAdmin, startSession } from "@/lib/admin/auth";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
-import { BLOB_HOST_SUFFIX } from "@/lib/admin/upload-config";
+import { deleteIfUnused } from "@/lib/admin/blob";
 import { readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
 import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
@@ -265,26 +264,6 @@ export async function addMediaBatch(input: {
   return { ok: true, message: `تمت إضافة ${items.length} ملف ✓` };
 }
 
-/**
- * Removes a file from Vercel Blob once nothing points to it any more. Links to other sites are
- * left alone, and a failure here never undoes the delete in the database.
- */
-async function deleteIfUnused(url: string | null | undefined) {
-  if (!url || !process.env.BLOB_READ_WRITE_TOKEN) return;
-  try {
-    if (!new URL(url).hostname.endsWith(BLOB_HOST_SUFFIX)) return;
-    const [media, projects, developers] = await Promise.all([
-      db.media.count({ where: { url } }),
-      db.project.count({ where: { masterPlanUrl: url } }),
-      db.developer.count({ where: { OR: [{ logoUrl: url }, { coverUrl: url }] } }),
-    ]);
-    if (media + projects + developers > 0) return;
-    await del(url);
-  } catch (e) {
-    console.error("Could not delete stored file", url, e);
-  }
-}
-
 // ─── Distances ──────────────────────────────────────────────────────────
 
 export async function saveDistance(_: FormState, data: FormData): Promise<FormState> {
@@ -323,7 +302,7 @@ export async function deleteProjectPart(data: FormData) {
   const part = data.get("part");
   if (!id || !projectId || typeof part !== "string" || !(part in PARTS)) return;
   const removed = await PARTS[part as keyof typeof PARTS](id, projectId);
-  if (part === "media" && "url" in removed) await deleteIfUnused(removed.url);
+  if (part === "media" && "url" in removed) await deleteIfUnused([removed.url]);
   if (part === "typology" || part === "plan") await touchPrices(projectId);
   published();
 }

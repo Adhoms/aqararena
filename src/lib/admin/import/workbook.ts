@@ -1,0 +1,614 @@
+import "server-only";
+import ExcelJS from "exceljs";
+import { db } from "@/lib/db";
+import { FormReader } from "@/lib/admin/form";
+import { readDeveloper, readPaymentPlan, readProject, readTypology, FEDDAN_M2 } from "@/lib/admin/readers";
+import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./columns";
+
+// Builds the Excel template (optionally filled with what is already on the site) and imports
+// a filled one. An import is all or nothing: every row is checked first, and nothing is saved
+// while any row has a problem.
+
+const MAX_ROWS = 2000;
+
+// ─── Matching names typed by people ─────────────────────────────────────
+
+/** Loose form of a name for matching: case, spaces and common Arabic spelling variants ignored. */
+export function norm(s: string) {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/[ً-ْـ]/g, "") // diacritics and tatweel
+    .replace(/\s+/g, " ");
+}
+
+class Lookup<T> {
+  private map = new Map<string, T>();
+  add(item: T, ...names: (string | null | undefined)[]) {
+    for (const n of names) if (n) this.map.set(norm(n), item);
+  }
+  get(name: string) {
+    return this.map.get(norm(name));
+  }
+}
+
+// ─── Reading cells ──────────────────────────────────────────────────────
+
+type Raw = string | number | boolean | Date | null;
+
+function rawValue(cell: ExcelJS.Cell): Raw {
+  const v = cell.value as unknown;
+  if (v === null || v === undefined) return null;
+  if (v instanceof Date || typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+  if (typeof v === "object") {
+    const o = v as { richText?: { text: string }[]; text?: unknown; hyperlink?: string; result?: unknown; error?: string };
+    if (o.richText) return o.richText.map((r) => r.text).join("");
+    if (o.hyperlink) return typeof o.text === "string" && /^https?:/i.test(o.text) ? o.text : o.hyperlink;
+    if ("result" in o) return (o.result as Raw) ?? null;
+    if (typeof o.text === "string") return o.text;
+  }
+  return String(v);
+}
+
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Excel stores days since 1899-12-30. */
+const fromSerial = (n: number) => new Date(Math.round((n - 25569) * 86400 * 1000));
+
+function dateText(v: Raw): string {
+  if (v instanceof Date) {
+    // A year typed into a date-formatted cell (e.g. 2029) arrives as day 2029 after 1899-12-30.
+    const serial = Math.round(v.getTime() / 86400000 + 25569);
+    if (serial >= 1900 && serial <= 2100) return `${serial}-12-31`;
+    return iso(v);
+  }
+  if (typeof v === "number") {
+    if (Number.isInteger(v) && v >= 1900 && v <= 2100) return `${v}-12-31`;
+    if (v > 20000 && v < 80000) return iso(fromSerial(v));
+    return String(v);
+  }
+  const s = String(v ?? "").trim().replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+  if (/^\d{4}$/.test(s)) return `${s}-12-31`;
+  const dmy = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+  const ymd = s.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$/);
+  if (ymd) return `${ymd[1]}-${ymd[2].padStart(2, "0")}-${ymd[3].padStart(2, "0")}`;
+  return s;
+}
+
+const YES = new Set(["نعم", "ايوه", "اه", "صح", "yes", "y", "true", "1", "✓", "x"]);
+const NO = new Set(["لا", "no", "n", "false", "0", ""]);
+
+type Problem = { sheet: string; row: number; column: string; message: string };
+
+/** One row of a sheet, turned into the FormData that the shared readers expect. */
+function rowToForm(def: SheetDef, cells: Map<string, ExcelJS.Cell>, problem: (column: string, message: string) => void) {
+  const data = new FormData();
+  const refs: Record<string, string> = {};
+  for (const col of def.columns) {
+    const cell = cells.get(col.key);
+    if (!cell) continue;
+    const v = rawValue(cell);
+    const text = v instanceof Date ? iso(v) : String(v ?? "").trim();
+    switch (col.type) {
+      case "ref":
+        refs[col.key] = text;
+        break;
+      case "date":
+        if (v !== null && text) data.set(col.key, dateText(v));
+        break;
+      case "number":
+        // A cell formatted as a percentage holds 0.1 for "10%".
+        if (typeof v === "number" && cell.numFmt?.includes("%")) data.set(col.key, String(Math.round(v * 10000) / 100));
+        else data.set(col.key, typeof v === "number" ? String(v) : text);
+        break;
+      case "bool": {
+        const t = norm(String(v === true ? "yes" : v === false ? "no" : text));
+        if (YES.has(t)) data.set(col.key, "on");
+        else if (!NO.has(t)) problem(col.header, `اكتب «نعم» أو «لا»`);
+        break;
+      }
+      case "choice":
+      case "choices": {
+        const parts = col.type === "choices" ? text.split(/[,،؛;\n]+/) : [text];
+        for (const part of parts.map((p) => p.trim()).filter(Boolean)) {
+          const hit = col.choices!.find((c) => norm(c.label) === norm(part) || c.value.toLowerCase() === part.toLowerCase());
+          if (hit) data.append(col.key, hit.value);
+          else problem(col.header, `«${part}» مش من القائمة`);
+        }
+        break;
+      }
+      case "url":
+        // People write "www.example.com" or "example.com"; links need the https:// part.
+        if (text) data.set(col.key, /^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(text) ? `https://${text}` : text);
+        break;
+      default:
+        if (text) data.set(col.key, text);
+    }
+  }
+  return { data, refs };
+}
+
+type SheetRows = { def: SheetDef; present: Set<string>; rows: { row: number; cells: Map<string, ExcelJS.Cell> }[] };
+
+function readSheet(wb: ExcelJS.Workbook, def: SheetDef, problems: Problem[]): SheetRows {
+  const ws = wb.getWorksheet(def.name);
+  const out: SheetRows = { def, present: new Set(), rows: [] };
+  if (!ws) return out;
+
+  // Match header cells to columns by their text (the "*" for required columns is optional).
+  const byColumn = new Map<number, Column>();
+  ws.getRow(1).eachCell((cell, n) => {
+    const h = norm(String(rawValue(cell) ?? "").replace(/\*/g, ""));
+    const col = def.columns.find((c) => norm(c.header) === h || c.key.toLowerCase() === h);
+    if (col) {
+      byColumn.set(n, col);
+      out.present.add(col.key);
+    }
+  });
+  for (const col of def.columns) {
+    if (col.required && !out.present.has(col.key)) problems.push({ sheet: def.name, row: 1, column: col.header, message: "العمود ده ناقص من الشيت" });
+  }
+
+  ws.eachRow({ includeEmpty: false }, (row, n) => {
+    if (n === 1) return;
+    const cells = new Map<string, ExcelJS.Cell>();
+    let filled = false;
+    byColumn.forEach((col, i) => {
+      const cell = row.getCell(i);
+      cells.set(col.key, cell);
+      if (String(rawValue(cell) ?? "").trim()) filled = true;
+    });
+    if (filled) out.rows.push({ row: n, cells });
+  });
+  if (out.rows.length > MAX_ROWS) {
+    problems.push({ sheet: def.name, row: 0, column: "", message: `أكثر من ${MAX_ROWS} صف. قسّم الملف على أكثر من مرة.` });
+    out.rows = out.rows.slice(0, MAX_ROWS);
+  }
+  return out;
+}
+
+/** Keeps only the fields whose column is in the sheet, so a removed column never wipes data. */
+function onlyPresent<T extends Record<string, unknown>>(values: T, present: Set<string>, always: string[] = []): Partial<T> {
+  const source: Record<string, string> = { landAreaM2: "landFeddan", pricePerM2From: "priceFrom" };
+  return Object.fromEntries(Object.entries(values).filter(([k]) => always.includes(k) || present.has(source[k] ?? k))) as Partial<T>;
+}
+
+// ─── Import ─────────────────────────────────────────────────────────────
+
+export type ImportResult = {
+  ok: boolean;
+  saved: boolean;
+  message: string;
+  problems: Problem[];
+  counts: Record<SheetKey, { create: number; update: number }>;
+};
+
+export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promise<ImportResult> {
+  const problems: Problem[] = [];
+  const counts: ImportResult["counts"] = {
+    developers: { create: 0, update: 0 },
+    projects: { create: 0, update: 0 },
+    typologies: { create: 0, update: 0 },
+    plans: { create: 0, update: 0 },
+  };
+  const fail = (message: string): ImportResult => ({ ok: false, saved: false, message, problems, counts });
+
+  const wb = new ExcelJS.Workbook();
+  try {
+    await wb.xlsx.load(buffer);
+  } catch {
+    return fail("الملف مش Excel صالح (لازم يكون ‎.xlsx). لو الملف ‎.xls أو ‎.csv افتحه في Excel واحفظه بصيغة ‎.xlsx.");
+  }
+  const sheets = Object.fromEntries(SHEETS.map((d) => [d.key, readSheet(wb, d, problems)])) as Record<SheetKey, SheetRows>;
+  if (SHEETS.every((d) => sheets[d.key].rows.length === 0)) return fail("الملف فاضي: مالقيناش صفوف في شيتات المطورين أو المشروعات أو النماذج أو أنظمة السداد.");
+
+  // What is already on the site.
+  const [developers, areas, projects, typologies, plans] = await Promise.all([
+    db.developer.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
+    db.area.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
+    db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
+    db.typology.findMany({ select: { id: true, code: true, projectId: true } }),
+    db.paymentPlan.findMany({ select: { projectId: true, typologyId: true, downPaymentPct: true, years: true, frequency: true } }),
+  ]);
+  // How a plan is recognised: same project, unit type, down payment, years and frequency.
+  const planKey = (projectId: string, typologyId: string | null, down: number, years: number, frequency: string) =>
+    `${projectId}|${typologyId ?? ""}|${down}|${years}|${frequency}`;
+  const existingPlans = new Set(plans.map((p) => planKey(p.projectId, p.typologyId, Number(p.downPaymentPct), p.years, p.frequency)));
+  const typIdByCode = new Map(typologies.map((t) => [`${t.projectId}/${t.code.toLowerCase()}`, t.id]));
+
+  // A developer or project is identified by its slug; rows in the file win over the site.
+  type DevRef = { slug: string };
+  type ProjRef = { slug: string; codes: Set<string>; existingId?: string };
+  const devs = new Lookup<DevRef>();
+  for (const d of developers) devs.add({ slug: d.slug }, d.nameAr, d.nameEn, d.slug);
+  const areaLookup = new Lookup<string>();
+  for (const a of areas) areaLookup.add(a.id, a.nameAr, a.nameEn, a.slug);
+  const projs = new Lookup<ProjRef>();
+  const projBySlug = new Map<string, ProjRef>();
+  for (const p of projects) {
+    const ref: ProjRef = { slug: p.slug, existingId: p.id, codes: new Set(typologies.filter((t) => t.projectId === p.id).map((t) => t.code.toLowerCase())) };
+    projBySlug.set(p.slug, ref);
+    projs.add(ref, p.nameAr, p.nameEn, p.slug);
+  }
+  const existingDevSlugs = new Set(developers.map((d) => d.slug));
+
+  function check<T>(def: SheetDef, row: number, data: FormData, read: (f: FormReader) => T) {
+    const f = new FormReader(data);
+    const values = read(f);
+    // A missing English name already explains the missing slug.
+    if (f.errors.nameEn) delete f.errors.slug;
+    for (const [key, message] of Object.entries(f.errors)) {
+      const column = def.columns.find((c) => c.key === key)?.header ?? key;
+      // One message per cell: keep the more specific one found while reading the cell.
+      if (problems.some((p) => p.sheet === def.name && p.row === row && p.column === column)) continue;
+      problems.push({ sheet: def.name, row, column, message });
+    }
+    return values;
+  }
+
+  // Developers
+  const devRows: { slug: string; values: ReturnType<typeof readDeveloper>; present: Set<string> }[] = [];
+  {
+    const { def, rows, present } = sheets.developers;
+    const seen = new Set<string>();
+    for (const { row, cells } of rows) {
+      const { data } = rowToForm(def, cells, (column, message) => problems.push({ sheet: def.name, row, column, message }));
+      const values = check(def, row, data, readDeveloper);
+      if (!values.slug) continue;
+      if (seen.has(values.slug)) problems.push({ sheet: def.name, row, column: "الاسم بالإنجليزية", message: "المطور ده متكرر في الشيت" });
+      seen.add(values.slug);
+      devRows.push({ slug: values.slug, values, present });
+      devs.add({ slug: values.slug }, values.nameAr, values.nameEn, values.slug);
+      counts.developers[existingDevSlugs.has(values.slug) ? "update" : "create"]++;
+    }
+  }
+
+  // Projects
+  const projRows: { slug: string; devSlug: string; areaId: string; values: ReturnType<typeof readProject>; present: Set<string> }[] = [];
+  {
+    const { def, rows, present } = sheets.projects;
+    const seen = new Set<string>();
+    for (const { row, cells } of rows) {
+      const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
+      const { data, refs } = rowToForm(def, cells, say);
+      const values = check(def, row, data, readProject);
+      const dev = refs.developer ? devs.get(refs.developer) : undefined;
+      if (!refs.developer) say("المطور", "هذا الحقل مطلوب");
+      else if (!dev) say("المطور", `مالقيناش مطور اسمه «${refs.developer}». ضيفه في شيت المطورين`);
+      const areaId = refs.area ? areaLookup.get(refs.area) : undefined;
+      if (!refs.area) say("المنطقة", "هذا الحقل مطلوب");
+      else if (!areaId) say("المنطقة", `مالقيناش منطقة اسمها «${refs.area}». اختار من القائمة أو ضيفها من لوحة التحكم`);
+      if (!values.slug) continue;
+      if (seen.has(values.slug)) say("اسم المشروع بالإنجليزية", "المشروع ده متكرر في الشيت");
+      seen.add(values.slug);
+      const ref: ProjRef = projBySlug.get(values.slug) ?? { slug: values.slug, codes: new Set() };
+      projBySlug.set(values.slug, ref);
+      projs.add(ref, values.nameAr, values.nameEn, values.slug);
+      counts.projects[ref.existingId ? "update" : "create"]++;
+      if (dev && areaId) projRows.push({ slug: values.slug, devSlug: dev.slug, areaId, values, present });
+    }
+  }
+
+  // Unit types
+  const typRows: { projSlug: string; values: ReturnType<typeof readTypology>; present: Set<string> }[] = [];
+  {
+    const { def, rows, present } = sheets.typologies;
+    const seen = new Set<string>();
+    for (const { row, cells } of rows) {
+      const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
+      const { data, refs } = rowToForm(def, cells, say);
+      const values = check(def, row, data, readTypology);
+      const proj = refs.project ? projs.get(refs.project) : undefined;
+      if (!refs.project) say("المشروع", "هذا الحقل مطلوب");
+      else if (!proj) say("المشروع", `مالقيناش مشروع اسمه «${refs.project}». ضيفه في شيت المشروعات`);
+      if (!proj || !values.code) continue;
+      const key = `${proj.slug}/${values.code.toLowerCase()}`;
+      if (seen.has(key)) say("الكود", "الكود ده متكرر لنفس المشروع في الشيت");
+      seen.add(key);
+      counts.typologies[proj.codes.has(values.code.toLowerCase()) ? "update" : "create"]++;
+      proj.codes.add(values.code.toLowerCase());
+      typRows.push({ projSlug: proj.slug, values, present });
+    }
+  }
+
+  // Payment plans
+  const planRows: { projSlug: string; code: string | null; values: ReturnType<typeof readPaymentPlan> }[] = [];
+  {
+    const { def, rows, present } = sheets.plans;
+    for (const { row, cells } of rows) {
+      const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
+      const { data, refs } = rowToForm(def, cells, say);
+      // A blank "active" cell means active.
+      if (!present.has("isActive") || !String(rawValue(cells.get("isActive")!) ?? "").trim()) data.set("isActive", "on");
+      const values = check(def, row, data, readPaymentPlan);
+      const proj = refs.project ? projs.get(refs.project) : undefined;
+      if (!refs.project) say("المشروع", "هذا الحقل مطلوب");
+      else if (!proj) say("المشروع", `مالقيناش مشروع اسمه «${refs.project}». ضيفه في شيت المشروعات`);
+      const code = refs.typology || null;
+      if (proj && code && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
+      if (!proj) continue;
+      planRows.push({ projSlug: proj.slug, code, values });
+      const typologyId = code && proj.existingId ? (typIdByCode.get(`${proj.existingId}/${code.toLowerCase()}`) ?? "new") : null;
+      const known = proj.existingId && typologyId !== "new" && existingPlans.has(planKey(proj.existingId, typologyId, values.downPaymentPct, values.years, values.frequency));
+      counts.plans[known ? "update" : "create"]++;
+    }
+  }
+
+  const summary = (lead: string) => {
+    const parts: string[] = [];
+    const add = (n: number, word: string) => n > 0 && parts.push(`${n} ${word}`);
+    add(counts.developers.create + counts.developers.update, "مطور");
+    add(counts.projects.create + counts.projects.update, "مشروع");
+    add(counts.typologies.create + counts.typologies.update, "نموذج");
+    add(counts.plans.create + counts.plans.update, "نظام سداد");
+    return lead + parts.join("، ");
+  };
+
+  if (problems.length) return fail(`فيه ${problems.length} مشكلة لازم تتصلّح قبل الاستيراد. ماحدش اتحفظ.`);
+  if (!save) return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts };
+
+  // Save everything in one transaction: all rows or none.
+  await db.$transaction(
+    async (tx) => {
+      const devId = new Map(developers.map((d) => [d.slug, d.id]));
+      for (const d of devRows) {
+        const data = onlyPresent(d.values, d.present, ["nameAr", "nameEn", "slug"]);
+        const saved = await tx.developer.upsert({ where: { slug: d.slug }, create: d.values, update: data, select: { id: true } });
+        devId.set(d.slug, saved.id);
+      }
+
+      const projId = new Map(projects.map((p) => [p.slug, p.id]));
+      for (const p of projRows) {
+        // The price date is set below from the unit types and plans, never from the sheet.
+        const values: Omit<typeof p.values, "pricesUpdatedAt"> & { pricesUpdatedAt?: Date | null } = { ...p.values };
+        delete values.pricesUpdatedAt;
+        const relations = { developer: { connect: { id: devId.get(p.devSlug)! } }, area: { connect: { id: p.areaId } } };
+        const update = onlyPresent(values, p.present, ["nameAr", "nameEn", "slug", "status", "deliveryDate"]);
+        const saved = await tx.project.upsert({
+          where: { slug: p.slug },
+          create: { ...values, ...relations },
+          update: { ...update, ...relations },
+          select: { id: true },
+        });
+        projId.set(p.slug, saved.id);
+      }
+
+      const typId = new Map(typIdByCode);
+      const touched = new Set<string>();
+      for (const t of typRows) {
+        const projectId = projId.get(t.projSlug)!;
+        const update = onlyPresent(t.values, t.present, ["code", "category", "subType", "finishing", "buaM2", "priceFrom", "pricePerM2From"]);
+        const saved = await tx.typology.upsert({
+          where: { projectId_code: { projectId, code: t.values.code } },
+          create: { ...t.values, projectId },
+          update,
+          select: { id: true },
+        });
+        typId.set(`${projectId}/${t.values.code.toLowerCase()}`, saved.id);
+        touched.add(projectId);
+      }
+
+      for (const p of planRows) {
+        const projectId = projId.get(p.projSlug)!;
+        const typologyId = p.code ? typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null : null;
+        const values = { ...p.values, typologyId };
+        // The same plan (down payment, years, frequency, unit type) is updated rather than duplicated.
+        const same = await tx.paymentPlan.findFirst({
+          where: { projectId, typologyId, downPaymentPct: values.downPaymentPct, years: values.years, frequency: values.frequency },
+          select: { id: true },
+        });
+        if (same) await tx.paymentPlan.update({ where: { id: same.id }, data: values });
+        else await tx.paymentPlan.create({ data: { ...values, projectId } });
+        touched.add(projectId);
+      }
+
+      const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+      if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
+    },
+    { timeout: 120_000, maxWait: 20_000 },
+  );
+
+  return { ok: true, saved: true, message: summary("تم الاستيراد ✓ "), problems, counts };
+}
+
+// ─── Template ───────────────────────────────────────────────────────────
+
+const label = (list: { value: string; label: string }[], value: string | null | undefined) => list.find((c) => c.value === value)?.label ?? value ?? "";
+const yesNo = (b: boolean) => (b ? "نعم" : "لا");
+const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? null : Number(v.toString()));
+
+/** The template workbook. With `withData`, every sheet is filled with what is on the site now. */
+export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
+  const areas = await db.area.findMany({ select: { nameAr: true }, orderBy: { nameAr: "asc" } });
+  const devNames = await db.developer.findMany({ select: { nameEn: true }, orderBy: { nameEn: "asc" } });
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "AqarArena";
+  wb.created = new Date();
+
+  // Instructions first, so it is what opens.
+  const help = wb.addWorksheet("تعليمات", { views: [{ rightToLeft: true }] });
+  help.columns = [{ width: 28 }, { width: 90 }];
+  const lines: [string, string][] = [
+    ["استيراد بيانات AqarArena", ""],
+    ["", ""],
+    ["الخطوات", "1) املا الشيتات بالترتيب: المطورين ← المشروعات ← النماذج ← أنظمة السداد."],
+    ["", "2) الأعمدة اللي فيها * لازم تتملي. الباقي اختياري."],
+    ["", "3) الخانات اللي فيها قائمة اختار منها، أو اكتب نفس الكلمة بالظبط."],
+    ["", "4) ارفع الملف من لوحة التحكم ← استيراد Excel، واضغط «افحص الملف» الأول."],
+    ["", "5) لو فيه أخطاء هتظهرلك برقم الصف والعمود، ومش هيتحفظ أي حاجة لحد ما تتصلّح كلها."],
+    ["", ""],
+    ["الربط بين الشيتات", "المشروع بيتربط بالمطور بالاسم، والنموذج ونظام السداد بيتربطوا بالمشروع بالاسم."],
+    ["", "لو المطور أو المشروع موجود على الموقع بنفس الاسم أو الرابط المختصر، بياناته بتتحدّث بدل ما يتكرر."],
+    ["", "العمود اللي تمسحه من الشيت مابيمسحش البيانات الموجودة."],
+    ["", "نظام السداد بيتحدّث لو ليه نفس المقدم وعدد السنين ونوع الأقساط والنموذج."],
+    ["", ""],
+    ["الصور", "الصور والبروشورات بترفعها من صفحة المشروع في لوحة التحكم (رفع عدة ملفات مرة واحدة)."],
+    ["", ""],
+  ];
+  for (const s of SHEETS) {
+    lines.push([s.name, ""]);
+    for (const c of s.columns) lines.push([`   ${c.header}${c.required ? " *" : ""}`, c.help ?? ""]);
+    lines.push(["", ""]);
+  }
+  lines.forEach((l) => help.addRow(l));
+  help.getRow(1).font = { bold: true, size: 16 };
+  help.getColumn(1).font = { bold: true };
+  help.getColumn(2).alignment = { wrapText: true, vertical: "top" };
+
+  // Lists behind the dropdowns.
+  const lists = wb.addWorksheet("القوائم", { views: [{ rightToLeft: true }] });
+  const listCols: { title: string; values: string[] }[] = [
+    { title: "الحالة", values: CHOICES.status.map((c) => c.label) },
+    { title: "النوع", values: CHOICES.subTypes.map((c) => c.label) },
+    { title: "الفئة", values: CHOICES.categories.map((c) => c.label) },
+    { title: "التشطيب", values: CHOICES.finishing.map((c) => c.label) },
+    { title: "الأقساط", values: CHOICES.frequency.map((c) => c.label) },
+    { title: "نعم / لا", values: ["نعم", "لا"] },
+    { title: "المناطق", values: areas.map((a) => a.nameAr) },
+    { title: "الخدمات", values: CHOICES.amenities.map((c) => c.label) },
+    { title: "المطورين على الموقع", values: devNames.map((d) => d.nameEn) },
+  ];
+  const listRange = new Map<string, string>();
+  listCols.forEach((l, i) => {
+    const letter = String.fromCharCode(65 + i);
+    lists.getCell(`${letter}1`).value = l.title;
+    lists.getCell(`${letter}1`).font = { bold: true };
+    l.values.forEach((v, j) => (lists.getCell(`${letter}${j + 2}`).value = v));
+    lists.getColumn(i + 1).width = 26;
+    listRange.set(l.title, `'القوائم'!$${letter}$2:$${letter}$${Math.max(2, l.values.length + 1)}`);
+  });
+  const listFor = (col: Column): { range: string; strict: boolean } | null => {
+    if (col.type === "bool") return { range: listRange.get("نعم / لا")!, strict: true };
+    if (col.key === "area") return { range: listRange.get("المناطق")!, strict: true };
+    if (col.key === "developer") return { range: listRange.get("المطورين على الموقع")!, strict: false };
+    if (col.type !== "choice") return null;
+    const title = { status: "الحالة", subType: "النوع", category: "الفئة", finishing: "التشطيب", frequency: "الأقساط" }[col.key];
+    return title ? { range: listRange.get(title)!, strict: true } : null;
+  };
+
+  const data = withData ? await currentData() : null;
+
+  for (const def of SHEETS) {
+    const ws = wb.addWorksheet(def.name, { views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }] });
+    ws.columns = def.columns.map((c) => ({ header: c.header + (c.required ? " *" : ""), key: c.key, width: c.width ?? 16 }));
+    const head = ws.getRow(1);
+    head.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    head.height = 22;
+    def.columns.forEach((c, i) => {
+      const cell = head.getCell(i + 1);
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: c.required ? "FF1F5C4A" : "FF5B6B66" } };
+      cell.alignment = { vertical: "middle" };
+      if (c.help) cell.note = c.help;
+      if (c.type === "date") ws.getColumn(i + 1).numFmt = "dd/mm/yyyy";
+      if (c.type === "number" && /price|Fee|bookingFee/i.test(c.key)) ws.getColumn(i + 1).numFmt = "#,##0";
+      const list = listFor(c);
+      if (list) {
+        // exceljs supports range validations at runtime; its types only describe per-cell ones.
+        (ws as unknown as { dataValidations: { add(range: string, v: ExcelJS.DataValidation): void } }).dataValidations.add(
+          `${ws.getColumn(i + 1).letter}2:${ws.getColumn(i + 1).letter}${MAX_ROWS + 1}`,
+          {
+            type: "list",
+            allowBlank: true,
+            formulae: [list.range],
+            showErrorMessage: list.strict,
+            errorStyle: "stop",
+            errorTitle: "قيمة غير معروفة",
+            error: "اختار من القائمة",
+          },
+        );
+      }
+    });
+    for (const row of data?.[def.key] ?? []) ws.addRow(row);
+  }
+
+  return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+}
+
+/** Everything on the site, as template rows keyed by column key. */
+async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]>> {
+  const [developers, projects] = await Promise.all([
+    db.developer.findMany({ orderBy: { nameEn: "asc" } }),
+    db.project.findMany({
+      orderBy: { nameEn: "asc" },
+      include: {
+        developer: { select: { nameEn: true } },
+        area: { select: { nameAr: true } },
+        typologies: { orderBy: { code: "asc" } },
+        paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } } } },
+      },
+    }),
+  ]);
+  const date = (d: Date | null) => (d ? new Date(d.toISOString().slice(0, 10) + "T00:00:00Z") : null);
+  const many = (list: { value: string; label: string }[], values: string[]) => values.map((v) => label(list, v)).join("، ");
+
+  return {
+    developers: developers.map((d) => ({ ...d, verified: yesNo(d.verified) })),
+    projects: projects.map((p) => ({
+      developer: p.developer.nameEn,
+      nameAr: p.nameAr,
+      nameEn: p.nameEn,
+      slug: p.slug,
+      area: p.area.nameAr,
+      districtAr: p.districtAr,
+      districtEn: p.districtEn,
+      status: label(CHOICES.status, p.status),
+      deliveryDate: date(p.deliveryDate),
+      launchDate: date(p.launchDate),
+      categories: many(CHOICES.categories, p.categories),
+      bookingFee: num(p.bookingFee),
+      landFeddan: p.landAreaM2 ? Math.round((Number(p.landAreaM2) / FEDDAN_M2) * 100) / 100 : null,
+      footprintPct: num(p.footprintPct),
+      unitsCount: p.unitsCount,
+      progressPct: p.progressPct,
+      latitude: num(p.latitude),
+      longitude: num(p.longitude),
+      amenities: many(CHOICES.amenities, p.amenities),
+      descriptionAr: p.descriptionAr,
+      descriptionEn: p.descriptionEn,
+      masterPlanUrl: p.masterPlanUrl,
+      published: yesNo(p.published),
+      isFeatured: yesNo(p.isFeatured),
+    })),
+    typologies: projects.flatMap((p) =>
+      p.typologies.map((t) => ({
+        project: p.nameEn,
+        code: t.code,
+        subType: label(CHOICES.subTypes, t.subType),
+        category: label(CHOICES.categories, t.category),
+        finishing: label(CHOICES.finishing, t.finishing),
+        buaM2: num(t.buaM2),
+        priceFrom: num(t.priceFrom),
+        bedrooms: t.bedrooms,
+        bathrooms: t.bathrooms,
+        gardenM2: num(t.gardenM2),
+        roofM2: num(t.roofM2),
+        nameAr: t.nameAr,
+        nameEn: t.nameEn,
+      })),
+    ),
+    plans: projects.flatMap((p) =>
+      p.paymentPlans.map((pl) => ({
+        project: p.nameEn,
+        typology: pl.typology?.code ?? null,
+        downPaymentPct: num(pl.downPaymentPct),
+        years: pl.years,
+        frequency: label(CHOICES.frequency, pl.frequency),
+        deliveryPaymentPct: num(pl.deliveryPaymentPct),
+        cashDiscountPct: num(pl.cashDiscountPct),
+        maintenancePct: num(pl.maintenancePct),
+        garageFee: num(pl.garageFee),
+        clubFee: num(pl.clubFee),
+        validUntil: date(pl.validUntil),
+        nameAr: pl.nameAr,
+        nameEn: pl.nameEn,
+        isActive: yesNo(pl.isActive),
+      })),
+    ),
+  };
+}
+

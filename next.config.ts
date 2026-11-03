@@ -15,7 +15,11 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  ...(singleConnectionDb && { experimental: { cpus: 1, staticGenerationMaxConcurrency: 1 } }),
+  experimental: {
+    // The Excel import sends the whole workbook to a server action (default limit 1 MB).
+    serverActions: { bodySizeLimit: "4mb" },
+    ...(singleConnectionDb && { cpus: 1, staticGenerationMaxConcurrency: 1 }),
+  },
 };
 
 export default nextConfig;

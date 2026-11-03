@@ -23,14 +23,15 @@ The goal of each phase is something real users can open.
 - [x] Developer page: profile, official contacts, portfolio filtered by area
 - [x] Project-vs-project comparison (up to 4), shareable link, "differences only", print / PDF
 - [x] Pages read from the database through `src/lib/catalog` (cached, demo-data fallback without a database)
-- [ ] Real photos, floor plans and master plans from Cloudflare R2 (WebP/AVIF, tiled master plans)
+- [x] Photo, floor plan, master plan and brochure uploads from the admin to Vercel Blob (photos resized to WebP in the browser)
+- [ ] Tiled deep-zoom master plans
 - [ ] SEO: sitemap, Open Graph images, structured data (JSON-LD)
 
 ## Phase 2: Developer portal and revenue
 
 - [ ] Developer accounts and roles
 - [ ] Self-service editing of projects, unit types, price plans, photos and master plans
-- [ ] Bulk upload from Excel/CSV templates
+- [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings
 
 ## Phase 3: Later

@@ -451,6 +451,8 @@ model DeveloperAccount {
   mustChangePassword Boolean       @default(false)
   /// Raised to sign the account out everywhere (password change, disable).
   sessionVersion     Int           @default(0)
+  /// Set when the developer asks for a new password from the sign-in page; cleared when the admin issues one.
+  resetRequestedAt   DateTime?
   lastLoginAt        DateTime?
   submissions        Submission[]
   createdAt          DateTime      @default(now())

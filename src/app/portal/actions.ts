@@ -43,6 +43,23 @@ export async function portalLogin(_: FormState, data: FormData): Promise<FormSta
   redirect(account.mustChangePassword ? "/portal/password" : "/portal");
 }
 
+/**
+ * "Forgot password": flags the account for the admin, who issues a temporary password from the
+ * accounts page. The answer is the same whether or not the details match, so it can't be used
+ * to find out which usernames exist.
+ */
+export async function requestPasswordReset(_: FormState, data: FormData): Promise<FormState> {
+  const username = normalizeUsername(String(data.get("username") ?? ""));
+  const phone = String(data.get("phone") ?? "").replace(/\D/g, "");
+  if (!username || phone.length < 8) return { ok: false, message: "اكتب اسم المستخدم ورقم الموبايل", errors: { username: username ? "" : "مطلوب", phone: phone.length < 8 ? "مطلوب" : "" } };
+  const keys = [`reset-ip:${await clientIp()}`];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
+  await recordFailure(keys);
+  await db.developerAccount.updateMany({ where: { username, status: { not: "DISABLED" } }, data: { resetRequestedAt: new Date() } });
+  return { ok: true, message: "وصلنا طلبك ✓ هنتأكد من البيانات ونتواصل معاك على رقمك بكلمة مرور مؤقتة." };
+}
+
 export async function portalLogout() {
   await endPortalSession();
   redirect("/portal/login");

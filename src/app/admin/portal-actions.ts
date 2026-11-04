@@ -116,7 +116,7 @@ export async function resetPassword(_: FormState, data: FormData): Promise<FormS
   const password = generatePassword();
   const account = await db.developerAccount.update({
     where: { id },
-    data: { passwordHash: await hashPassword(password), mustChangePassword: true, sessionVersion: { increment: 1 } },
+    data: { passwordHash: await hashPassword(password), mustChangePassword: true, sessionVersion: { increment: 1 }, resetRequestedAt: null },
   });
   return { ok: true, message: `كلمة المرور المؤقتة لـ ${account.username}: ${password} (انسخها دلوقتي)` };
 }

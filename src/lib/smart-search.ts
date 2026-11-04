@@ -19,6 +19,8 @@ export type SmartFilters = {
   finishes?: FinishGroup[];
   minPrice?: number;
   maxPrice?: number;
+  /** The most a visitor can pay per month, in EGP. */
+  monthly?: number;
 };
 
 /** One understood piece of the sentence, shown as a removable chip. */
@@ -33,6 +35,7 @@ export type Chip =
   | { key: "minBedrooms"; value: number }
   | { key: "maxPrice"; value: number }
   | { key: "minPrice"; value: number }
+  | { key: "monthly"; value: number }
   | { key: "finish"; value: FinishGroup }
   | { key: "q"; value: string };
 
@@ -144,6 +147,21 @@ export function parseSmartQuery(input: string): { filters: SmartFilters; chips: 
   if (price) {
     filters.maxPrice = Math.round(Number(price[1]) * 1_000_000);
     chips.push({ key: "maxPrice", value: filters.maxPrice });
+  }
+
+  // Monthly budget: "قسط 50 الف في الشهر", "قسط شهري 40 الف", "30 الف شهريا", "40k a month".
+  // Read before the down payment and the term, which also use "قسط".
+  const monthly =
+    take(/(?:قسط|اقساط)?\s*(?:شهري|شهريا)?\s*(\d+(?:\.\d+)?)\s*(الف|الاف|k)?\s*(?:جنيه|ج)?\s*(?:في الشهر|فى الشهر|بالشهر|كل شهر|شهريا|شهري|a month|per month|monthly)(?= |$)/) ??
+    take(/(?:قسط شهري|قسط بالشهر|شهري|monthly(?: installment)?)\s*(\d+(?:\.\d+)?)\s*(الف|الاف|k)?(?= |$)/);
+  if (monthly) {
+    const n = Number(monthly[1]);
+    // "50" with no unit means thousands; nobody pays 50 pounds a month.
+    const amount = Math.round(monthly[2] || n < 1000 ? n * 1000 : n);
+    if (amount > 0) {
+      filters.monthly = amount;
+      chips.push({ key: "monthly", value: amount });
+    }
   }
 
   // Down payment: "مقدم 10%", "10% مقدم", "10% down", "down 10"
@@ -265,5 +283,6 @@ export function filtersToSearchParams(f: SmartFilters): URLSearchParams {
   f.finishes?.forEach((g) => p.append("finish", g));
   if (f.minPrice) p.set("min", String(f.minPrice));
   if (f.maxPrice) p.set("max", String(f.maxPrice));
+  if (f.monthly) p.set("monthly", String(f.monthly));
   return p;
 }

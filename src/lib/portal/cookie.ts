@@ -2,4 +2,4 @@
 export const PORTAL_COOKIE = "aqar_dev";
 
 /** Portal pages anyone can open without signing in. */
-export const PORTAL_PUBLIC_PATHS = ["/portal/login", "/portal/register"];
+export const PORTAL_PUBLIC_PATHS = ["/portal/login", "/portal/register", "/portal/forgot"];

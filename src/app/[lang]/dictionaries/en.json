@@ -429,7 +429,8 @@
       "deliveryBy": "Delivery by {n}",
       "ready": "Ready to move",
       "q": "Name: {q}",
-      "minPrice": "Over {n}M"
+      "minPrice": "Over {n}M",
+      "monthly": "Up to EGP {n} a month"
     }
   },
   "insights": {

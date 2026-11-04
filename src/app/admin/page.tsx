@@ -6,9 +6,10 @@ import { AdminShell } from "@/components/admin/admin-shell";
 
 export default async function AdminHome() {
   await requireAdmin();
-  const [pendingReviews, pendingAccounts] = await Promise.all([
+  const [pendingReviews, pendingAccounts, resetRequests] = await Promise.all([
     db.submission.count({ where: { status: "PENDING" } }),
     db.developerAccount.count({ where: { status: "PENDING" } }),
+    db.developerAccount.count({ where: { resetRequestedAt: { not: null } } }),
   ]);
   const [developers, projects] = await Promise.all([
     db.developer.findMany({ orderBy: { nameEn: "asc" }, include: { _count: { select: { projects: true } } } }),
@@ -36,7 +37,7 @@ export default async function AdminHome() {
         </div>
       }
     >
-      {(pendingReviews > 0 || pendingAccounts > 0) && (
+      {(pendingReviews > 0 || pendingAccounts > 0 || resetRequests > 0) && (
         <section className="admin-panel flex flex-wrap items-center gap-3 border-brass">
           <strong>مستني موافقتك:</strong>
           {pendingReviews > 0 && (
@@ -47,6 +48,11 @@ export default async function AdminHome() {
           {pendingAccounts > 0 && (
             <Link href="/admin/accounts" className="admin-btn-ghost">
               {pendingAccounts} طلب حساب جديد
+            </Link>
+          )}
+          {resetRequests > 0 && (
+            <Link href="/admin/accounts" className="admin-btn-ghost">
+              {resetRequests} طلب كلمة مرور جديدة
             </Link>
           )}
         </section>

@@ -4,7 +4,8 @@ import { BrandMark } from "./brand-mark";
 
 export async function SiteFooter() {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
-  const link = "w-fit text-body no-underline transition-colors hover:text-brass-dark";
+  // Tall enough to tap comfortably on a phone.
+  const link = "w-fit py-2 text-body no-underline transition-colors hover:text-brass-dark";
 
   return (
     <footer className="relative mt-10 border-t border-line bg-surface text-body print:hidden">
@@ -17,7 +18,7 @@ export async function SiteFooter() {
             </span>
             <p className="max-w-xs">{dict.footer.tagline}</p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             <span className="font-semibold text-ink">{dict.footer.explore}</span>
             <Link href={`/${locale}/projects`} className={link}>{dict.nav.projects}</Link>
             <Link href={`/${locale}/developers`} className={link}>{dict.nav.developers}</Link>
@@ -25,12 +26,12 @@ export async function SiteFooter() {
             <Link href={`/${locale}/new-launches`} className={link}>{dict.nav.newLaunches}</Link>
             <Link href={`/${locale}/compare`} className={link}>{dict.nav.compare}</Link>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             <span className="font-semibold text-ink">{dict.footer.forDevelopers}</span>
             <Link href={`/${locale}/for-developers`} className={link}>{dict.footer.listProject}</Link>
             <Link href="/portal/login" className={link}>{dict.footer.developerLogin}</Link>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             <span className="font-semibold text-ink">{dict.footer.language}</span>
             <span>
               <b className="text-ink">{locale === "ar" ? "العربية" : "English"}</b>

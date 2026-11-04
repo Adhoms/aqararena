@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { notifyAdmin } from "@/lib/email";
 import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { deleteIfUnused } from "@/lib/admin/blob";
@@ -56,7 +58,10 @@ export async function requestPasswordReset(_: FormState, data: FormData): Promis
   const wait = await lockedMinutes(keys);
   if (wait) return { ok: false, message: lockedMessage(wait) };
   await recordFailure(keys);
-  await db.developerAccount.updateMany({ where: { username, status: { not: "DISABLED" } }, data: { resetRequestedAt: new Date() } });
+  const flagged = await db.developerAccount.updateMany({ where: { username, status: { not: "DISABLED" } }, data: { resetRequestedAt: new Date() } });
+  if (flagged.count) {
+    after(() => notifyAdmin(`طلب كلمة مرور جديدة: ${username} · AqarArena`, [`اسم المستخدم: ${username}`, `الموبايل اللي كتبه: ${phone}`, "", "اتأكد من الرقم وطلّع كلمة مرور مؤقتة من لوحة التحكم ← الحسابات."]));
+  }
   return { ok: true, message: "وصلنا طلبك ✓ هنتأكد من البيانات ونتواصل معاك على رقمك بكلمة مرور مؤقتة." };
 }
 
@@ -88,6 +93,18 @@ export async function requestAccount(_: FormState, data: FormData): Promise<Form
     return { ok: false, message: "اسم المستخدم ده مستخدم", errors: { username: "اختار اسم تاني" } };
   }
   await db.developerAccount.create({ data: { ...values, username, passwordHash: await hashPassword(password), status: "PENDING" } });
+  after(() =>
+    notifyAdmin(`طلب حساب مطور جديد: ${values.companyNameAr} · AqarArena`, [
+      `الشركة: ${values.companyNameAr}${values.companyNameEn ? ` (${values.companyNameEn})` : ""}`,
+      `المسؤول: ${values.contactName}`,
+      `الموبايل: ${values.phone}`,
+      values.email ? `البريد: ${values.email}` : "",
+      `اسم المستخدم: ${username}`,
+      values.note ? `ملاحظات: ${values.note}` : "",
+      "",
+      "فعّل الحساب من لوحة التحكم ← الحسابات.",
+    ].filter(Boolean), values.email ?? undefined),
+  );
   return { ok: true, message: "تم إرسال طلبك ✓ هنراجعه ونفعّل حسابك، وبعدها تقدر تدخل باسم المستخدم وكلمة المرور اللي اخترتهم." };
 }
 
@@ -188,6 +205,15 @@ export async function saveSubmission(id: string, raw: unknown, send: boolean): P
       ...(ready && { submittedAt: new Date(), reviewNote: null }),
     },
   });
+  if (ready) {
+    after(() =>
+      notifyAdmin(`طلب مراجعة جديد: ${title} · AqarArena`, [
+        `${me.developer.nameAr} بعت ${sub.kind === "PROJECT" ? (sub.projectId ? "تعديل على مشروع" : "مشروع جديد") : "تعديل بيانات الشركة"}: ${title}`,
+        "",
+        "راجعه من لوحة التحكم ← مراجعة المطورين.",
+      ]),
+    );
+  }
   if (send && !ready) return { ok: false, message: `فيه ${Object.keys(errors).length} حاجة محتاجة تتصلّح قبل الإرسال. اتحفظت كمسودة.`, errors, status: "DRAFT" };
   return ready
     ? { ok: true, message: "اتبعت للمراجعة ✓ هيظهر على الموقع بعد الموافقة.", status: "PENDING" }

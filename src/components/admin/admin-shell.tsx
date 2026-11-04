@@ -21,6 +21,7 @@ export function AdminShell({ title, children, actions, back }: { title: ReactNod
             <Link href="/admin/import">استيراد Excel</Link>
             <Link href="/admin/review">مراجعة المطورين</Link>
             <Link href="/admin/accounts">الحسابات</Link>
+            <Link href="/admin/messages">الرسائل</Link>
             <a href="/ar" target="_blank" rel="noreferrer">
               عرض الموقع ↗
             </a>

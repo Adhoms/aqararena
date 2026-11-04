@@ -396,7 +396,11 @@
     "language": "Language",
     "neutrality": "AqarArena is a showcase platform only. We don't sell, rent or broker; all data is provided by developers.",
     "rights": "All rights reserved",
-    "developerLogin": "Developer sign-in"
+    "developerLogin": "Developer sign-in",
+    "about": "About AqarArena",
+    "privacy": "Privacy policy",
+    "terms": "Terms of use",
+    "company": "AqarArena"
   },
   "notFound": {
     "title": "This page doesn't exist",
@@ -660,5 +664,33 @@
     "closingTitle": "Ready to start?",
     "closingText": "Accounts are free. All you need is your company's details; add your projects at your own pace.",
     "portalNote": "The developer portal is in Arabic."
+  },
+  "info": {
+    "updated": "Last updated: {date}",
+    "questions": "Any questions?"
+  },
+  "contactPage": {
+    "title": "Contact us",
+    "intro": "Have a suggestion or a complaint, need help, or have a request? Write to us and we'll get back to you soon.",
+    "emailLabel": "Or email us at",
+    "responseTime": "We usually reply within two working days.",
+    "notBroker": "AqarArena is not a broker: for bookings or final prices, contact the developer directly from the project page.",
+    "developersNote": "A developer who wants to list projects?",
+    "kind": "Type of message",
+    "kinds": {
+      "HELP": "Help",
+      "SUGGESTION": "Suggestion",
+      "COMPLAINT": "Complaint",
+      "REQUEST": "Request",
+      "OTHER": "Something else"
+    },
+    "name": "Name",
+    "email": "Email",
+    "phone": "Mobile number",
+    "message": "Your message",
+    "messageHint": "Add the details; if it's about a project, include its name.",
+    "send": "Send",
+    "sending": "Sending…",
+    "privacy": "We only use your details to reply to you, as explained in our privacy policy."
   }
 }

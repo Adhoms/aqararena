@@ -2,6 +2,9 @@
 
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { sendEmail } from "@/lib/email";
+import { SITE_URL } from "@/lib/site";
 import { db } from "@/lib/db";
 import { CATALOG_TAG } from "@/lib/catalog";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -47,6 +50,16 @@ export async function approveSubmission(_: FormState, data: FormData): Promise<F
   }
   updateTag(CATALOG_TAG);
   await deleteIfUnused(removed);
+  const account = await db.developerAccount.findUnique({ where: { id: sub.accountId }, select: { email: true } });
+  if (account?.email) {
+    after(() =>
+      sendEmail({
+        to: account.email!,
+        subject: `اتوافق على "${sub.title}" ✓ · AqarArena`,
+        text: [`أهلًا،`, "", `راجعنا "${sub.title}" ووافقنا عليه، والتغييرات ظاهرة دلوقتي على AqarArena.`, "", `${SITE_URL}/portal`].join("\n"),
+      }),
+    );
+  }
   redirect("/admin/review?done=approved");
 }
 
@@ -58,6 +71,16 @@ export async function rejectSubmission(_: FormState, data: FormData): Promise<Fo
   if (!f.ok) return f.result("اكتب للمطور إيه اللي محتاج يتعدّل");
   const res = await db.submission.updateMany({ where: { id, status: "PENDING" }, data: { status: "REJECTED", reviewNote: note, reviewedAt: new Date() } });
   if (!res.count) return { ok: false, message: "الطلب ده مش مستني موافقة" };
+  const sub = await db.submission.findUnique({ where: { id }, select: { title: true, account: { select: { email: true } } } });
+  if (sub?.account.email) {
+    after(() =>
+      sendEmail({
+        to: sub.account.email!,
+        subject: `"${sub.title}" محتاج تعديل · AqarArena`,
+        text: [`أهلًا،`, "", `راجعنا "${sub.title}" ومحتاج تعديل قبل النشر:`, "", note, "", `عدّل وابعته تاني من البوابة: ${SITE_URL}/portal`].join("\n"),
+      }),
+    );
+  }
   redirect("/admin/review?done=returned");
 }
 
@@ -92,6 +115,15 @@ export async function approveAccount(_: FormState, data: FormData): Promise<Form
     return { ok: false, message: "اختار المطور", errors: { developerId: "اختار المطور" } };
   }
   await db.developerAccount.update({ where: { id }, data: { status: "ACTIVE", developerId } });
+  if (account.email) {
+    after(() =>
+      sendEmail({
+        to: account.email!,
+        subject: "حسابك على AqarArena اتفعّل ✓",
+        text: [`أهلًا ${account.contactName ?? ""}،`, "", `حساب شركتك على بوابة المطورين اتفعّل. تقدر تدخل باسم المستخدم ${account.username} وكلمة المرور اللي اخترتها:`, `${SITE_URL}/portal/login`].join("\n"),
+      }),
+    );
+  }
   return { ok: true, message: `اتفعّل ✓ بلّغ ${account.contactName ?? "المطور"} إنه يقدر يدخل باسم المستخدم ${account.username}.` };
 }
 
@@ -137,4 +169,20 @@ export async function deleteAccount(data: FormData) {
   const id = String(data.get("id") ?? "");
   await db.developerAccount.delete({ where: { id } }).catch(() => null);
   redirect("/admin/accounts");
+}
+
+// ─── Visitor messages ───────────────────────────────────────────────────
+
+export async function setMessageStatus(data: FormData) {
+  await requireAdmin();
+  const id = String(data.get("id") ?? "");
+  const status = data.get("status") === "DONE" ? "DONE" : "NEW";
+  await db.contactMessage.updateMany({ where: { id }, data: { status } });
+  redirect(status === "DONE" ? "/admin/messages" : "/admin/messages?show=done");
+}
+
+export async function deleteMessage(data: FormData) {
+  await requireAdmin();
+  await db.contactMessage.deleteMany({ where: { id: String(data.get("id") ?? "") } });
+  redirect("/admin/messages");
 }

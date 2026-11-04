@@ -499,3 +499,33 @@ model AuthThrottle {
   failures Int      @default(0)
   resetAt  DateTime
 }
+
+// ─── Contact ────────────────────────────────────────────────────────────
+
+enum MessageKind {
+  SUGGESTION
+  COMPLAINT
+  HELP
+  REQUEST
+  OTHER
+}
+
+enum MessageStatus {
+  NEW
+  DONE
+}
+
+/// A message from the contact page (suggestion, complaint, help or request), read in /admin/messages.
+model ContactMessage {
+  id        String        @id @default(cuid())
+  kind      MessageKind
+  status    MessageStatus @default(NEW)
+  name      String
+  email     String?
+  phone     String?
+  message   String
+  locale    String        @default("ar")
+  createdAt DateTime      @default(now())
+
+  @@index([status, createdAt])
+}

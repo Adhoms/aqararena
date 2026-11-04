@@ -1,4 +1,3 @@
-import { Layout } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,6 +12,10 @@ import { ShareButton } from "@/components/share-button";
 import { Tabs, type Tab } from "@/components/tabs";
 import { ProjectVsMarket, ValueRing, valueText } from "@/components/insights";
 import { artKindFor, ProjectArt } from "@/components/project-art";
+import { ProjectCover } from "@/components/project-cover";
+import { DeveloperLogo } from "@/components/developer-logo";
+import { mapLabels, toMapPoints } from "@/components/map/map-points";
+import { ProjectMap } from "@/components/map/project-map";
 import { Container, Eyebrow } from "@/components/ui";
 import {
   getDeveloper,
@@ -23,6 +26,8 @@ import {
   listProjectSlugs,
   searchProjects,
   summarize,
+  unitName,
+  type Developer,
   type MasterPlanZone,
   type PaymentPlan,
   type Project,
@@ -42,14 +47,53 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/projects/[slug]">): Promise<Metadata> {
   const [{ slug }, locale] = await Promise.all([params, getLocale()]);
-  const project = await getProject(slug);
+  const [project, dict] = await Promise.all([getProject(slug), getDictionary()]);
   if (!project) return {};
+  const developer = await getDeveloper(project.developerSlug);
+  const description = describe(project, developer, dict, locale);
   return {
     title: project.name[locale],
-    description: project.description[locale],
+    description,
     alternates: pageAlternates(locale, `/projects/${slug}`),
-    openGraph: { title: project.name[locale], description: project.description[locale], url: `/${locale}/projects/${slug}`, type: "website" },
+    openGraph: { title: project.name[locale], description, url: `/${locale}/projects/${slug}`, type: "website" },
   };
+}
+
+/** One sentence with the numbers people search for, for Google and link previews. */
+function describe(project: Project, developer: Developer | undefined, dict: Dictionary, locale: Locale) {
+  const s = summarize(project);
+  return fill(dict.projectPage.metaDescription, {
+    name: project.name[locale],
+    dev: developer?.name[locale] ?? "",
+    place: [project.district[locale], dict.areas[project.areaSlug]].filter(Boolean).join(locale === "ar" ? "، " : ", "),
+    price: formatMillions(s.startingPrice, locale),
+    down: s.minDownPct,
+    years: s.maxYears,
+    year: project.deliveryYear,
+  });
+}
+
+/**
+ * Projects a visitor would weigh against this one: same area and type first, then a similar
+ * starting price. Unrelated projects are left out rather than padding the list.
+ */
+function similarTo(project: Project, all: Project[]) {
+  const price = summarize(project).startingPrice;
+  return all
+    .filter((x) => x.slug !== project.slug)
+    .map((x) => {
+      const ratio = summarize(x).startingPrice / price;
+      const score =
+        (x.areaSlug === project.areaSlug ? 3 : 0) +
+        (x.categories.some((c) => project.categories.includes(c)) ? 2 : 0) +
+        (ratio > 0.6 && ratio < 1.6 ? 2 : 0) +
+        (x.developerSlug === project.developerSlug ? 1 : 0);
+      return { x, score, gap: Math.abs(Math.log(ratio)) };
+    })
+    .filter((r) => r.score >= 4)
+    .sort((a, b) => b.score - a.score || a.gap - b.gap)
+    .slice(0, 3)
+    .map((r) => r.x);
 }
 
 // Unit-type tabs, in the order they appear on the page.
@@ -93,19 +137,28 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
 
   const s = summarize(project);
   const p = dict.projectPage;
-  const [related, insights] = await Promise.all([searchProjects({ category: project.categories[0] }), getMarketInsights()]);
-  const similar = related.filter((x) => x.slug !== project.slug).slice(0, 3);
+  const [all, insights] = await Promise.all([searchProjects({}), getMarketInsights()]);
+  const similar = similarTo(project, all);
+  const hasPlan = project.zones.length > 0 || Boolean(project.masterPlanUrl);
+  const floorPlans = project.floorPlans ?? [];
+  const hasPhotos = project.photos.length > 0 || floorPlans.length > 0;
+  const hasContacts = Object.values(developer.contacts).some(Boolean);
+  const mapPoints = toMapPoints([project], [developer], insights, dict, locale);
+  const hasLocation = mapPoints.length > 0 || project.distances.length > 0;
 
-  const sections = [
-    ["overview", p.sections.overview],
-    ["market", dict.insights.vsMarket],
-    ["masterplan", p.sections.masterplan],
-    ["units", p.sections.units],
-    ["prices", p.sections.prices],
-    ["photos", p.sections.photos],
-    ["location", p.sections.location],
-    ["contact", p.sections.contact],
-  ] as const;
+  // Only the sections this project has something to show in.
+  const sections = (
+    [
+      ["overview", p.sections.overview, true],
+      ["market", dict.insights.vsMarket, Boolean(insights.values[project.slug])],
+      ["masterplan", p.sections.masterplan, hasPlan],
+      ["units", p.sections.units, true],
+      ["prices", p.sections.prices, true],
+      ["photos", p.sections.photos, hasPhotos],
+      ["location", p.sections.location, hasLocation],
+      ["contact", p.sections.contact, true],
+    ] as const
+  ).filter(([, , shown]) => shown);
 
   const facts = [
     project.landFeddan && [p.facts.land, fill(p.feddan, { n: project.landFeddan })],
@@ -168,7 +221,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
       />
       {/* ─── Hero: the project's scene, full width, with the key numbers on top ─── */}
       <section className="relative isolate overflow-hidden bg-deep text-white">
-        <ProjectArt seed={project.slug} kind={kind} tone={kind === "coastal" ? "day" : "dusk"} className="absolute inset-0 -z-10 size-full" />
+        <ProjectCover project={project} eager className="absolute inset-0 -z-10 size-full" />
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-deep via-deep/55 to-deep/20" />
         <Container className="flex min-h-[78vh] flex-col justify-between gap-10 pt-7 pb-10">
           <nav aria-label="breadcrumb" className="flex flex-wrap gap-1.5 text-[13px] text-on-dark">
@@ -285,6 +338,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                 </div>
               ))}
             </dl>
+            {project.amenities.length > 0 && (
             <div className="flex flex-col gap-2.5">
               <h3 className="font-semibold">{p.amenitiesTitle}</h3>
               <ul className="flex flex-wrap gap-2">
@@ -295,6 +349,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                 ))}
               </ul>
             </div>
+            )}
           </div>
 
           <aside aria-label={p.officialNumbers} className="flex flex-[1_1_320px] flex-col gap-4.5 rounded-3xl border border-line bg-surface p-6">
@@ -305,7 +360,11 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             </div>
             <div className="flex flex-col gap-2.5 border-t border-divider pt-4">
               <span className="font-semibold">{p.officialNumbers}</span>
-              <ContactStack developer={developer} dict={dict} locale={locale} limit={4} />
+              {hasContacts ? (
+                <ContactStack developer={developer} dict={dict} locale={locale} limit={4} />
+              ) : (
+                <p className="text-sm text-muted">{fill(p.contactsPending, { dev: developer.name[locale] })}</p>
+              )}
             </div>
             <p className="text-xs text-muted">{p.neutralNote}</p>
           </aside>
@@ -326,6 +385,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
         )}
 
         {/* Master plan, on a survey-sheet stage */}
+        {hasPlan && (
         <section id="masterplan" aria-labelledby="masterplan-title" className="plan-grid reveal flex flex-col gap-6 rounded-3xl border border-line bg-plan p-5 text-ink sm:p-10">
           <div className="flex flex-col gap-1">
             <Eyebrow>{p.masterplanEyebrow}</Eyebrow>
@@ -336,9 +396,11 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
           <MasterPlan
             zones={project.zones.map((z) => ({ id: z.id, kind: z.kind, label: z.short[locale], shape: z.shape }))}
             panels={Object.fromEntries(project.zones.map((z) => [z.id, <ZonePanel key={z.id} zone={z} locale={locale} dict={dict} />]))}
+            image={project.masterPlanUrl}
             labels={{ zoomIn: p.zoomIn, zoomOut: p.zoomOut, note: p.planNote, plan: p.sections.masterplan }}
           />
         </section>
+        )}
 
         {/* Unit types */}
         <section id="units" aria-labelledby="units-title">
@@ -400,7 +462,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             <PaymentCalculator
               units={[...project.typologies]
                 .sort((a, b) => a.priceFrom - b.priceFrom)
-                .map((t) => ({ code: t.code, name: t.name[locale], price: t.priceFrom }))}
+                .map((t) => ({ code: t.code, name: unitName(t, dict.subTypes, locale), price: t.priceFrom }))}
               plans={project.paymentPlans}
               maintenancePct={project.fees.maintenancePct}
               locale={locale}
@@ -419,17 +481,20 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             ))}
           </ul>
           <div className="flex flex-wrap gap-x-8 gap-y-2.5 rounded-2xl border border-line bg-surface px-5.5 py-4.5 text-sm">
-            <span className="font-semibold">{p.fees}</span>
             {project.fees.maintenancePct !== undefined && (
-              <span>
-                {p.maintenance} <b>{project.fees.maintenancePct}%</b>
-              </span>
+              <>
+                <span className="font-semibold">{p.fees}</span>
+                <span>
+                  {p.maintenance} <b>{project.fees.maintenancePct}%</b>
+                </span>
+              </>
             )}
             <span className="text-muted">{p.pricesNote}</span>
           </div>
         </section>
 
         {/* Photos */}
+        {hasPhotos && (
         <section id="photos" aria-labelledby="photos-title">
           <Tabs
             label={p.photosTitle}
@@ -438,7 +503,8 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                 {p.photosTitle}
               </h2>
             }
-            tabs={(["ALL", ...PHOTO_GROUPS] as const).flatMap((group): Tab[] => {
+            tabs={[
+              ...(["ALL", ...PHOTO_GROUPS] as const).flatMap((group): Tab[] => {
               const items = project.photos.filter((ph) => group === "ALL" || ph.group === group);
               if (!items.length) return [];
               return [
@@ -449,36 +515,83 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-3">
                       {items.map((ph, i) => (
                         <li key={i} className="group relative h-56 overflow-hidden rounded-2xl">
-                          <ProjectArt
-                            seed={`${project.slug}-${ph.caption.en}`}
-                            kind={ph.group === "CONSTRUCTION" ? "towers" : kind}
-                            tone={ph.group === "INTERIOR" ? "day" : ph.group === "CONSTRUCTION" ? "day" : i % 2 ? "night" : "dusk"}
-                            label={ph.caption[locale]}
-                            className="absolute inset-0 size-full transition-transform duration-700 group-hover:scale-105"
-                          />
-                          <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent px-4 pt-8 pb-3 text-[13px] text-white">
-                            {ph.caption[locale]}
-                          </span>
+                          {ph.url ? (
+                            <a href={ph.url} target="_blank" rel="noreferrer" className="absolute inset-0" aria-label={ph.caption[locale] || p.photosTitle}>
+                              {/* eslint-disable-next-line @next/next/no-img-element -- uploaded photos are already resized WebP */}
+                              <img
+                                src={ph.url}
+                                alt={ph.caption[locale]}
+                                width={ph.width}
+                                height={ph.height}
+                                loading="lazy"
+                                decoding="async"
+                                className="size-full object-cover transition-transform duration-700 group-hover:scale-105"
+                              />
+                            </a>
+                          ) : (
+                            <ProjectArt
+                              seed={`${project.slug}-${ph.caption.en}`}
+                              kind={ph.group === "CONSTRUCTION" ? "towers" : kind}
+                              tone={ph.group === "INTERIOR" ? "day" : ph.group === "CONSTRUCTION" ? "day" : i % 2 ? "night" : "dusk"}
+                              label={ph.caption[locale]}
+                              className="absolute inset-0 size-full transition-transform duration-700 group-hover:scale-105"
+                            />
+                          )}
+                          {ph.caption[locale] && (
+                            <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent px-4 pt-8 pb-3 text-[13px] text-white">
+                              {ph.caption[locale]}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
                   ),
                 },
               ];
-            })}
+            }),
+              ...(floorPlans.length
+                ? [
+                    {
+                      id: "PLANS",
+                      label: p.floorPlansTab,
+                      content: (
+                        <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-3">
+                          {floorPlans.map((fp, i) => (
+                            <li key={i} className="overflow-hidden rounded-2xl border border-line bg-white">
+                              <a href={fp.url} target="_blank" rel="noreferrer" className="block">
+                                {/\.pdf(\?|$)/i.test(fp.url) ? (
+                                  <span className="flex h-56 items-center justify-center text-sm text-muted">PDF ↗</span>
+                                ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element -- uploaded plans
+                                  <img src={fp.url} alt={fp.caption[locale]} loading="lazy" decoding="async" className="h-56 w-full object-contain p-2" />
+                                )}
+                              </a>
+                              {fp.caption[locale] && <p className="border-t border-divider px-4 py-2 text-[13px]">{fp.caption[locale]}</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      ),
+                    } satisfies Tab,
+                  ]
+                : []),
+            ]}
           />
         </section>
+        )}
 
         {/* Location */}
+        {hasLocation && (
         <section id="location" aria-labelledby="location-title" className="flex flex-wrap gap-6">
-          <div
-            role="img"
-            aria-label={p.map}
-            className="relative flex h-90 min-w-0 flex-[3_1_520px] items-center justify-center rounded-3xl border border-line bg-plan text-sm text-body"
-          >
-            <span aria-hidden="true">{p.map}</span>
-            <span aria-hidden="true" className="absolute top-[46%] start-[48%] size-4.5 rounded-full border-4 border-brass-light bg-brand" />
-          </div>
+          {mapPoints.length > 0 && (
+            <ProjectMap
+              mode="teaser"
+              points={mapPoints}
+              locale={locale}
+              labels={mapLabels(dict)}
+              search={false}
+              className="h-90 min-w-0 flex-[3_1_520px] overflow-hidden rounded-3xl border border-line"
+            />
+          )}
           <div className="flex flex-[2_1_320px] flex-col gap-3.5">
             <h2 id="location-title" className={h2}>
               {p.locationTitle}
@@ -496,22 +609,25 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             </dl>
           </div>
         </section>
+        )}
 
         {/* Developer contacts */}
         <section id="contact" aria-labelledby="contact-title" className="flex flex-wrap items-center gap-9 rounded-3xl bg-brand p-8 text-white sm:p-11">
           <div className="flex flex-[1_1_320px] flex-col gap-3.5">
-            <span aria-hidden="true" className="flex h-16 w-24 items-center justify-center rounded-xl bg-brand-2 text-xs text-on-dark-muted">
-              {dict.common.logo}
-            </span>
+            <DeveloperLogo developer={developer} locale={locale} onDark className="h-16 w-28 rounded-xl" />
             <h2 id="contact-title" className="font-display text-3xl font-normal">
               {fill(p.contactTitle, { dev: developer.name[locale] })}
             </h2>
-            <p className="text-on-dark">{p.contactNote}</p>
+            <p className="text-on-dark">{developer.verified ? p.contactNote : p.contactNoteUnverified}</p>
             <Link href={`/${locale}/developers/${developer.slug}`} className="font-medium text-brass-light hover:text-white">
               {p.allDevProjects} {locale === "ar" ? "←" : "→"}
             </Link>
           </div>
-          <ContactGrid developer={developer} dict={dict} locale={locale} />
+          {hasContacts ? (
+            <ContactGrid developer={developer} dict={dict} locale={locale} />
+          ) : (
+            <p className="flex-[1_1_420px] rounded-2xl bg-brand-2 px-5 py-4 text-on-dark">{fill(p.contactsPending, { dev: developer.name[locale] })}</p>
+          )}
         </section>
 
         {/* Similar projects */}
@@ -587,16 +703,14 @@ function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: L
   ];
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface">
-      <div className="flex h-55 flex-col items-center justify-center gap-1 border-b border-divider bg-ink/[0.03] text-[13px] text-muted">
-        <Layout size={64} weight="thin" className="text-muted" aria-hidden="true" />
-        <span>{p.floorPlan}</span>
-      </div>
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="font-display text-[19px] font-medium">{t.name[locale]}</h3>
-          <span dir="ltr" className="text-xs text-muted">
-            {t.code}
-          </span>
+          <h3 className="font-display text-[19px] font-medium">{unitName(t, dict.subTypes, locale)}</h3>
+          {t.name[locale] && (
+            <span dir="ltr" className="text-xs text-muted">
+              {t.code}
+            </span>
+          )}
         </div>
         <dl className="grid grid-cols-2 gap-x-3.5 gap-y-1.5 text-sm">
           {rows.map(([label, value]) => (
@@ -663,7 +777,7 @@ function SimilarCard({ project, other, locale, dict }: { project: Project; other
       className="flex items-center gap-3.5 rounded-3xl border border-line bg-surface p-3.5 text-ink no-underline hover:border-ink hover:text-ink"
     >
       <span className="relative h-20 w-24 flex-none overflow-hidden rounded-2xl">
-        <ProjectArt seed={other.slug} kind={artKindFor(other)} tone="dusk" className="absolute inset-0 size-full" />
+        <ProjectCover project={other} className="absolute inset-0 size-full" />
       </span>
       <span className="flex flex-col leading-normal">
         <span className="font-display text-[17px] font-medium">{other.name[locale]}</span>
@@ -675,3 +789,4 @@ function SimilarCard({ project, other, locale, dict }: { project: Project; other
     </Link>
   );
 }
+

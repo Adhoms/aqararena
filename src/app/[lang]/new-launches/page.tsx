@@ -2,7 +2,7 @@ import { Phone } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FavoriteButton } from "@/components/favorites/favorite-button";
-import { artKindFor, ProjectArt } from "@/components/project-art";
+import { ProjectCover } from "@/components/project-cover";
 import { ArrowIcon, Container } from "@/components/ui";
 import { listDevelopers, listProjects, summarize, type Project } from "@/lib/catalog";
 import { fill, formatMillions, formatMoney, telHref } from "@/lib/format";
@@ -50,7 +50,6 @@ export default async function NewLaunchesPage() {
           {launches.map((project) => {
             const developer = devBySlug.get(project.developerSlug);
             const hotline = developer?.contacts.hotline ?? developer?.contacts.salesPhone;
-            const kind = artKindFor(project);
             const s = summarize(project);
             const href = `/${locale}/projects/${project.slug}`;
             return (
@@ -60,7 +59,7 @@ export default async function NewLaunchesPage() {
               >
                 {/* Render with the launch date */}
                 <Link href={href} tabIndex={-1} aria-hidden="true" className="relative block min-h-56 overflow-hidden text-white no-underline hover:text-white">
-                  <ProjectArt seed={project.slug} kind={kind} tone={kind === "coastal" ? "day" : "dusk"} className="absolute inset-0 size-full" />
+                  <ProjectCover project={project} className="absolute inset-0 size-full" />
                   <span className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-deep/80 to-transparent" />
                   {(project.launchDate || project.launchYear) && (
                     <span className="absolute top-4 start-4 rounded-full bg-brass-light px-3 py-1 text-xs font-semibold text-deep">

@@ -138,10 +138,12 @@ type Props = {
   labels: Labels;
   /** "teaser": map only, two-finger/ctrl zoom so the page still scrolls. "explore": map with a synced list. */
   mode?: "teaser" | "explore";
+  /** The search box over the map (off for a single project's location). */
+  search?: boolean;
   className?: string;
 };
 
-export function ProjectMap({ points, locale, labels, mode = "explore", className = "" }: Props) {
+export function ProjectMap({ points, locale, labels, mode = "explore", search = true, className = "" }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   // `el` is the marker element MapLibre positions (its classes are MapLibre's); `pin` is the styled pin inside it.
@@ -392,6 +394,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       {!ready && (
         <div className="absolute inset-0 flex items-center justify-center bg-plan text-sm text-body">{labels.loading}</div>
       )}
+      {search && (
       <MapSearch
         query={query}
         onQuery={(q) => {
@@ -410,6 +413,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
         }}
         labels={labels}
       />
+      )}
       <button
         type="button"
         onClick={() => mapRef.current?.fitBounds(boundsOf(matching.length ? matching : points), { padding: 70, maxZoom: 11 })}

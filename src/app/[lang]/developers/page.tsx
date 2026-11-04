@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { pageAlternates } from "@/lib/site";
 import Link from "next/link";
 import { ArrowIcon, Container, SectionHeading } from "@/components/ui";
+import { DeveloperLogo } from "@/components/developer-logo";
 import { countProjectsByDeveloper, listDevelopers } from "@/lib/catalog";
 import { fill } from "@/lib/format";
 import { getDictionary, getLocale } from "../dictionaries";
@@ -36,9 +37,7 @@ export default async function DevelopersPage() {
               href={`/${locale}/developers/${d.slug}`}
               className="flex h-full items-center gap-4 rounded-3xl border border-line bg-surface p-5 text-ink no-underline hover:border-ink hover:text-ink"
             >
-              <span aria-hidden="true" className="flex size-16 flex-none items-center justify-center rounded-2xl bg-divider text-xs text-muted">
-                {dict.common.logo}
-              </span>
+              <DeveloperLogo developer={d} locale={locale} />
               <span className="flex flex-col gap-0.5">
                 <span className="font-display text-[17px] font-medium">{d.name[locale]}</span>
                 <span className="text-sm text-muted">{fill(dict.common.projectsCount, { n: counts[d.slug] ?? 0 })}</span>

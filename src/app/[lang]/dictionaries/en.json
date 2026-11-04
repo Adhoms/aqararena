@@ -283,7 +283,7 @@
     "roof": "{n} m² roof",
     "finishing": "Finishing",
     "pricesTitle": "Price & payment plans",
-    "pricesUpdated": "Last updated by the developer: {date}",
+    "pricesUpdated": "Prices last updated: {date}",
     "down": "down",
     "off": "off",
     "planYears": "Installment years",
@@ -310,7 +310,11 @@
     "downAmount": "Down payment",
     "monthlyEq": "Monthly equivalent",
     "deliveryAmount": "On delivery",
-    "brochure": "Download brochure"
+    "brochure": "Download brochure",
+    "contactNoteUnverified": "AqarArena doesn't take part in sales or contracts; you deal with the developer directly.",
+    "contactsPending": "We're still confirming {dev}'s official numbers; they'll appear here once verified.",
+    "floorPlansTab": "Floor plans",
+    "metaDescription": "{name} by {dev} in {place}. From {price}, {down}% down, up to {years} years, delivery {year}. Compare prices and payment plans on AqarArena."
   },
   "comparePage": {
     "eyebrow": "Project vs project",

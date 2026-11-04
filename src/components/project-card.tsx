@@ -6,7 +6,7 @@ import { fill, formatMillions, formatMoney } from "@/lib/format";
 import { CompareButton } from "./compare/compare-button";
 import { FavoriteButton } from "./favorites/favorite-button";
 import { ValueRing, valueText } from "./insights";
-import { artKindFor, ProjectArt } from "./project-art";
+import { ProjectCover } from "./project-cover";
 import { Stat } from "./ui";
 
 type Props = {
@@ -27,7 +27,6 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
   const href = `/${locale}/projects/${project.slug}`;
   const feature = size === "feature";
   const large = size === "large" || feature;
-  const kind = artKindFor(project);
 
   return (
     <article className="spotlight group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:-translate-y-1 hover:border-line-strong hover:shadow-[0_36px_70px_-34px_rgb(16_38_33/0.4)] dark:hover:shadow-[0_36px_70px_-34px_rgb(1_12_12/0.95)]">
@@ -37,12 +36,7 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
         aria-hidden="true"
         className={`relative block overflow-hidden ${feature ? "min-h-80 flex-1 lg:min-h-96" : large ? "h-64" : "h-52"}`}
       >
-        <ProjectArt
-          seed={project.slug}
-          kind={kind}
-          tone={kind === "coastal" ? "day" : "dusk"}
-          className="absolute inset-0 size-full transition-transform duration-700 group-hover:scale-[1.04]"
-        />
+        <ProjectCover project={project} className="absolute inset-0 size-full transition-transform duration-700 group-hover:scale-[1.04]" />
         <span className={`absolute inset-x-0 bottom-0 bg-linear-to-t from-deep/80 to-transparent ${feature ? "h-32" : "h-20"}`} />
         <span className="absolute top-3.5 start-3.5 flex flex-wrap gap-1.5">
           <span className="rounded-full bg-black/45 px-3 py-0.5 text-xs font-medium text-white backdrop-blur">{dict.categories[project.categories[0]]}</span>

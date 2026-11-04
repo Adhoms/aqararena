@@ -283,7 +283,7 @@
     "roof": "رووف {n} م²",
     "finishing": "التشطيب",
     "pricesTitle": "خطط الأسعار والسداد",
-    "pricesUpdated": "آخر تحديث من المطور: {date}",
+    "pricesUpdated": "آخر تحديث للأسعار: {date}",
     "down": "مقدم",
     "off": "خصم",
     "planYears": "مدة التقسيط",
@@ -310,7 +310,11 @@
     "downAmount": "قيمة المقدم",
     "monthlyEq": "يعادل شهرياً",
     "deliveryAmount": "دفعة الاستلام",
-    "brochure": "تحميل البروشور"
+    "brochure": "تحميل البروشور",
+    "contactNoteUnverified": "AqarArena لا تتدخل في البيع أو التعاقد، والتواصل مع المطور مباشرة.",
+    "contactsPending": "لسه بنتحقق من أرقام {dev} الرسمية، وهتظهر هنا أول ما تتأكد.",
+    "floorPlansTab": "المساقط",
+    "metaDescription": "{name} من {dev} في {place}. يبدأ من {price}، مقدم من {down}% وتقسيط حتى {years} سنين، والتسليم {year}. قارن الأسعار وأنظمة السداد على AqarArena."
   },
   "comparePage": {
     "eyebrow": "مشروع بمشروع",

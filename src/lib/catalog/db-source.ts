@@ -22,7 +22,7 @@ const projectInclude = {
   paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
   zones: { orderBy: { sortOrder: "asc" } },
   distances: { orderBy: { sortOrder: "asc" } },
-  media: { where: { kind: { in: ["IMAGE", "BROCHURE"] } }, orderBy: { sortOrder: "asc" } },
+  media: { where: { kind: { in: ["IMAGE", "BROCHURE", "MASTER_PLAN", "FLOOR_PLAN_2D", "LAYOUT_SKETCH"] } }, orderBy: { sortOrder: "asc" } },
 } satisfies Prisma.ProjectInclude;
 
 type ProjectRow = Prisma.ProjectGetPayload<{ include: typeof projectInclude }>;
@@ -35,6 +35,7 @@ function toDeveloper(d: DeveloperRow): Developer {
     foundedYear: d.foundedYear ?? undefined,
     about: text(d.aboutAr, d.aboutEn),
     verified: d.verified,
+    logoUrl: d.logoUrl ?? undefined,
     contacts: {
       hotline: d.hotline ?? undefined,
       salesPhone: d.salesPhone ?? undefined,
@@ -89,7 +90,8 @@ function toProject(p: ProjectRow): Project {
         code: t.code,
         category: t.category,
         subType: t.subType as Project["typologies"][number]["subType"],
-        name: text(t.nameAr, t.nameEn, t.code),
+        // No name: pages describe the unit by its type and size instead of showing the code.
+        name: text(t.nameAr, t.nameEn, ""),
         buaM2: Number(t.buaM2),
         bedrooms: t.bedrooms ?? undefined,
         bathrooms: t.bathrooms ?? undefined,
@@ -109,7 +111,18 @@ function toProject(p: ProjectRow): Project {
     fees: { maintenancePct: num(p.paymentPlans.find((plan) => plan.maintenancePct !== null)?.maintenancePct) },
     photos: p.media
       .filter((m) => m.kind === "IMAGE" && m.group)
-      .map((m) => ({ group: m.group!, caption: text(m.captionAr, m.captionEn) })),
+      .map((m) => ({
+        group: m.group!,
+        caption: text(m.captionAr, m.captionEn),
+        url: m.url,
+        width: m.width ?? undefined,
+        height: m.height ?? undefined,
+      })),
+    cover: (p.media.find((m) => m.kind === "IMAGE" && m.group === "EXTERIOR") ?? p.media.find((m) => m.kind === "IMAGE"))?.url,
+    masterPlanUrl: p.masterPlanUrl ?? p.media.find((m) => m.kind === "MASTER_PLAN")?.url,
+    floorPlans: p.media
+      .filter((m) => m.kind === "FLOOR_PLAN_2D" || m.kind === "LAYOUT_SKETCH")
+      .map((m) => ({ url: m.url, caption: text(m.captionAr, m.captionEn) })),
     distances: p.distances.map((d) => ({ place: text(d.placeAr, d.placeEn), minutes: d.minutes })),
     isFeatured: p.isFeatured,
     pricesUpdated: p.pricesUpdatedAt?.toISOString().slice(0, 10),

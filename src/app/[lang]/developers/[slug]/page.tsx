@@ -6,7 +6,8 @@ import { Suspense } from "react";
 import { GroupFilter } from "@/components/area-filter";
 import { ContactStack } from "@/components/contact-list";
 import { Container, Eyebrow } from "@/components/ui";
-import { artKindFor, ProjectArt } from "@/components/project-art";
+import { ProjectCover } from "@/components/project-cover";
+import { DeveloperLogo } from "@/components/developer-logo";
 import { getDeveloper, getProjectsByDeveloper, listDevelopers, summarize } from "@/lib/catalog";
 import { fill, formatMoney } from "@/lib/format";
 import { AREA_SLUGS } from "@/lib/property";
@@ -77,9 +78,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
             <span aria-current="page">{developer.name[locale]}</span>
           </nav>
           <div className="flex flex-wrap items-center gap-7">
-            <span aria-hidden="true" className="flex size-35 items-center justify-center rounded-3xl bg-surface text-[13px] text-muted">
-              {dict.common.logo}
-            </span>
+            <DeveloperLogo developer={developer} locale={locale} className="size-35 rounded-3xl text-3xl" />
             <div className="flex flex-[1_1_420px] flex-col gap-2">
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="font-display text-4xl leading-tight font-light sm:text-[46px]">{developer.name[locale]}</h1>
@@ -145,7 +144,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
                     className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface text-ink no-underline hover:border-ink hover:text-ink"
                   >
                     <span className="relative block h-52 overflow-hidden">
-                      <ProjectArt seed={p.slug} kind={artKindFor(p)} tone="dusk" className="absolute inset-0 size-full" />
+                      <ProjectCover project={p} className="absolute inset-0 size-full" />
                       <span className={`absolute top-3.5 end-3.5 rounded-full px-3 py-0.5 text-xs font-medium ${badgeTone[p.status]}`}>
                         {dict.status[p.status]}
                       </span>

@@ -228,7 +228,8 @@
     "priceFrom": "From",
     "priceTo": "To",
     "anyPrice": "Any price",
-    "millions": "EGP {n}M"
+    "millions": "EGP {n}M",
+    "pagesLabel": "Result pages"
   },
   "projectPage": {
     "by": "by",

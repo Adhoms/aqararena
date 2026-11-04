@@ -45,7 +45,8 @@ const one = (v: string | string[] | undefined) => all(v)[0];
 /** Builds a link that removes one value of a repeated parameter (e.g. one unit type). */
 function withoutValue(locale: string, params: Search, key: string, value: string) {
   const next = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) all(v).forEach((x) => (k === key && x === value) || k === "s" ? null : next.append(k, x));
+  // Changing the filters starts again from page 1.
+  for (const [k, v] of Object.entries(params)) all(v).forEach((x) => (k === key && x === value) || k === "s" || k === "page" ? null : next.append(k, x));
   const qs = next.toString();
   return `/${locale}/projects${qs ? `?${qs}` : ""}`;
 }
@@ -53,11 +54,14 @@ function withoutValue(locale: string, params: Search, key: string, value: string
 /** Builds a link that changes one filter and keeps the rest. */
 function withParam(locale: string, params: Search, key: string, value: string | undefined) {
   const next = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (k !== key && k !== "s") all(v).forEach((x) => next.append(k, x));
+  for (const [k, v] of Object.entries(params)) if (k !== key && k !== "s" && (k !== "page" || key === "page")) all(v).forEach((x) => next.append(k, x));
   if (value) next.set(key, value);
   const qs = next.toString();
   return `/${locale}/projects${qs ? `?${qs}` : ""}`;
 }
+
+/** Projects per page: the list stays light however many projects there are. */
+const PAGE_SIZE = 24;
 
 const select =
   "min-h-11.5 w-full rounded-xl border border-line-strong bg-surface px-3 text-[15px] font-normal text-ink focus:border-brand focus:outline-none";
@@ -84,6 +88,9 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
       : []),
   ];
   const budgetOn = hasBudget(f);
+  const pages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Number(one(params.page)) || 1));
+  const shown = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -300,7 +307,7 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
             </p>
           ) : (
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-5">
-              {results.map((project) => (
+              {shown.map((project) => (
                 <li key={project.slug} className="flex">
                   <div className="w-full">
                     <ProjectCard
@@ -315,6 +322,22 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
                 </li>
               ))}
             </ul>
+          )}
+          {pages > 1 && (
+            <nav aria-label={p.pagesLabel} className="flex flex-wrap items-center justify-center gap-2 pt-2">
+              {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+                <Link
+                  key={n}
+                  href={withParam(locale, params, "page", n === 1 ? undefined : String(n))}
+                  aria-current={n === page ? "page" : undefined}
+                  className={`flex size-11 items-center justify-center rounded-full border text-[15px] no-underline ${
+                    n === page ? "border-brand bg-brand font-semibold text-white hover:text-white" : "border-line-strong text-ink hover:border-ink hover:text-ink"
+                  }`}
+                >
+                  {n}
+                </Link>
+              ))}
+            </nav>
           )}
           {budgetOn && <p className="text-xs text-muted">{dict.budget.note}</p>}
         </section>

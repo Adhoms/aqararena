@@ -32,5 +32,5 @@ export function ProjectCover({
     );
   }
   const kind = artKindFor(project);
-  return <ProjectArt seed={project.slug} kind={kind} tone={tone ?? (kind === "coastal" ? "day" : "dusk")} className={className} />;
+  return <ProjectArt seed={project.slug} kind={kind} tone={tone ?? (kind === "coastal" ? "day" : "dusk")} eager={eager} className={className} />;
 }

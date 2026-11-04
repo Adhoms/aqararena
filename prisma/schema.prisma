@@ -488,3 +488,12 @@ model Submission {
   @@index([developerId, status])
   @@index([projectId])
 }
+
+// ─── Sign-in protection ─────────────────────────────────────────────────
+
+/// Wrong-password counts per IP address or username, to slow down guessing (src/lib/throttle.ts).
+model AuthThrottle {
+  key      String   @id
+  failures Int      @default(0)
+  resetAt  DateTime
+}

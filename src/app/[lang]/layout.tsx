@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import { Alexandria, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { directionOf, locales } from "@/i18n/config";
@@ -85,6 +86,17 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
             clear: dict.common.clearCompare,
           }}
         />
+        {/* Vercel Web Analytics and Speed Insights: cookieless page views and real-visitor speed.
+            Only on Vercel, where these scripts are served. */}
+        {process.env.VERCEL && (
+          <>
+            <Script id="vercel-insights-queue" strategy="afterInteractive">
+              {"window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments)};"}
+            </Script>
+            <Script src="/_vercel/insights/script.js" strategy="afterInteractive" />
+            <Script src="/_vercel/speed-insights/script.js" strategy="afterInteractive" />
+          </>
+        )}
       </body>
     </html>
   );

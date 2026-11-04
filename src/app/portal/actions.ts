@@ -7,6 +7,7 @@ import { deleteIfUnused } from "@/lib/admin/blob";
 import { hashPassword, MIN_PASSWORD, normalizeUsername, verifyPassword } from "@/lib/portal/password";
 import { endPortalSession, requireAccount, startPortalSession } from "@/lib/portal/session";
 import { emptyProjectDraft, type DraftErrors } from "@/lib/portal/draft-types";
+import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import {
   checkProfileDraft,
   checkProjectDraft,
@@ -24,11 +25,17 @@ const slow = () => new Promise((r) => setTimeout(r, 800));
 export async function portalLogin(_: FormState, data: FormData): Promise<FormState> {
   const username = normalizeUsername(String(data.get("username") ?? ""));
   const password = String(data.get("password") ?? "");
+  // Limit wrong tries both per address and per account.
+  const keys = [`portal-ip:${await clientIp()}`, ...(username ? [`portal-user:${username}`] : [])];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = username ? await db.developerAccount.findUnique({ where: { username } }) : null;
   if (!account || !(await verifyPassword(password, account.passwordHash))) {
     await slow();
+    await recordFailure(keys);
     return { ok: false, message: "اسم المستخدم أو كلمة المرور غير صحيحة" };
   }
+  await clearFailures(keys);
   if (account.status === "PENDING") return { ok: false, message: "طلبك لسه قيد المراجعة. هنبلغك أول ما الحساب يتفعّل." };
   if (account.status === "DISABLED" || !account.developerId) return { ok: false, message: "الحساب ده موقوف. تواصل معانا." };
   await db.developerAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });

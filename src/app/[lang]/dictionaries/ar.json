@@ -340,9 +340,14 @@
     "sections": {
       "about": "عن المشروع",
       "units": "الوحدات",
-      "prices": "الأسعار وخطط السداد",
+      "prices": "الأسعار",
       "amenities": "الخدمات",
-      "contact": "الماستر بلان والتواصل"
+      "contact": "الماستر بلان والتواصل",
+      "value": "القيمة مقابل السعر",
+      "plans": "خطط السداد",
+      "fees": "مصاريف إضافية",
+      "location": "المسافات من المشروع",
+      "media": "الصور والمخططات"
     },
     "rows": {
       "developer": "المطور",
@@ -361,11 +366,39 @@
       "cash": "خصم الكاش",
       "maintenance": "وديعة الصيانة",
       "monthly": "أقل قسط شهري",
-      "downAmount": "قيمة أقل مقدم"
+      "downAmount": "قيمة أقل مقدم",
+      "valueScore": "مؤشر القيمة",
+      "vsArea": "سعر المتر مقارنة بالمنطقة",
+      "areaRank": "الترتيب في المنطقة",
+      "developerFounded": "سنة تأسيس المطور",
+      "developerVerified": "مطور موثّق",
+      "district": "الموقع داخل المنطقة",
+      "launch": "الإطلاق",
+      "progress": "نسبة الإنشاءات",
+      "green": "المساحات الخضراء",
+      "unitsCount": "عدد الوحدات",
+      "models": "عدد النماذج",
+      "bedrooms": "عدد غرف النوم",
+      "withGarden": "وحدات بحديقة",
+      "withRoof": "وحدات برووف",
+      "maxPrice": "أعلى سعر",
+      "bookingFee": "مبلغ الحجز",
+      "pricesUpdated": "آخر تحديث للأسعار",
+      "plansCount": "عدد خطط السداد",
+      "deliveryPayment": "دفعة الاستلام",
+      "frequency": "نظام القسط",
+      "garage": "الجراج",
+      "club": "اشتراك النادي",
+      "amenitiesCount": "عدد الخدمات",
+      "photos": "صور حقيقية",
+      "masterPlan": "ماستر بلان",
+      "floorPlans": "مخططات الوحدات",
+      "brochure": "البروشور"
     },
     "masterPlanPreview": "معاينة الماستر بلان",
     "projectPage": "صفحة المشروع",
-    "note": "البيانات كما نشرها كل مطور. AqarArena منصة عرض فقط ولا تتدخل في البيع."
+    "note": "البيانات كما نشرها كل مطور. AqarArena منصة عرض فقط ولا تتدخل في البيع.",
+    "noMasterPlan": "الماستر بلان لسه مش متاح"
   },
   "developerPage": {
     "verified": "بيانات موثَّقة",

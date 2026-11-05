@@ -17,6 +17,7 @@ import type { Developer, Project } from "./types";
 
 export type { Developer, MasterPlanZone, PaymentPlan, Photo, Project, ProjectSummary, Text, Typology } from "./types";
 export { isCashPlan, monthlyFor, summarize } from "./summary";
+export { unitName } from "./unit-name";
 export { SORTS, type ProjectFilters, type Sort } from "./filters";
 export { bestBudgetFit, budgetFits, hasBudget, type Budget, type BudgetFit } from "./budget";
 export type { AreaInsight, MarketInsights, ProjectValue } from "./insights";

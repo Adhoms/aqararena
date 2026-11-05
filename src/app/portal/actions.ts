@@ -1,12 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { notifyAdmin } from "@/lib/email";
 import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { deleteIfUnused } from "@/lib/admin/blob";
 import { hashPassword, MIN_PASSWORD, normalizeUsername, verifyPassword } from "@/lib/portal/password";
 import { endPortalSession, requireAccount, startPortalSession } from "@/lib/portal/session";
 import { emptyProjectDraft, type DraftErrors } from "@/lib/portal/draft-types";
+import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import {
   checkProfileDraft,
   checkProjectDraft,
@@ -24,16 +27,42 @@ const slow = () => new Promise((r) => setTimeout(r, 800));
 export async function portalLogin(_: FormState, data: FormData): Promise<FormState> {
   const username = normalizeUsername(String(data.get("username") ?? ""));
   const password = String(data.get("password") ?? "");
+  // Limit wrong tries both per address and per account.
+  const keys = [`portal-ip:${await clientIp()}`, ...(username ? [`portal-user:${username}`] : [])];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = username ? await db.developerAccount.findUnique({ where: { username } }) : null;
   if (!account || !(await verifyPassword(password, account.passwordHash))) {
     await slow();
+    await recordFailure(keys);
     return { ok: false, message: "اسم المستخدم أو كلمة المرور غير صحيحة" };
   }
+  await clearFailures(keys);
   if (account.status === "PENDING") return { ok: false, message: "طلبك لسه قيد المراجعة. هنبلغك أول ما الحساب يتفعّل." };
   if (account.status === "DISABLED" || !account.developerId) return { ok: false, message: "الحساب ده موقوف. تواصل معانا." };
   await db.developerAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
   await startPortalSession(account);
   redirect(account.mustChangePassword ? "/portal/password" : "/portal");
+}
+
+/**
+ * "Forgot password": flags the account for the admin, who issues a temporary password from the
+ * accounts page. The answer is the same whether or not the details match, so it can't be used
+ * to find out which usernames exist.
+ */
+export async function requestPasswordReset(_: FormState, data: FormData): Promise<FormState> {
+  const username = normalizeUsername(String(data.get("username") ?? ""));
+  const phone = String(data.get("phone") ?? "").replace(/\D/g, "");
+  if (!username || phone.length < 8) return { ok: false, message: "اكتب اسم المستخدم ورقم الموبايل", errors: { username: username ? "" : "مطلوب", phone: phone.length < 8 ? "مطلوب" : "" } };
+  const keys = [`reset-ip:${await clientIp()}`];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
+  await recordFailure(keys);
+  const flagged = await db.developerAccount.updateMany({ where: { username, status: { not: "DISABLED" } }, data: { resetRequestedAt: new Date() } });
+  if (flagged.count) {
+    after(() => notifyAdmin(`طلب كلمة مرور جديدة: ${username} · AqarArena`, [`اسم المستخدم: ${username}`, `الموبايل اللي كتبه: ${phone}`, "", "اتأكد من الرقم وطلّع كلمة مرور مؤقتة من لوحة التحكم ← الحسابات."]));
+  }
+  return { ok: true, message: "وصلنا طلبك ✓ هنتأكد من البيانات ونتواصل معاك على رقمك بكلمة مرور مؤقتة." };
 }
 
 export async function portalLogout() {
@@ -64,6 +93,18 @@ export async function requestAccount(_: FormState, data: FormData): Promise<Form
     return { ok: false, message: "اسم المستخدم ده مستخدم", errors: { username: "اختار اسم تاني" } };
   }
   await db.developerAccount.create({ data: { ...values, username, passwordHash: await hashPassword(password), status: "PENDING" } });
+  after(() =>
+    notifyAdmin(`طلب حساب مطور جديد: ${values.companyNameAr} · AqarArena`, [
+      `الشركة: ${values.companyNameAr}${values.companyNameEn ? ` (${values.companyNameEn})` : ""}`,
+      `المسؤول: ${values.contactName}`,
+      `الموبايل: ${values.phone}`,
+      values.email ? `البريد: ${values.email}` : "",
+      `اسم المستخدم: ${username}`,
+      values.note ? `ملاحظات: ${values.note}` : "",
+      "",
+      "فعّل الحساب من لوحة التحكم ← الحسابات.",
+    ].filter(Boolean), values.email ?? undefined),
+  );
   return { ok: true, message: "تم إرسال طلبك ✓ هنراجعه ونفعّل حسابك، وبعدها تقدر تدخل باسم المستخدم وكلمة المرور اللي اخترتهم." };
 }
 
@@ -164,6 +205,15 @@ export async function saveSubmission(id: string, raw: unknown, send: boolean): P
       ...(ready && { submittedAt: new Date(), reviewNote: null }),
     },
   });
+  if (ready) {
+    after(() =>
+      notifyAdmin(`طلب مراجعة جديد: ${title} · AqarArena`, [
+        `${me.developer.nameAr} بعت ${sub.kind === "PROJECT" ? (sub.projectId ? "تعديل على مشروع" : "مشروع جديد") : "تعديل بيانات الشركة"}: ${title}`,
+        "",
+        "راجعه من لوحة التحكم ← مراجعة المطورين.",
+      ]),
+    );
+  }
   if (send && !ready) return { ok: false, message: `فيه ${Object.keys(errors).length} حاجة محتاجة تتصلّح قبل الإرسال. اتحفظت كمسودة.`, errors, status: "DRAFT" };
   return ready
     ? { ok: true, message: "اتبعت للمراجعة ✓ هيظهر على الموقع بعد الموافقة.", status: "PENDING" }

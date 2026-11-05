@@ -138,10 +138,12 @@ type Props = {
   labels: Labels;
   /** "teaser": map only, two-finger/ctrl zoom so the page still scrolls. "explore": map with a synced list. */
   mode?: "teaser" | "explore";
+  /** The search box over the map (off for a single project's location). */
+  search?: boolean;
   className?: string;
 };
 
-export function ProjectMap({ points, locale, labels, mode = "explore", className = "" }: Props) {
+export function ProjectMap({ points, locale, labels, mode = "explore", search = true, className = "" }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   // `el` is the marker element MapLibre positions (its classes are MapLibre's); `pin` is the styled pin inside it.
@@ -152,6 +154,8 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
   const themeAtCreate = useRef(theme);
   const listRefs = useRef(new Map<string, HTMLLIElement>());
   const [ready, setReady] = useState(false);
+  // The map library is large: load it only once the map is about to scroll into view.
+  const [near, setNear] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [visible, setVisible] = useState<string[]>(points.map((p) => p.slug));
   const [category, setCategory] = useState<PropertyCategory | "all">("all");
@@ -181,6 +185,15 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
   const searching = query.trim().length > 0;
 
   useEffect(() => {
+    const el = container.current;
+    if (!el || near) return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setNear(true), { rootMargin: "600px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [near]);
+
+  useEffect(() => {
+    if (!near) return;
     let cancelled = false;
     const markerMap = markers.current;
     const clusterMarkers: Marker[] = [];
@@ -323,7 +336,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [points, locale, mode, labels, router]);
+  }, [near, points, locale, mode, labels, router]);
 
   // Light/dark switch: swap the tiles and put the place names back in the visitor's language.
   useEffect(() => {
@@ -392,6 +405,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
       {!ready && (
         <div className="absolute inset-0 flex items-center justify-center bg-plan text-sm text-body">{labels.loading}</div>
       )}
+      {search && (
       <MapSearch
         query={query}
         onQuery={(q) => {
@@ -410,6 +424,7 @@ export function ProjectMap({ points, locale, labels, mode = "explore", className
         }}
         labels={labels}
       />
+      )}
       <button
         type="button"
         onClick={() => mapRef.current?.fitBounds(boundsOf(matching.length ? matching : points), { padding: 70, maxZoom: 11 })}

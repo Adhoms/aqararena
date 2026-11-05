@@ -6,7 +6,7 @@ import { Suspense, type ReactNode } from "react";
 import { CompareShell, CompareSync, ProjectPicker, RestoreSavedList } from "@/components/compare/compare-client";
 import { PrintButton, ShareButton } from "@/components/share-button";
 import { Container, Eyebrow } from "@/components/ui";
-import { artKindFor, ProjectArt } from "@/components/project-art";
+import { ProjectCover } from "@/components/project-cover";
 import { getProjectsBySlugs, listDevelopers, listProjectOptions, summarize, type Project } from "@/lib/catalog";
 import { MAX_COMPARE, parseCompareParam } from "@/lib/compare";
 import { fill, formatMoney, formatNumber, telHref } from "@/lib/format";
@@ -114,7 +114,7 @@ async function CompareBody({
             {projects.map((p, i) => (
               <div role="columnheader" key={p.slug} className="flex flex-col gap-3 border-s border-divider p-5">
                 <div className="relative h-35 overflow-hidden rounded-2xl">
-                  <ProjectArt seed={p.slug} kind={artKindFor(p)} tone="dusk" className="absolute inset-0 size-full" />
+                  <ProjectCover project={p} className="absolute inset-0 size-full" />
                   <Link
                     href={removeHref(p.slug)}
                     scroll={false}

@@ -22,7 +22,7 @@ export type SmartLabels = {
   seeAll: string;
   searching: string;
   remove: string;
-  chips: Record<"maxPrice" | "minPrice" | "maxDownPct" | "minYears" | "minBedrooms" | "deliveryBy" | "ready" | "q", string>;
+  chips: Record<"maxPrice" | "minPrice" | "maxDownPct" | "minYears" | "minBedrooms" | "deliveryBy" | "ready" | "q" | "monthly", string>;
   finishGroups: Record<FinishGroup, string>;
   subTypes: Record<SubType, string>;
   categories: Record<PropertyCategory, string>;
@@ -46,6 +46,8 @@ function chipLabel(c: Chip, l: SmartLabels) {
       return l.chips.ready;
     case "maxPrice":
       return fill(l.chips.maxPrice, { n: Math.round((c.value / 1_000_000) * 100) / 100 });
+    case "monthly":
+      return fill(l.chips.monthly, { n: new Intl.NumberFormat("en-US").format(c.value) });
     case "minPrice":
       return fill(l.chips.minPrice, { n: Math.round((c.value / 1_000_000) * 100) / 100 });
     case "finish":

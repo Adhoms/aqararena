@@ -21,7 +21,7 @@ export async function SiteHeader() {
         {/* Phones: its own swipeable row under the logo. Desktop: inline between logo and buttons. */}
         <nav
           aria-label={dict.nav.label}
-          className="order-last -mx-4 flex w-[calc(100%+2rem)] gap-x-1 [scrollbar-width:none] overflow-x-auto px-4 whitespace-nowrap md:order-none md:mx-0 md:w-auto md:flex-1 md:px-0"
+          className="order-last -mx-4 flex w-[calc(100%+2rem)] gap-x-1 [scrollbar-width:none] overflow-x-auto px-4 whitespace-nowrap max-md:[mask-image:linear-gradient(to_left,transparent,#000_40px)] max-md:rtl:[mask-image:linear-gradient(to_right,transparent,#000_40px)] md:order-none md:mx-0 md:w-auto md:flex-1 md:px-0"
         >
           <NavLinks
             links={[

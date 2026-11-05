@@ -10,13 +10,15 @@ type Props = {
   /** Details for each zone, rendered on the server. */
   panels: Record<string, ReactNode>;
   labels: { zoomIn: string; zoomOut: string; note: string; plan: string };
+  /** The uploaded master-plan image, drawn under the zones. */
+  image?: string;
 };
 
 /**
  * Clickable master plan. Each zone is a button placed over the plan; picking one shows its
  * details beside the plan. With a real plan image the zones sit on top of the tiled image.
  */
-export function MasterPlan({ zones, panels, labels }: Props) {
+export function MasterPlan({ zones, panels, labels, image }: Props) {
   const [active, setActive] = useState(zones[0]?.id);
   const [zoom, setZoom] = useState(1);
 
@@ -29,6 +31,10 @@ export function MasterPlan({ zones, panels, labels }: Props) {
           className="relative h-[clamp(360px,48vw,520px)] origin-center transition-transform duration-300"
           style={{ transform: `scale(${zoom})` }}
         >
+          {image && (
+            // eslint-disable-next-line @next/next/no-img-element -- uploaded plan, up to 4000 px
+            <img src={image} alt={labels.plan} loading="lazy" decoding="async" className="absolute inset-0 size-full object-contain" />
+          )}
           {zones.map((z) => {
             const selected = z.id === active;
             const idle =
@@ -67,12 +73,14 @@ export function MasterPlan({ zones, panels, labels }: Props) {
             −
           </button>
         </div>
-        <span className="absolute bottom-3.5 start-3.5 rounded-lg bg-surface px-2.5 py-1 text-xs text-body">{labels.note}</span>
+        {!image && <span className="absolute bottom-3.5 start-3.5 rounded-lg bg-surface px-2.5 py-1 text-xs text-body">{labels.note}</span>}
       </div>
 
-      <div aria-live="polite" className="flex min-w-0 flex-[2_1_340px] flex-col gap-4 rounded-3xl border border-line bg-surface p-6">
-        {active && panels[active]}
-      </div>
+      {zones.length > 0 && (
+        <div aria-live="polite" className="flex min-w-0 flex-[2_1_340px] flex-col gap-4 rounded-3xl border border-line bg-surface p-6">
+          {active && panels[active]}
+        </div>
+      )}
     </div>
   );
 }

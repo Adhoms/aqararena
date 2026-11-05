@@ -19,6 +19,8 @@ export type Developer = {
   foundedYear?: number;
   about: Text;
   verified: boolean;
+  /** Uploaded logo, when there is one. */
+  logoUrl?: string;
   contacts: {
     hotline?: string;
     salesPhone?: string;
@@ -67,7 +69,8 @@ export type PaymentPlan = {
   cashDiscountPct?: number;
 };
 
-export type Photo = { group: PhotoGroup; caption: Text };
+/** A project photo. `url` is set for uploaded photos; the demo data has none and draws art instead. */
+export type Photo = { group: PhotoGroup; caption: Text; url?: string; width?: number; height?: number };
 
 export type Project = {
   slug: string;
@@ -98,6 +101,12 @@ export type Project = {
   paymentPlans: PaymentPlan[];
   fees: { maintenancePct?: number; garageFee?: number; clubFee?: number };
   photos: Photo[];
+  /** The picture for cards and the page top: the first exterior photo, else the first photo. */
+  cover?: string;
+  /** Uploaded master-plan image. */
+  masterPlanUrl?: string;
+  /** Uploaded floor plans and layout sketches. */
+  floorPlans?: { url: string; caption: Text }[];
   distances: { place: Text; minutes: number }[];
   isFeatured: boolean;
   pricesUpdated?: string;

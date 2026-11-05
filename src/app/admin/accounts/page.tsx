@@ -15,7 +15,10 @@ export default async function AccountsPage() {
     db.developer.findMany({ select: { id: true, nameAr: true, nameEn: true }, orderBy: { nameAr: "asc" } }),
   ]);
   const requests = accounts.filter((a) => a.status === "PENDING");
-  const others = accounts.filter((a) => a.status !== "PENDING");
+  // Accounts that asked for a new password come first.
+  const others = accounts
+    .filter((a) => a.status !== "PENDING")
+    .sort((a, b) => Number(Boolean(b.resetRequestedAt)) - Number(Boolean(a.resetRequestedAt)));
   const devOptions = developers.map((d) => ({ value: d.id, label: d.nameAr }));
 
   return (
@@ -93,6 +96,11 @@ export default async function AccountsPage() {
                 <td>
                   <span className={a.status === "ACTIVE" ? "admin-badge" : "admin-badge-off"}>{STATUS[a.status]}</span>
                   {a.mustChangePassword && <span className="ms-1 text-xs text-muted">(كلمة مرور مؤقتة)</span>}
+                  {a.resetRequestedAt && (
+                    <span className="ms-1 inline-flex rounded-full bg-red-600/10 px-2 py-0.5 text-xs text-red-700 dark:text-red-300">
+                      طلب كلمة مرور جديدة · {when(a.resetRequestedAt)}
+                    </span>
+                  )}
                 </td>
                 <td className="text-muted">{when(a.lastLoginAt)}</td>
                 <td>

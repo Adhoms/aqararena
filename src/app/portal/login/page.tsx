@@ -14,6 +14,9 @@ export default async function PortalLoginPage() {
         <TextField name="username" label="اسم المستخدم" dir="ltr" required />
         <TextField name="password" type="password" label="كلمة المرور" required />
       </AdminForm>
+      <p className="-mt-2 text-sm">
+        <Link href="/portal/forgot">نسيت كلمة المرور؟</Link>
+      </p>
       <p className="border-t border-divider pt-4 text-sm">
         معندكش حساب؟ <Link href="/portal/register">اطلب حساب لشركتك</Link>
       </p>

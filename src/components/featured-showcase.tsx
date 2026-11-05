@@ -11,7 +11,7 @@ import { fill, formatMillions, formatMoney } from "@/lib/format";
 import { CompareButton } from "./compare/compare-button";
 import { FavoriteButton } from "./favorites/favorite-button";
 import { ValueRing, valueText } from "./insights";
-import { artKindFor, ProjectArt } from "./project-art";
+import { ProjectCover } from "./project-cover";
 import { ArrowIcon } from "./ui";
 
 type Props = {
@@ -40,7 +40,6 @@ export function FeaturedShowcase({
       {projects.map((project) => {
         const s = summarize(project);
         const value = values[project.slug];
-        const kind = artKindFor(project);
         const href = `/${locale}/projects/${project.slug}`;
         return (
           <li
@@ -48,12 +47,7 @@ export function FeaturedShowcase({
             className="spotlight rounded-[2rem] border border-line bg-surface p-1.5 shadow-(--card-shadow)"
           >
             <div className="group relative isolate flex h-full flex-col justify-end overflow-hidden rounded-[calc(2rem-0.375rem)] text-white">
-              <ProjectArt
-                seed={project.slug}
-                kind={kind}
-                tone={kind === "coastal" ? "day" : "dusk"}
-                className="acc-art absolute inset-0 -z-10 size-full"
-              />
+              <ProjectCover project={project} className="acc-art absolute inset-0 -z-10 size-full" />
               <span
                 aria-hidden="true"
                 className="absolute inset-0 -z-10 bg-linear-to-t from-deep via-deep/55 to-deep/5"

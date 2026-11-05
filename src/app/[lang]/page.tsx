@@ -70,6 +70,7 @@ export default async function HomePage() {
             seed={`${heroProject.slug}-hero`}
             kind={artKindFor(heroProject)}
             tone="dusk"
+            eager
             className="absolute inset-0 -z-10 size-full opacity-80"
           />
         )}

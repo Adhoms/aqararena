@@ -9,6 +9,7 @@ import { endSession, passwordMatches, requireAdmin, startSession } from "@/lib/a
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { deleteIfUnused } from "@/lib/admin/blob";
+import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import { readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
 import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
@@ -35,11 +36,16 @@ const today = () => new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z
 
 export async function login(_: FormState, data: FormData): Promise<FormState> {
   const password = data.get("password");
+  const keys = [`admin:${await clientIp()}`];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
   if (typeof password !== "string" || !passwordMatches(password)) {
     // Slow down guessing a little.
     await new Promise((r) => setTimeout(r, 800));
+    await recordFailure(keys);
     return { ok: false, message: "كلمة المرور غير صحيحة" };
   }
+  await clearFailures(keys);
   await startSession();
   redirect("/admin");
 }

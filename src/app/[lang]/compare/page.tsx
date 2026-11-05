@@ -307,11 +307,16 @@ function buildRows(
   const maxPrice = projects.map((p) => Math.max(...p.typologies.map((t) => t.priceFrom)));
   const minDelivery = installments.map((list) => (list.length ? Math.min(...list.map((pl) => pl.deliveryPaymentPct)) : undefined));
   const frequencies = installments.map((list) => [...new Set(list.map((pl) => pl.frequency))].map((f) => dict.frequency[f]).join(" · ") || NA);
-  const launch = projects.map((p) => (p.launchDate ? p.launchDate.slice(0, 7) : p.launchYear ? String(p.launchYear) : NA));
+  const dateLocale = locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB";
+  const launch = projects.map((p) =>
+    p.launchDate
+      ? new Intl.DateTimeFormat(dateLocale, { month: "long", year: "numeric" }).format(new Date(p.launchDate))
+      : p.launchYear
+        ? String(p.launchYear)
+        : NA,
+  );
   const updated = projects.map((p) =>
-    p.pricesUpdated
-      ? new Intl.DateTimeFormat(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(p.pricesUpdated))
-      : NA,
+    p.pricesUpdated ? new Intl.DateTimeFormat(dateLocale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(p.pricesUpdated)) : NA,
   );
   const vsArea = values.map((v) => (v ? (v.vsAreaPct === 0 ? dict.insights.average : fill(v.vsAreaPct < 0 ? dict.insights.cheaper : dict.insights.pricier, { n: Math.abs(v.vsAreaPct) })) : NA));
 
@@ -388,7 +393,7 @@ function buildRows(
     ...distanceRows,
 
     { section: s.amenities },
-    row(r.amenitiesCount, projects.map((p) => num(p.amenities.length)), projects.map((p) => p.amenities.length), "high"),
+    row(r.amenitiesCount, projects.map((p) => (p.amenities.length ? num(p.amenities.length) : NA)), projects.map((p) => p.amenities.length || undefined), "high"),
     ...amenities.map(amenityRow),
 
     { section: s.media },

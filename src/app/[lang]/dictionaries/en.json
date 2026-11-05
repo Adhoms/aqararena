@@ -340,9 +340,14 @@
     "sections": {
       "about": "About the project",
       "units": "Units",
-      "prices": "Prices & payment plans",
+      "prices": "Prices",
       "amenities": "Amenities",
-      "contact": "Master plan & contact"
+      "contact": "Master plan and contact",
+      "value": "Value for money",
+      "plans": "Payment plans",
+      "fees": "Extra fees",
+      "location": "Distances from the project",
+      "media": "Photos and plans"
     },
     "rows": {
       "developer": "Developer",
@@ -361,11 +366,39 @@
       "cash": "Cash discount",
       "maintenance": "Maintenance deposit",
       "monthly": "Lowest monthly",
-      "downAmount": "Lowest down payment (EGP)"
+      "downAmount": "Lowest down payment (EGP)",
+      "valueScore": "Value score",
+      "vsArea": "Price per m² vs the area",
+      "areaRank": "Rank in the area",
+      "developerFounded": "Developer founded",
+      "developerVerified": "Verified developer",
+      "district": "Location in the area",
+      "launch": "Launch",
+      "progress": "Construction progress",
+      "green": "Green space",
+      "unitsCount": "Number of units",
+      "models": "Unit models",
+      "bedrooms": "Bedrooms",
+      "withGarden": "Units with a garden",
+      "withRoof": "Units with a roof",
+      "maxPrice": "Highest price",
+      "bookingFee": "Booking fee",
+      "pricesUpdated": "Prices last updated",
+      "plansCount": "Payment plans",
+      "deliveryPayment": "Payment on delivery",
+      "frequency": "Installment schedule",
+      "garage": "Garage",
+      "club": "Club membership",
+      "amenitiesCount": "Number of amenities",
+      "photos": "Real photos",
+      "masterPlan": "Master plan",
+      "floorPlans": "Floor plans",
+      "brochure": "Brochure"
     },
     "masterPlanPreview": "Master plan preview",
     "projectPage": "Project page",
-    "note": "Data as published by each developer. AqarArena is a showcase platform and takes no part in sales."
+    "note": "Data as published by each developer. AqarArena is a showcase platform and takes no part in sales.",
+    "noMasterPlan": "Master plan not available yet"
   },
   "developerPage": {
     "verified": "Verified details",

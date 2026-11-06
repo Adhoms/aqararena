@@ -8,6 +8,12 @@ import { fill } from "@/lib/format";
 import { getDictionary, getLocale } from "../../dictionaries";
 import { confirmAlert, unsubscribeAlert } from "../actions";
 
+// Tokens are only known at request time. One placeholder lets the build check the page (it shows
+// the "link doesn't work" card); real tokens render when someone opens their link.
+export async function generateStaticParams() {
+  return [{ token: "_" }];
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
   return { title: dict.alertsPage.title, robots: { index: false, follow: false } };

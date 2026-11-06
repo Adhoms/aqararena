@@ -221,6 +221,9 @@ model Project {
   constructionUpdates ConstructionUpdate[]
   priceHistory        PriceHistory[]
   submissions         Submission[]
+  priceAlerts         PriceAlert[]
+  /// Prices and plans as of the last alert sent to subscribers (or when the first one signed up).
+  alertSnapshot       Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -528,4 +531,25 @@ model ContactMessage {
   createdAt DateTime      @default(now())
 
   @@index([status, createdAt])
+}
+
+// ─── Price alerts ───────────────────────────────────────────────────────
+
+/// A visitor who asked to hear when a project's prices or payment plans change. No password:
+/// the emailed token confirms the address and later unsubscribes it (unsubscribing deletes the row).
+model PriceAlert {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  email       String
+  phone       String?
+  locale      String    @default("ar")
+  token       String    @unique
+  confirmedAt DateTime?
+  lastSentAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([projectId, email])
+  @@index([projectId, confirmedAt])
 }

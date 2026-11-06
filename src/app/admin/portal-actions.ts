@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
+import { sendPriceAlerts } from "@/lib/price-alerts";
 import { db } from "@/lib/db";
 import { CATALOG_TAG } from "@/lib/catalog";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -26,6 +27,7 @@ export async function approveSubmission(_: FormState, data: FormData): Promise<F
   if (!sub || sub.status !== "PENDING") return { ok: false, message: "الطلب ده مش مستني موافقة" };
 
   let removed: string[] = [];
+  let alertProject: string | undefined;
   if (sub.kind === "PROJECT") {
     const { errors, values } = await checkProjectDraft(parseProjectDraft(sub.data));
     if (Object.keys(errors).length) return { ok: false, message: `البيانات فيها ${Object.keys(errors).length} مشكلة (مثلًا: ${Object.values(errors)[0]}). ابعتها للمطور يصلّحها.` };
@@ -36,6 +38,7 @@ export async function approveSubmission(_: FormState, data: FormData): Promise<F
       async (tx) => {
         const res = await applyProjectDraft(tx, { developerId: sub.developerId, projectId: sub.projectId, values, publish });
         removed = res.removedUrls;
+        alertProject = res.projectId;
         await tx.submission.update({ where: { id }, data: { status: "APPROVED", reviewedAt: new Date(), projectId: res.projectId, reviewNote: null } });
       },
       { timeout: 60_000 },
@@ -50,6 +53,8 @@ export async function approveSubmission(_: FormState, data: FormData): Promise<F
   }
   updateTag(CATALOG_TAG);
   await deleteIfUnused(removed);
+  // Subscribers hear about new prices or plans right away.
+  if (alertProject) after(() => sendPriceAlerts(alertProject!).then(() => undefined));
   const account = await db.developerAccount.findUnique({ where: { id: sub.accountId }, select: { email: true } });
   if (account?.email) {
     after(() =>
@@ -185,4 +190,20 @@ export async function deleteMessage(data: FormData) {
   await requireAdmin();
   await db.contactMessage.deleteMany({ where: { id: String(data.get("id") ?? "") } });
   redirect("/admin/messages");
+}
+
+// ─── Price alerts ───────────────────────────────────────────────────────
+
+/** Sends the price alert for a project after the admin's own edits. */
+export async function sendProjectAlerts(data: FormData) {
+  await requireAdmin();
+  const id = String(data.get("id") ?? "");
+  const sent = await sendPriceAlerts(id);
+  redirect(`/admin/projects/${id}?alerts=${sent}`);
+}
+
+export async function deletePriceAlert(data: FormData) {
+  await requireAdmin();
+  await db.priceAlert.deleteMany({ where: { id: String(data.get("id") ?? "") } });
+  redirect("/admin/alerts");
 }

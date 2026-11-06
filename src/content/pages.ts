@@ -5,7 +5,7 @@ export type Section = { heading: string; paragraphs?: string[]; bullets?: string
 export type InfoPage = { title: string; description: string; intro: string; sections: Section[] };
 type Pages = Record<"about" | "privacy" | "terms", Record<"ar" | "en", InfoPage>>;
 
-export const PAGES_UPDATED = "2026-11-04";
+export const PAGES_UPDATED = "2026-11-06";
 
 export const PAGES: Pages = {
   about: {
@@ -96,6 +96,7 @@ export const PAGES: Pages = {
             "تصفّح الموقع: مش محتاج حساب. المفضلة وقائمة المقارنة واختيار الوضع الفاتح أو الغامق بيتحفظوا على جهازك أنت بس، ومش بيوصلوا لينا.",
             "إحصائيات الاستخدام: بنستخدم Vercel Web Analytics لقياس عدد الزيارات والصفحات الأكثر مشاهدة ونوع الجهاز والدولة. الخدمة دي مش بتستخدم ملفات تعريف الارتباط (cookies) ولا بتتعرف عليك شخصيًا.",
             "رسائل التواصل: لما تراسلنا بنحفظ اسمك وبريدك الإلكتروني أو رقم موبايلك ونص رسالتك، عشان نرد عليك.",
+            "تنبيهات الأسعار: لما تطلب تنبيه لمشروع بنحفظ اسمك وبريدك الإلكتروني ورقم موبايلك لو كتبته، والمشروع اللي اخترته، عشان نبعتلك لما أسعاره أو خطط السداد تتغيّر. التنبيهات مش بتبدأ غير لما تأكد من رابط في بريدك، وكل رسالة فيها رابط لإيقافها، ولما توقفها بنمسح بياناتك. مش بنشارك البيانات دي مع المطورين.",
             "حسابات المطورين: اسم الشركة واسم المسؤول ورقم الموبايل والبريد الإلكتروني واسم المستخدم، وكلمة المرور محفوظة بشكل مشفّر لا يمكن قراءته، بالإضافة للبيانات والصور اللي المطور بيرفعها.",
             "بيانات تقنية للأمان: عنوان IP بيتسجّل مؤقتًا لحماية الموقع من محاولات الدخول المتكررة والرسائل المزعجة.",
           ],
@@ -123,7 +124,7 @@ export const PAGES: Pages = {
         {
           heading: "4. مكان حفظ البيانات ومدته",
           paragraphs: [
-            "البيانات محفوظة على خوادم مقدمي الخدمات المذكورين، وأغلبها في الاتحاد الأوروبي (فرانكفورت)، مع ضمانات حماية مناسبة. بنحتفظ برسائل التواصل لمدة أقصاها 24 شهر، وبيانات حسابات المطورين طول ما الحساب موجود، وبعد كده بنمسحها أو بنخليها مجهولة الهوية إلا لو القانون طلب غير كده.",
+            "البيانات محفوظة على خوادم مقدمي الخدمات المذكورين، وأغلبها في الاتحاد الأوروبي (فرانكفورت)، مع ضمانات حماية مناسبة. بنحتفظ برسائل التواصل لمدة أقصاها 24 شهر، وبيانات تنبيهات الأسعار لحد ما توقفها (والطلبات اللي ماتأكدتش بتتمسح بعد أسبوع)، وبيانات حسابات المطورين طول ما الحساب موجود، وبعد كده بنمسحها أو بنخليها مجهولة الهوية إلا لو القانون طلب غير كده.",
           ],
         },
         {
@@ -166,6 +167,7 @@ export const PAGES: Pages = {
             "Browsing: no account is needed. Favorites, the compare list and your light/dark choice are stored on your own device only and never reach us.",
             "Usage statistics: we use Vercel Web Analytics to count visits, popular pages, device type and country. It uses no cookies and does not identify you personally.",
             "Contact messages: when you write to us we keep your name, email or mobile number and your message so we can reply.",
+            "Price alerts: when you ask for alerts on a project we keep your name, email, your mobile number if you add it, and the project, so we can email you when its prices or payment plans change. Alerts only start after you confirm through a link in your email, every alert has a link to stop them, and stopping them deletes your details. We do not share these details with developers.",
             "Developer accounts: company name, contact person, mobile, email and username; the password is stored only as an irreversible hash; plus the data and photos the developer uploads.",
             "Technical data for security: IP addresses are kept briefly to protect the site from repeated sign-in attempts and spam.",
           ],
@@ -193,7 +195,7 @@ export const PAGES: Pages = {
         {
           heading: "4. Where and how long",
           paragraphs: [
-            "Data is stored on these providers' servers, mostly in the European Union (Frankfurt), with appropriate safeguards. We keep contact messages for up to 24 months and developer account data for as long as the account exists, after which it is deleted or anonymised unless the law requires otherwise.",
+            "Data is stored on these providers' servers, mostly in the European Union (Frankfurt), with appropriate safeguards. We keep contact messages for up to 24 months, price-alert details until you stop the alerts (unconfirmed sign-ups are deleted after a week), and developer account data for as long as the account exists, after which it is deleted or anonymised unless the law requires otherwise.",
           ],
         },
         {

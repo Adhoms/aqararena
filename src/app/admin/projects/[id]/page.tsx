@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { deleteProject } from "@/app/admin/actions";
+import { sendProjectAlerts } from "@/app/admin/portal-actions";
+import { pendingAlert } from "@/lib/price-alerts";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { DeleteButton } from "@/components/admin/admin-form";
 import { NewAreaForm, ProjectForm } from "@/components/admin/project-form";
@@ -19,7 +21,7 @@ const SECTIONS = [
 export default async function EditProjectPage({ params, searchParams }: PageProps<"/admin/projects/[id]">) {
   await requireAdmin();
   const { id } = await params;
-  const { created } = await searchParams;
+  const { created, alerts } = await searchParams;
   const [project, developers, areas] = await Promise.all([
     db.project.findUnique({
       where: { id },
@@ -35,6 +37,8 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
     db.area.findMany({ select: { id: true, nameAr: true }, orderBy: { nameAr: "asc" } }),
   ]);
   if (!project) notFound();
+  const alert = await pendingAlert(project.id);
+  const CHANGE_AR = { start: "أقل سعر", perM2: "سعر المتر", down: "أقل مقدم", years: "مدة التقسيط", monthly: "أقل قسط", cash: "خصم الكاش" } as const;
 
   const pricedTypes = project.typologies.filter((t) => t.priceFrom !== null).length;
   const live = project.published && pricedTypes > 0;
@@ -54,6 +58,20 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
         </div>
       }
     >
+      {alerts !== undefined && (
+        <p className="admin-panel text-brand">{Number(alerts) > 0 ? `اتبعت تنبيه الأسعار لـ ${alerts} مشترك ✓` : "مافيش تنبيه اتبعت (مافيش تغيير أو مشتركين، أو الإيميل مش متظبط)."}</p>
+      )}
+      {alert.subscribers > 0 && alert.changes.length > 0 && (
+        <form action={sendProjectAlerts} className="admin-panel flex flex-wrap items-center justify-between gap-3 border-brass">
+          <input type="hidden" name="id" value={project.id} />
+          <span className="text-sm">
+            <b>الأسعار اتغيّرت من آخر تنبيه</b> ({alert.changes.map((c) => CHANGE_AR[c.key]).join("، ")}). فيه {alert.subscribers} مشترك مستنيين يعرفوا. ابعت التنبيه لما تخلص كل تعديلاتك.
+          </span>
+          <button type="submit" className="admin-btn">
+            ابعت تنبيه الأسعار
+          </button>
+        </form>
+      )}
       {created && <p className="admin-panel text-brand">تم إنشاء المشروع ✓ أضف الآن نماذج الوحدات وأنظمة السداد، ثم فعّل «منشور».</p>}
       {!live && (
         <p className="text-sm text-muted">

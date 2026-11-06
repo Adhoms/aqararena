@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { BellRinging } from "@phosphor-icons/react/ssr";
 import { CompareButton } from "@/components/compare/compare-button";
 import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { ContactGrid, ContactStack } from "@/components/contact-list";
 import { JsonLd } from "@/components/json-ld";
 import { MasterPlan } from "@/components/project/master-plan";
 import { PaymentCalculator } from "@/components/project/payment-calculator";
+import { PriceAlertForm } from "@/components/price-alert-form";
 import { ShareButton } from "@/components/share-button";
 import { Tabs, type Tab } from "@/components/tabs";
 import { ProjectVsMarket, ValueRing, valueText } from "@/components/insights";
@@ -490,6 +492,30 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               </>
             )}
             <span className="text-muted">{p.pricesNote}</span>
+          </div>
+          <div id="price-alert" className="flex flex-col gap-4 rounded-3xl border border-brand/25 bg-surface p-5.5 sm:p-7 print:hidden">
+            <div className="flex items-start gap-3.5">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+                <BellRinging size={22} weight="duotone" aria-hidden="true" />
+              </span>
+              <span className="flex flex-col gap-1">
+                <span className="font-display text-xl font-medium">{p.priceAlert.title}</span>
+                <span className="text-sm text-body">{fill(p.priceAlert.text, { name: project.name[locale] })}</span>
+              </span>
+            </div>
+            <PriceAlertForm
+              locale={locale}
+              project={project.slug}
+              labels={{
+                name: p.priceAlert.name,
+                email: p.priceAlert.email,
+                phone: p.priceAlert.phone,
+                optional: p.priceAlert.optional,
+                send: p.priceAlert.send,
+                sending: p.priceAlert.sending,
+                privacy: p.priceAlert.privacy,
+              }}
+            />
           </div>
         </section>
 

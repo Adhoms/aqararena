@@ -18,7 +18,8 @@ Live at **https://aqararena.com** (Vercel + Neon). The public site is built from
 | --- | --- |
 | `/ar`, `/en` | Home: search, featured projects, areas, comparison teaser, developers |
 | `/ar/projects` | All projects with filters (type, area, developer, status, delivery, down payment, installment years) and sorting |
-| `/ar/projects/[slug]` | Project: gallery, overview, interactive master plan, unit types, price plans, photos, location, developer contacts |
+| `/ar/projects/[slug]` | Project: gallery, overview, interactive master plan, unit types, unit-by-unit availability (when the developer shares it), price plans, price-per-m² history, photos, location, developer contacts |
+| `/ar/projects/[slug]/offer?u=CODE&plan=N` | Printable offer sheet (A4) for one unit type on one payment plan: schedule year by year, developer contacts, WhatsApp share |
 | `/ar/compare?p=a,b,c` | Project-vs-project comparison (up to 4), "differences only", share link, print / PDF |
 | `/ar/developers`, `/ar/developers/[slug]` | Developer directory and profile with portfolio by area |
 | `/ar/for-developers` | Landing page for developers: why list, how it works, request an account |
@@ -49,6 +50,7 @@ Skip the three `db:` steps (and leave `DATABASE_URL` out of `.env`) to run on th
 | `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
 | `npm run lint` / `npm run typecheck` | Checks |
+| `npm test` | Unit tests for the payment sums and the price history (Node's test runner, files named `*.test.ts`) |
 | `npm run db:local` | Start the local development database |
 | `npm run db:migrate` | Create/apply database migrations (needs `DATABASE_URL`) |
 | `npm run db:seed` | Replace all developers and projects with the demo data (local databases only, unless `ALLOW_DEMO_SEED=1`) |
@@ -62,6 +64,8 @@ Skip the three `db:` steps (and leave `DATABASE_URL` out of `.env`) to run on th
 - `src/lib/catalog/` — **the only place pages get data from.** `index.ts` exposes `getProject`, `searchProjects`, `summarize`, …; they query the database (`db-source.ts`, which turns rows into plain objects) or, without `DATABASE_URL`, serve `sample-data.ts`. Results are cached for an hour under the `catalog` tag: call `revalidateTag("catalog")` after changing data.
 - `prisma/seed.ts` — loads the demo data into the database. `prisma/migrations/` — the database history; commit every new migration.
 - `src/lib/property.ts` — lists that mirror the schema enums (categories, unit types, finishing, statuses, amenities, areas).
+- `src/lib/catalog/payment.ts` — what a buyer pays on a plan. The calculator and the offer sheet both read it, so they always agree.
+- `src/lib/price-history.ts` — records the price per m² whenever a price changes (admin forms, Excel import, approved developer edits). Call `recordPriceHistory` from any new code that writes prices.
 - `src/components/` — header, footer, project card, tabs, master plan, contact lists, comparison (`compare/`: saved list in localStorage, bottom bar, column pickers).
 - `src/app/globals.css` — design tokens (colors, fonts) from the approved design.
 - `prisma/schema.prisma` — database schema. The generated client goes to `src/generated/` (not committed).

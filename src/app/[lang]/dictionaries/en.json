@@ -652,7 +652,8 @@
       "delivery": "Handover",
       "maintenance": "Maintenance"
     },
-    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest."
+    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest.",
+    "offer": "Open the offer sheet"
   },
   "forDevelopersPage": {
     "metaTitle": "For developers: list your projects for free",
@@ -754,5 +755,97 @@
     "project": "Project page",
     "browse": "Browse projects",
     "stop": "Stop alerts"
+  },
+  "availability": {
+    "AVAILABLE": "Available",
+    "RESERVED": "Reserved",
+    "SOLD": "Sold"
+  },
+  "orientations": {
+    "north": "North",
+    "north-east": "North-east",
+    "east": "East",
+    "south-east": "South-east",
+    "south": "South",
+    "south-west": "South-west",
+    "west": "West",
+    "north-west": "North-west"
+  },
+  "unitViews": {
+    "landscape": "Landscape",
+    "garden": "Garden",
+    "park": "Central park",
+    "pool": "Pool",
+    "lagoon": "Lagoon",
+    "sea": "Sea",
+    "club": "Clubhouse",
+    "main_street": "Main street",
+    "internal": "Internal"
+  },
+  "inventory": {
+    "title": "Unit by unit",
+    "sub": "Every unit with its status as the developer last reported it. Confirm with the developer that it is still available before you decide.",
+    "updated": "Inventory last updated: {date}",
+    "availableOf": "{a} of {n} available",
+    "show": "See the units",
+    "model": "Unit type",
+    "allModels": "All unit types",
+    "all": "All",
+    "unit": "Unit",
+    "building": "Building {b}",
+    "floor": "Floor",
+    "ground": "Ground",
+    "view": "View",
+    "orientation": "Facing",
+    "price": "Price",
+    "status": "Status",
+    "more": "Show {n} more units",
+    "none": "No units match this choice."
+  },
+  "priceHistory": {
+    "title": "Price per m² over time",
+    "sub": "The project's average price per m² at each change to the developer's prices.",
+    "up": "Up {pct}% since {date}",
+    "down": "Down {pct}% since {date}",
+    "same": "Unchanged since {date}",
+    "perM2": "{amount} per m²",
+    "chart": "Chart of the average price per m² from {from} to {to}"
+  },
+  "offer": {
+    "metaTitle": "Offer sheet: {name}",
+    "eyebrow": "Indicative offer sheet",
+    "by": "By {dev} · {place}",
+    "issued": "Sheet date: {date}",
+    "pricesUpdated": "Prices last updated by the developer: {date}",
+    "unitTitle": "The unit",
+    "planTitle": "Payment plan",
+    "scheduleTitle": "Payment schedule",
+    "when": "When",
+    "what": "Item",
+    "amount": "Amount",
+    "atContract": "At contract",
+    "downPayment": "Down payment ({pct}%)",
+    "cashPrice": "Price after cash discount ({pct}%)",
+    "year": "Year {n}",
+    "installments": "{count} installments × {amount}",
+    "atDelivery": "At handover ({year})",
+    "deliveryPayment": "Handover payment ({pct}%)",
+    "maintenance": "Maintenance deposit ({pct}%)",
+    "total": "Total",
+    "type": "Type",
+    "delivery": "Expected delivery",
+    "contactTitle": "To buy, contact {dev} directly",
+    "disclaimer": "Indicative, rounded figures worked out from the developer's published prices and plans on the sheet date. The final price, the unit's availability and the contract terms come from the developer. AqarArena doesn't sell or take payments.",
+    "print": "Print / save as PDF",
+    "share": "Share the link",
+    "back": "Project page",
+    "change": "Change the unit or plan",
+    "loading": "Preparing the offer sheet…",
+    "priceNote": "The price is the unit type's starting price. A particular unit can cost more depending on its floor and view."
+  },
+  "whatsappShare": {
+    "send": "Send on WhatsApp",
+    "project": "{name} by {dev} in {place}. Starting from {price}.",
+    "compare": "Comparison on AqarArena: {names}"
   }
 }

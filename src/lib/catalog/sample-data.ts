@@ -3,7 +3,7 @@
 // the first developers are entered.
 
 import type { AreaSlug } from "@/lib/property";
-import type { Developer, MasterPlanZone, Photo, Project, Text } from "./types";
+import type { Developer, MasterPlanZone, Photo, PricePoint, Project, ProjectUnits, Text, Unit } from "./types";
 
 const t = (ar: string, en: string): Text => ({ ar, en });
 
@@ -661,3 +661,62 @@ export const projects: Project[] = [
     pricesUpdated: "2026-10-12",
   },
 ];
+
+// ─── Demo inventory and price history ───────────────────────────────────
+
+const demoViews = ["landscape", "garden", "park", "main_street", "pool"] as const;
+const demoFaces = ["north", "north-east", "east", "south", "west", "north-west"] as const;
+const demoStates = ["AVAILABLE", "SOLD", "AVAILABLE", "RESERVED", "SOLD", "AVAILABLE", "SOLD"] as const;
+const houses = ["TOWNHOUSE", "TWIN_HOUSE", "VILLA", "MANSION"];
+
+/** A handful of units for every unit type: buildings and floors for flats, plot numbers for houses. */
+function demoUnits(project: Project, perType: number, updated: string): ProjectUnits {
+  const units = project.typologies.flatMap((type, ti) => {
+    const house = houses.includes(type.subType);
+    return Array.from({ length: perType - (ti % 3) }, (_, i): Unit => {
+      const floor = house ? undefined : type.gardenM2 ? 0 : (i % 6) + 1;
+      const view = demoViews[(i + ti) % demoViews.length];
+      const premium = (floor ?? 0) * 0.01 + (view === "park" || view === "pool" ? 0.04 : 0);
+      return {
+        id: `${project.slug}-${ti}-${i}`,
+        typologyCode: type.code,
+        building: house ? undefined : `B${(ti % 4) + 1}`,
+        floor,
+        number: house ? `${type.code.split("-")[0]}-${ti}${i + 1}` : `${floor}${ti}${i + 1}`,
+        orientation: demoFaces[(i * 2 + ti) % demoFaces.length],
+        view,
+        price: Math.round((type.priceFrom * (1 + premium)) / 5000) * 5000,
+        availability: demoStates[(i + ti * 2) % demoStates.length],
+      };
+    });
+  });
+  return { units, updated };
+}
+
+/** Earlier averages as a share of today's, oldest first; the last point is today's figure. */
+function demoHistory(project: Project, steps: [date: string, share: number][]): PricePoint[] {
+  const perM2 = project.typologies.map((type) => type.priceFrom / type.buaM2);
+  const now = perM2.reduce((a, b) => a + b, 0) / perM2.length;
+  const round = (n: number) => Math.round(n / 50) * 50;
+  return [...steps.map(([date, share]) => ({ date, perM2: round(now * share) })), { date: project.pricesUpdated ?? "2026-10-01", perM2: round(now) }];
+}
+
+const bySlug = (slug: string) => projects.find((p) => p.slug === slug)!;
+
+bySlug("project-a").priceHistory = demoHistory(bySlug("project-a"), [
+  ["2025-03-01", 0.71],
+  ["2025-09-15", 0.8],
+  ["2026-02-01", 0.88],
+  ["2026-06-10", 0.95],
+]);
+bySlug("project-b").priceHistory = demoHistory(bySlug("project-b"), [
+  ["2025-11-01", 0.86],
+  ["2026-04-20", 0.93],
+]);
+bySlug("project-c").priceHistory = demoHistory(bySlug("project-c"), [["2026-05-05", 1.04]]);
+
+/** Unit-by-unit inventory, for the projects whose developer shares it. */
+export const units: Record<string, ProjectUnits> = {
+  "project-a": demoUnits(bySlug("project-a"), 9, "2026-11-03"),
+  "project-b": demoUnits(bySlug("project-b"), 6, "2026-10-28"),
+};

@@ -3,9 +3,12 @@ import {
   AMENITIES,
   FINISHING_TYPES,
   INSTALLMENT_FREQUENCIES,
+  ORIENTATIONS,
   PROJECT_STATUSES,
   PROPERTY_CATEGORIES,
   SUB_TYPES,
+  UNIT_AVAILABILITY,
+  UNIT_VIEWS,
 } from "@/lib/property";
 
 // The Excel template: one sheet per record type, one column per field. The same list drives
@@ -27,7 +30,7 @@ export type Column = {
 };
 
 export type SheetDef = { key: SheetKey; name: string; columns: Column[] };
-export type SheetKey = "developers" | "projects" | "typologies" | "plans";
+export type SheetKey = "developers" | "projects" | "typologies" | "plans" | "units";
 
 const choices = <T extends string>(list: readonly T[], labels: Partial<Record<T, string>>): Choice[] =>
   list.map((value) => ({ value, label: labels[value] ?? value }));
@@ -39,6 +42,9 @@ export const CHOICES = {
   status: choices(PROJECT_STATUSES, ar.status),
   frequency: choices(INSTALLMENT_FREQUENCIES, ar.frequency),
   amenities: choices(AMENITIES, ar.amenities),
+  availability: choices(UNIT_AVAILABILITY, ar.availability),
+  unitViews: choices(UNIT_VIEWS, ar.unitViews),
+  orientations: choices(ORIENTATIONS, ar.orientations),
   yesNo: [
     { value: "on", label: "نعم" },
     { value: "", label: "لا" },
@@ -134,6 +140,21 @@ export const SHEETS: SheetDef[] = [
       { key: "nameAr", header: "اسم النظام بالعربية", type: "text", width: 24 },
       { key: "nameEn", header: "اسم النظام بالإنجليزية", type: "text", width: 24 },
       { key: "isActive", header: "فعّال", type: "bool", choices: CHOICES.yesNo, help: "فاضي = نعم" },
+    ],
+  },
+  {
+    key: "units",
+    name: "الوحدات",
+    columns: [
+      { key: "project", header: "المشروع", required: true, type: "ref", width: 26 },
+      { key: "typology", header: "كود النموذج", required: true, type: "ref", help: "كود النموذج اللي الوحدة تبعه، من شيت النماذج" },
+      { key: "unitNumber", header: "رقم الوحدة", required: true, type: "text", help: "مختلف لكل وحدة في نفس المبنى. الوحدة الموجودة بنفس الرقم والمبنى بتتحدّث" },
+      { key: "building", header: "المبنى", type: "text" },
+      { key: "floor", header: "الدور", type: "number", help: "0 أو «أرضي» للدور الأرضي" },
+      { key: "availability", header: "حالة الوحدة", type: "choice", choices: CHOICES.availability, help: "فاضي = متاحة" },
+      { key: "price", header: "سعر الوحدة (جنيه)", type: "number", width: 20, help: "اختياري. فاضي = يظهر سعر النموذج بس" },
+      { key: "view", header: "الإطلالة", type: "choice", choices: CHOICES.unitViews },
+      { key: "orientation", header: "الاتجاه", type: "choice", choices: CHOICES.orientations },
     ],
   },
 ];

@@ -2,9 +2,10 @@
 
 import { useId, useState } from "react";
 import type { Locale } from "@/i18n/config";
+import { paymentBreakdown } from "@/lib/catalog/payment";
 import type { PaymentPlan } from "@/lib/catalog/types";
 import { fill, formatMoney } from "@/lib/format";
-import { INSTALLMENTS_PER_YEAR, type InstallmentFrequency } from "@/lib/property";
+import type { InstallmentFrequency } from "@/lib/property";
 
 type Unit = { code: string; name: string; price: number };
 
@@ -26,12 +27,22 @@ type Labels = {
   split: string;
   parts: { down: string; installments: string; delivery: string; maintenance: string };
   note: string;
+  /** Link text for the printable offer sheet of the current choice. */
+  offer: string;
   frequencyPer: Record<InstallmentFrequency, string>;
   /** Plan names in the page's language, in the same order as `plans`. */
   planNames: string[];
 };
 
-type Props = { units: Unit[]; plans: PaymentPlan[]; maintenancePct?: number; locale: Locale; labels: Labels };
+type Props = {
+  units: Unit[];
+  plans: PaymentPlan[];
+  maintenancePct?: number;
+  locale: Locale;
+  labels: Labels;
+  /** The project's offer page; the chosen unit and plan are added to it. */
+  offerHref: string;
+};
 
 /** The four parts of what a buyer pays, in the order they are paid. */
 const PART_STYLES = {
@@ -42,7 +53,7 @@ const PART_STYLES = {
 } as const;
 
 /** Every pound a buyer pays for one unit type on one plan: at contract, per installment, at handover, in total. */
-export function PaymentCalculator({ units, plans, maintenancePct, locale, labels }: Props) {
+export function PaymentCalculator({ units, plans, maintenancePct, locale, labels, offerHref }: Props) {
   const id = useId();
   const [unitCode, setUnitCode] = useState(units[0]?.code);
   const [planIndex, setPlanIndex] = useState(0);
@@ -51,19 +62,11 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, labels
   if (!unit || !plan) return null;
 
   const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale);
-  const price = unit.price;
-  const cash = plan.years === 0;
-  const maintenance = maintenancePct ? (price * maintenancePct) / 100 : 0;
-
-  const down = cash ? price * (1 - (plan.cashDiscountPct ?? 0) / 100) : (price * plan.downPaymentPct) / 100;
-  const delivery = cash ? 0 : (price * plan.deliveryPaymentPct) / 100;
-  const installmentsTotal = cash ? 0 : price - down - delivery;
-  const perYear = INSTALLMENTS_PER_YEAR[plan.frequency];
-  const count = cash ? 0 : plan.years * perYear;
-  const installment = count ? installmentsTotal / count : 0;
-  const monthly = cash ? 0 : installmentsTotal / (plan.years * 12);
-  const firstYear = down + installment * Math.min(perYear, count);
-  const total = down + installmentsTotal + delivery + maintenance;
+  const { price, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
+    unit.price,
+    plan,
+    maintenancePct,
+  );
 
   const parts = (
     [
@@ -136,6 +139,12 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, labels
           </div>
         </fieldset>
         <p className="text-xs text-muted">{labels.note}</p>
+        <a
+          href={`${offerHref}?u=${encodeURIComponent(unit.code)}&plan=${plans.indexOf(plan)}`}
+          className="press inline-flex min-h-12 items-center justify-center self-start rounded-full bg-brand px-5.5 text-[15px] font-medium text-white no-underline hover:bg-brand-2 hover:text-white print:hidden"
+        >
+          {labels.offer}
+        </a>
       </div>
 
       <div className="flex flex-col gap-5" aria-live="polite">

@@ -9,8 +9,11 @@ import { ContactGrid, ContactStack } from "@/components/contact-list";
 import { JsonLd } from "@/components/json-ld";
 import { MasterPlan } from "@/components/project/master-plan";
 import { PaymentCalculator } from "@/components/project/payment-calculator";
+import { PriceHistory } from "@/components/project/price-history";
+import { ShowUnitsLink, UnitInventory, type InventoryRow } from "@/components/project/unit-inventory";
 import { PriceAlertForm } from "@/components/price-alert-form";
 import { ShareButton } from "@/components/share-button";
+import { WhatsAppShare } from "@/components/whatsapp-share";
 import { Tabs, type Tab } from "@/components/tabs";
 import { ProjectVsMarket, ValueRing, valueText } from "@/components/insights";
 import { artKindFor, ProjectArt } from "@/components/project-art";
@@ -23,6 +26,7 @@ import {
   getDeveloper,
   getMarketInsights,
   getProject,
+  getProjectUnits,
   isCashPlan,
   monthlyFor,
   listProjectSlugs,
@@ -34,10 +38,11 @@ import {
   type PaymentPlan,
   type Project,
   type Typology,
+  type Unit,
 } from "@/lib/catalog";
 import { compareHref } from "@/lib/compare";
 import { fill, formatMillions, formatMoney, formatNumber } from "@/lib/format";
-import { INSTALLMENTS_PER_YEAR, PHOTO_GROUPS, type SubType } from "@/lib/property";
+import { INSTALLMENTS_PER_YEAR, PHOTO_GROUPS, UNIT_AVAILABILITY, type SubType } from "@/lib/property";
 import { pageAlternates, SITE_URL } from "@/lib/site";
 import { getDictionary, getLocale, type Dictionary } from "../../dictionaries";
 
@@ -139,7 +144,11 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
 
   const s = summarize(project);
   const p = dict.projectPage;
-  const [all, insights] = await Promise.all([searchProjects({}), getMarketInsights()]);
+  const [all, insights, inventory] = await Promise.all([searchProjects({}), getMarketInsights(), getProjectUnits(slug)]);
+  // Units of a type that is no longer shown are left out.
+  const units = inventory.units.filter((u) => project.typologies.some((t) => t.code === u.typologyCode));
+  const stock = stockByType(units);
+  const dateLocale = locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB";
   const similar = similarTo(project, all);
   const hasPlan = project.zones.length > 0 || Boolean(project.masterPlanUrl);
   const floorPlans = project.floorPlans ?? [];
@@ -270,6 +279,17 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                   copiedLabel={p.copied}
                   title={project.name[locale]}
                   className="inline-flex min-h-12 items-center rounded-full border border-white/30 bg-white/10 px-5 text-[15px] text-white backdrop-blur hover:bg-white/20"
+                />
+                <WhatsAppShare
+                  text={fill(dict.whatsappShare.project, {
+                    name: project.name[locale],
+                    dev: developer.name[locale],
+                    place: dict.areas[project.areaSlug],
+                    price: formatMoney(s.startingPrice, locale),
+                  })}
+                  url={url}
+                  label={dict.whatsappShare.send}
+                  className="min-h-12 rounded-full border border-white/30 bg-white/10 px-5 text-[15px] text-white backdrop-blur hover:bg-white/20 hover:text-white"
                 />
                 <CompareButton
                   slug={project.slug}
@@ -405,7 +425,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
         )}
 
         {/* Unit types */}
-        <section id="units" aria-labelledby="units-title">
+        <section id="units" aria-labelledby="units-title" className="flex flex-col gap-8">
           <Tabs
             label={p.sections.units}
             header={
@@ -424,7 +444,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-5">
                       {items.map((t) => (
                         <li key={t.code}>
-                          <UnitCard typology={t} locale={locale} dict={dict} />
+                          <UnitCard typology={t} stock={stock.get(t.code)} locale={locale} dict={dict} />
                         </li>
                       ))}
                     </ul>
@@ -433,6 +453,19 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               ];
             })}
           />
+          {units.length > 0 && (
+            <UnitInventory
+              rows={inventoryRows(units, project, locale, dict)}
+              models={project.typologies.filter((t) => stock.has(t.code)).map((t) => ({ code: t.code, name: unitName(t, dict.subTypes, locale) }))}
+              labels={{
+                ...dict.inventory,
+                availability: dict.availability,
+                updated: inventory.updated
+                  ? fill(dict.inventory.updated, { date: new Intl.DateTimeFormat(dateLocale, { dateStyle: "long" }).format(new Date(inventory.updated)) })
+                  : undefined,
+              }}
+            />
+          )}
         </section>
 
         {/* Price plans */}
@@ -468,6 +501,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               plans={project.paymentPlans}
               maintenancePct={project.fees.maintenancePct}
               locale={locale}
+              offerHref={`/${locale}/projects/${project.slug}/offer`}
               labels={{
                 ...dict.calculator,
                 frequencyPer: dict.frequencyPer,
@@ -493,6 +527,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             )}
             <span className="text-muted">{p.pricesNote}</span>
           </div>
+          {project.priceHistory && <PriceHistory points={project.priceHistory} locale={locale} labels={dict.priceHistory} />}
           <div id="price-alert" className="flex flex-col gap-4 rounded-3xl border border-brand/25 bg-surface p-5.5 sm:p-7 print:hidden">
             <div className="flex items-start gap-3.5">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
@@ -718,7 +753,55 @@ function ZonePanel({ zone, locale, dict }: { zone: MasterPlanZone; locale: Local
   );
 }
 
-function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: Locale; dict: Dictionary }) {
+/** How many units each type has, and how many of them are still available. */
+function stockByType(units: Unit[]) {
+  const stock = new Map<string, { available: number; total: number }>();
+  for (const u of units) {
+    const s = stock.get(u.typologyCode) ?? { available: 0, total: 0 };
+    s.total++;
+    if (u.availability === "AVAILABLE") s.available++;
+    stock.set(u.typologyCode, s);
+  }
+  return stock;
+}
+
+/** The inventory worded for the page: available units first, cheapest first. */
+function inventoryRows(units: Unit[], project: Project, locale: Locale, dict: Dictionary): InventoryRow[] {
+  const i = dict.inventory;
+  const typeName = new Map(project.typologies.map((t) => [t.code, unitName(t, dict.subTypes, locale)]));
+  // A value from the lists is translated; anything else is shown as the developer wrote it.
+  const worded = (labels: Record<string, string>, value: string | undefined) => (value ? (labels[value] ?? value) : undefined);
+  return [...units]
+    .sort(
+      (a, b) =>
+        UNIT_AVAILABILITY.indexOf(a.availability) - UNIT_AVAILABILITY.indexOf(b.availability) ||
+        (a.price ?? Infinity) - (b.price ?? Infinity) ||
+        (a.number ?? "").localeCompare(b.number ?? "", undefined, { numeric: true }),
+    )
+    .map((u) => ({
+      id: u.id,
+      model: u.typologyCode,
+      modelName: typeName.get(u.typologyCode) ?? u.typologyCode,
+      label: [u.building && fill(i.building, { b: u.building }), u.number].filter(Boolean).join(" · ") || "-",
+      floor: u.floor === undefined ? undefined : u.floor === 0 ? i.ground : formatNumber(u.floor, locale),
+      view: worded(dict.unitViews, u.view),
+      orientation: worded(dict.orientations, u.orientation),
+      price: u.price ? formatMoney(u.price, locale) : undefined,
+      availability: u.availability,
+    }));
+}
+
+function UnitCard({
+  typology: t,
+  stock,
+  locale,
+  dict,
+}: {
+  typology: Typology;
+  stock?: { available: number; total: number };
+  locale: Locale;
+  dict: Dictionary;
+}) {
   const p = dict.projectPage;
   const extra = [t.gardenM2 && fill(p.garden, { n: t.gardenM2 }), t.roofM2 && fill(p.roof, { n: t.roofM2 })].filter(Boolean).join(" · ");
   const rows: [string, string][] = [
@@ -750,6 +833,16 @@ function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: L
           <span className="text-xs text-muted">{dict.common.startingFrom}</span>
           <span className="font-display text-lg font-medium">{formatMoney(t.priceFrom, locale)}</span>
         </div>
+        {stock && (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm print:hidden">
+            <span className={stock.available ? "font-semibold text-brass-dark" : "text-muted"}>
+              {fill(dict.inventory.availableOf, { a: formatNumber(stock.available, locale), n: formatNumber(stock.total, locale) })}
+            </span>
+            <ShowUnitsLink code={t.code} className="font-semibold">
+              {dict.inventory.show}
+            </ShowUnitsLink>
+          </div>
+        )}
       </div>
     </article>
   );

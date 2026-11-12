@@ -22,6 +22,8 @@ The goal of each phase is something real users can open.
 - [x] Project page: gallery, overview, interactive master plan (zones), unit types with floor plans, price plans, photos by tab, location, official developer contacts
 - [x] Developer page: profile, official contacts, portfolio filtered by area
 - [x] Project-vs-project comparison (up to 4), shareable link, "differences only", print / PDF
+- [x] Unit-by-unit availability (available / reserved / sold) on the project page, entered in the admin or imported from the Excel "units" sheet
+- [x] Printable offer sheet for a unit type and payment plan, and WhatsApp sharing for projects, comparisons and offer sheets
 - [x] Pages read from the database through `src/lib/catalog` (cached, demo-data fallback without a database)
 - [x] Photo, floor plan, master plan and brochure uploads from the admin to Vercel Blob (photos resized to WebP in the browser)
 - [ ] Tiled deep-zoom master plans
@@ -32,6 +34,7 @@ The goal of each phase is something real users can open.
 - [x] Developer accounts: request from `/for-developers` or created by the admin, username + password, temporary passwords
 - [x] Developer portal (`/portal`): developers edit their company profile and projects (unit types, payment plans, photos, distances); every change waits for admin approval with a before/after review
 - [ ] Master-plan zones in the developer portal (admin only for now)
+- [ ] Units in the developer portal (admin and Excel only for now). Note: removing or renaming a unit type's code in the portal deletes that type's units.
 - [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings
 
@@ -39,7 +42,7 @@ The goal of each phase is something real users can open.
 
 - [ ] Map search (add the PostGIS extension and a location column in its own migration)
 - [ ] Polygon master-plan zones and deep zoom
-- [ ] Price history per project
+- [x] Price history per project (average price per m² at each change, charted on the project page)
 - [ ] Mobile apps (Expo), same API
 
 ## Out of scope (by decision)

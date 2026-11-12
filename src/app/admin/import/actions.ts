@@ -10,6 +10,7 @@ const EMPTY: ImportResult["counts"] = {
   projects: { create: 0, update: 0 },
   typologies: { create: 0, update: 0 },
   plans: { create: 0, update: 0 },
+  units: { create: 0, update: 0 },
 };
 
 const refuse = (message: string): ImportResult => ({ ok: false, saved: false, message, problems: [], counts: EMPTY });

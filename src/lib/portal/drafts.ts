@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { FEDDAN_M2, readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
+import { recordPriceHistory } from "@/lib/price-history";
 import { PHOTO_GROUPS } from "@/lib/property";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "./draft-types";
 import { ALL_PROFILE_FIELDS, ALL_PROJECT_FIELDS, DISTANCE_FIELDS, PLAN_FIELDS, TYPOLOGY_FIELDS } from "./fields";
@@ -307,6 +308,8 @@ export async function applyProjectDraft(
       : await tx.typology.create({ data: { ...t, projectId: id }, select: { id: true } });
     typId.set(t.code.toLowerCase(), saved.id);
   }
+
+  await recordPriceHistory([id], tx);
 
   // Plans: replaced as a whole.
   await tx.paymentPlan.deleteMany({ where: { projectId: id } });

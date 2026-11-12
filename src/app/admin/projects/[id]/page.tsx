@@ -7,11 +7,15 @@ import { pendingAlert } from "@/lib/price-alerts";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { DeleteButton } from "@/components/admin/admin-form";
 import { NewAreaForm, ProjectForm } from "@/components/admin/project-form";
-import { DistanceList, MediaList, PaymentPlanList, TypologyList, ZoneList } from "@/components/admin/project-parts";
+import { DistanceList, MediaList, PaymentPlanList, TypologyList, UnitList, ZoneList } from "@/components/admin/project-parts";
+
+/** Units listed on the page; a longer list is managed through the Excel import. */
+const UNITS_SHOWN = 500;
 
 const SECTIONS = [
   ["#details", "البيانات"],
   ["#typologies", "النماذج"],
+  ["#units", "الوحدات"],
   ["#plans", "أنظمة السداد"],
   ["#zones", "الماستر بلان"],
   ["#media", "الصور"],
@@ -21,8 +25,10 @@ const SECTIONS = [
 export default async function EditProjectPage({ params, searchParams }: PageProps<"/admin/projects/[id]">) {
   await requireAdmin();
   const { id } = await params;
-  const { created, alerts } = await searchParams;
-  const [project, developers, areas] = await Promise.all([
+  const { created, alerts, unit } = await searchParams;
+  // The unit picked with "تعديل" in the units table.
+  const unitId = typeof unit === "string" && /^[a-z0-9]{10,40}$/i.test(unit) ? unit : null;
+  const [project, developers, areas, units, unitsTotal, editingUnit] = await Promise.all([
     db.project.findUnique({
       where: { id },
       include: {
@@ -35,6 +41,13 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
     }),
     db.developer.findMany({ select: { id: true, nameAr: true }, orderBy: { nameAr: "asc" } }),
     db.area.findMany({ select: { id: true, nameAr: true }, orderBy: { nameAr: "asc" } }),
+    db.unit.findMany({
+      where: { typology: { projectId: id } },
+      orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }],
+      take: UNITS_SHOWN,
+    }),
+    db.unit.count({ where: { typology: { projectId: id } } }),
+    unitId ? db.unit.findFirst({ where: { id: unitId, typology: { projectId: id } } }) : null,
   ]);
   if (!project) notFound();
   const alert = await pendingAlert(project.id);
@@ -93,6 +106,7 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
       </div>
       <NewAreaForm />
       <TypologyList projectId={project.id} items={project.typologies} />
+      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} />
       <PaymentPlanList projectId={project.id} items={project.paymentPlans} typologies={project.typologies} />
       <ZoneList projectId={project.id} items={project.zones} />
       <MediaList projectId={project.id} items={project.media} />

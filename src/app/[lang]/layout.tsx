@@ -68,7 +68,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       <body className="flex min-h-full flex-col font-sans leading-relaxed">
         <a
           href="#main"
-          className="press fixed top-3 start-3 z-50 -translate-y-24 rounded-full bg-brass-light px-5 py-2.5 font-medium text-deep no-underline transition-transform focus:translate-y-0 hover:text-deep"
+          className="press fixed top-3 start-3 z-50 -translate-y-24 rounded-full bg-brass-light px-5 py-2.5 font-medium text-deep no-underline transition-transform focus:translate-y-0 hover:text-deep print:hidden"
         >
           {dict.nav.skip}
         </a>

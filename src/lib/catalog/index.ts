@@ -4,7 +4,7 @@ import type { AreaSlug } from "@/lib/property";
 import { filterProjects, sortProjects, withinBudget, type ProjectFilters } from "./filters";
 import { computeInsights, type MarketInsights } from "./insights";
 import * as sample from "./sample-data";
-import type { Developer, Project } from "./types";
+import type { Developer, Project, ProjectUnits } from "./types";
 
 // Every page reads data through these functions.
 //
@@ -15,7 +15,8 @@ import type { Developer, Project } from "./types";
 // Results are cached for an hour under the "catalog" tag. After changing data, call
 // updateTag("catalog") (the admin actions in src/app/admin/actions.ts do) or wait for the hour to pass.
 
-export type { Developer, MasterPlanZone, PaymentPlan, Photo, Project, ProjectSummary, Text, Typology } from "./types";
+export type { Developer, MasterPlanZone, PaymentPlan, Photo, PricePoint, Project, ProjectSummary, ProjectUnits, Text, Typology, Unit } from "./types";
+export { paymentBreakdown, paymentSchedule, type PaymentBreakdown } from "./payment";
 export { isCashPlan, monthlyFor, summarize } from "./summary";
 export { unitName } from "./unit-name";
 export { SORTS, type ProjectFilters, type Sort } from "./filters";
@@ -55,6 +56,13 @@ export async function getProject(slug: string): Promise<Project | undefined> {
   "use cache";
   cached();
   return usesDatabase ? (await source()).dbProject(slug) : sample.projects.find((p) => p.slug === slug);
+}
+
+/** The project's units one by one. Loaded on the project page only, never for lists. */
+export async function getProjectUnits(slug: string): Promise<ProjectUnits> {
+  "use cache";
+  cached();
+  return usesDatabase ? (await source()).dbProjectUnits(slug) : (sample.units[slug] ?? { units: [] });
 }
 
 export async function searchProjects(filters: ProjectFilters): Promise<Project[]> {

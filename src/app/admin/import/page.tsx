@@ -9,7 +9,7 @@ export default async function ImportPage() {
       <section className="admin-panel flex flex-col gap-4">
         <h2 className="font-display text-xl">1. نزّل الملف</h2>
         <p className="text-sm text-muted">
-          ملف Excel فيه أربع شيتات: المطورين، المشروعات، النماذج، أنظمة السداد. الخانات فيها قوائم تختار منها، وأول شيت فيه شرح لكل عمود.
+          ملف Excel فيه خمس شيتات: المطورين، المشروعات، النماذج، أنظمة السداد، والوحدات (اختياري). الخانات فيها قوائم تختار منها، وأول شيت فيه شرح لكل عمود.
         </p>
         <div className="flex flex-wrap gap-3">
           <a href="/admin/import/template" className="admin-btn" download>

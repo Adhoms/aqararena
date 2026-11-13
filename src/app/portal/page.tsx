@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireAccount } from "@/lib/portal/session";
+import { statsFor } from "@/lib/stats";
+import { StatsTable } from "@/components/stats/stats-table";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { SubmissionStatusBadge } from "@/components/portal/status-badge";
 import { editProfile, editProject, newProject } from "./actions";
@@ -23,6 +25,8 @@ export default async function PortalHome({ searchParams }: PageProps<"/portal">)
       select: { id: true, kind: true, status: true, title: true, projectId: true, reviewNote: true, updatedAt: true },
     }),
   ]);
+  const shown = projects.filter((p) => p.published && p._count.typologies > 0);
+  const stats = await statsFor(shown.map((p) => p.id));
   const openFor = new Map(submissions.filter((s) => s.projectId && s.status !== "APPROVED").map((s) => [s.projectId!, s]));
 
   return (
@@ -52,6 +56,7 @@ export default async function PortalHome({ searchParams }: PageProps<"/portal">)
           <li>أضف مشروع جديد أو افتح تعديل لمشروع موجود، واملا البيانات والأسعار وارفع الصور.</li>
           <li>تقدر تحفظ مسودة وتكمّل بعدين. لما تخلص اضغط «إرسال للمراجعة».</li>
           <li>فريق AqarArena بيراجع البيانات، وأول ما نوافق بتظهر على الموقع. لو محتاجة تعديل هتلاقي ملاحظتنا هنا.</li>
+          <li>حالة الوحدات (متاحة / محجوزة / مباعة) بتتعدّل من «المخزون» وبتظهر على طول من غير مراجعة.</li>
         </ol>
       </section>
 
@@ -95,7 +100,7 @@ export default async function PortalHome({ searchParams }: PageProps<"/portal">)
               <tr>
                 <th>المشروع</th>
                 <th>على الموقع</th>
-                <th>تعديل</th>
+                <th>المخزون والتعديل</th>
               </tr>
             </thead>
             <tbody>
@@ -113,7 +118,12 @@ export default async function PortalHome({ searchParams }: PageProps<"/portal">)
                       )}
                     </td>
                     <td>{live ? <span className="admin-badge">ظاهر</span> : <span className="admin-badge-off">مش ظاهر</span>}</td>
-                    <td>
+                    <td className="flex flex-wrap gap-2">
+                      {p._count.typologies > 0 && (
+                        <Link href={`/portal/projects/${p.id}/units`} className="admin-btn-ghost">
+                          المخزون
+                        </Link>
+                      )}
                       <form action={editProject}>
                         <input type="hidden" name="projectId" value={p.id} />
                         <button type="submit" className="admin-btn-ghost">
@@ -128,6 +138,13 @@ export default async function PortalHome({ searchParams }: PageProps<"/portal">)
           </table>
         )}
       </section>
+
+      {shown.length > 0 && (
+        <section className="admin-panel" id="stats">
+          <h2 className="mb-3 font-display text-xl">زوار مشروعاتك</h2>
+          <StatsTable rows={shown.map((p) => ({ id: p.id, name: p.nameAr, href: `/ar/projects/${p.slug}`, stats: stats.get(p.id)! }))} />
+        </section>
+      )}
     </PortalShell>
   );
 }

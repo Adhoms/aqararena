@@ -67,6 +67,7 @@ export default async function ReviewPage({ params }: PageProps<"/admin/review/[i
   const isProject = sub.kind === "PROJECT";
   const review = isProject ? await projectReview(sub.projectId, parseProjectDraft(sub.data)) : await profileReview(sub.developerId, parseProfileDraft(sub.data));
   const live = review.live;
+  const unitsLost: { code: string; units: number }[] = "unitsLost" in review ? (review.unitsLost as { code: string; units: number }[]) : [];
   const changedCount = review.sections.reduce((n, s) => n + s.rows.filter((r) => r.changed).length, 0) + review.media.added.length + review.media.removed.length;
 
   return (
@@ -95,6 +96,13 @@ export default async function ReviewPage({ params }: PageProps<"/admin/review/[i
           </>
         )}
       </p>
+
+      {unitsLost.length > 0 && (
+        <p className="admin-panel border-red-600/50 text-sm text-red-700 dark:text-red-300">
+          <b>تنبيه:</b> الطلب ده بيشيل نماذج عليها وحدات، والوحدات دي هتتمسح لو وافقت:{" "}
+          {unitsLost.map((t) => `${t.code} (${t.units} وحدة)`).join("، ")}. لو المطور غيّر الكود بس، المفروض يعدّل النموذج نفسه بدل ما يمسحه ويضيف واحد جديد.
+        </p>
+      )}
 
       {review.sections.map((section) => {
         const rows = section.rows.filter((r) => r.before || r.after);

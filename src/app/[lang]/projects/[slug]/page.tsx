@@ -14,6 +14,8 @@ import { ShowUnitsLink, UnitInventory, type InventoryRow } from "@/components/pr
 import { PriceAlertForm } from "@/components/price-alert-form";
 import { ShareButton } from "@/components/share-button";
 import { WhatsAppShare } from "@/components/whatsapp-share";
+import { TrackView } from "@/components/stats/tracker";
+import { trackAttr } from "@/lib/stats-events";
 import { Tabs, type Tab } from "@/components/tabs";
 import { ProjectVsMarket, ValueRing, valueText } from "@/components/insights";
 import { artKindFor, ProjectArt } from "@/components/project-art";
@@ -193,6 +195,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
   const url = `${SITE_URL}/${locale}/projects/${project.slug}`;
   return (
     <>
+      <TrackView slug={project.slug} />
       {/* What search engines read: a real-estate listing with its price range, place and developer. */}
       <JsonLd
         data={{
@@ -289,6 +292,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                   })}
                   url={url}
                   label={dict.whatsappShare.send}
+                  track={trackAttr("SHARE", project.slug)}
                   className="min-h-12 rounded-full border border-white/30 bg-white/10 px-5 text-[15px] text-white backdrop-blur hover:bg-white/20 hover:text-white"
                 />
                 <CompareButton
@@ -301,6 +305,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                 {project.brochureUrl && (
                   <a
                     href={project.brochureUrl}
+                    data-track={trackAttr("BROCHURE", project.slug)}
                     target="_blank"
                     rel="noopener"
                     className="press inline-flex min-h-12 items-center rounded-full border border-white/30 bg-white/10 px-5 text-[15px] text-white no-underline backdrop-blur hover:bg-white/20 hover:text-white"
@@ -383,7 +388,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             <div className="flex flex-col gap-2.5 border-t border-divider pt-4">
               <span className="font-semibold">{p.officialNumbers}</span>
               {hasContacts ? (
-                <ContactStack developer={developer} dict={dict} locale={locale} limit={4} />
+                <ContactStack developer={developer} dict={dict} locale={locale} limit={4} trackSlug={project.slug} />
               ) : (
                 <p className="text-sm text-muted">{fill(p.contactsPending, { dev: developer.name[locale] })}</p>
               )}
@@ -685,7 +690,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             </Link>
           </div>
           {hasContacts ? (
-            <ContactGrid developer={developer} dict={dict} locale={locale} />
+            <ContactGrid developer={developer} dict={dict} locale={locale} trackSlug={project.slug} />
           ) : (
             <p className="flex-[1_1_420px] rounded-2xl bg-brand-2 px-5 py-4 text-on-dark">{fill(p.contactsPending, { dev: developer.name[locale] })}</p>
           )}

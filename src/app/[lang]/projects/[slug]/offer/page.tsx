@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { contactRows } from "@/components/contact-list";
+import { contactRows, contactTrack } from "@/components/contact-list";
+import { TrackView } from "@/components/stats/tracker";
+import { trackAttr } from "@/lib/stats-events";
 import { PrintButton, ShareButton } from "@/components/share-button";
 import { Container, Eyebrow } from "@/components/ui";
 import { WhatsAppShare } from "@/components/whatsapp-share";
@@ -121,12 +123,13 @@ async function OfferSheet({ params, searchParams }: Pick<PageProps<"/[lang]/proj
     <>
       {/* The sheet is laid out for A4, the paper size used in Egypt. */}
       <style>{"@page { size: A4; margin: 12mm; }"}</style>
+      <TrackView slug={project.slug} event="OFFER" />
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link href={`${projectHref}#prices`} className="font-semibold">
           {locale === "ar" ? "→" : "←"} {o.change}
         </Link>
         <div className="flex flex-wrap gap-2.5">
-          <WhatsAppShare text={message} url={url} label={dict.whatsappShare.send} className={tool} />
+          <WhatsAppShare text={message} url={url} label={dict.whatsappShare.send} className={tool} track={trackAttr("SHARE", project.slug)} />
           <ShareButton label={o.share} copiedLabel={p.copied} title={fill(o.metaTitle, { name: project.name[locale] })} className={tool} />
           <PrintButton label={o.print} className="press inline-flex min-h-12 items-center rounded-full bg-brand px-5.5 text-[15px] font-medium text-white hover:bg-brand-2" />
         </div>
@@ -222,7 +225,7 @@ async function OfferSheet({ params, searchParams }: Pick<PageProps<"/[lang]/proj
                   <dt className="text-xs text-muted">{row.label}</dt>
                   <dd dir={row.key === "hq" ? undefined : "ltr"} className="font-semibold rtl:text-end">
                     {row.href ? (
-                      <a href={row.href} className="text-ink" {...(row.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                      <a href={row.href} className="text-ink" {...contactTrack(row, project.slug)} {...(row.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                         {row.value}
                       </a>
                     ) : (

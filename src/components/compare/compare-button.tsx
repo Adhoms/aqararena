@@ -2,6 +2,7 @@
 
 import { Check } from "@phosphor-icons/react";
 import type { Text } from "@/lib/catalog/types";
+import { trackAttr } from "@/lib/stats-events";
 import { useCompareList } from "./store";
 
 type Props = {
@@ -30,7 +31,13 @@ export function CompareButton({ slug, name, labels, variant = "outline", classNa
           : "border border-line-strong bg-surface text-ink hover:border-ink";
 
   return (
-    <button type="button" aria-pressed={added} onClick={() => toggle({ slug, name })} className={`${base} ${look} ${className}`}>
+    <button
+      type="button"
+      aria-pressed={added}
+      onClick={() => toggle({ slug, name })}
+      data-track={added ? undefined : trackAttr("COMPARE", slug)}
+      className={`${base} ${look} ${className}`}
+    >
       {added ? (
         <>
           <Check size={16} weight="bold" aria-hidden="true" />

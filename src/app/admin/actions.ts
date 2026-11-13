@@ -12,6 +12,7 @@ import { deleteIfUnused } from "@/lib/admin/blob";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
 import { recordPriceHistory } from "@/lib/price-history";
+import { findTwinUnit } from "@/lib/units";
 import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
 // Every admin write goes through here. Each action checks the session first and refreshes
@@ -176,16 +177,7 @@ export async function saveUnit(_: FormState, data: FormData): Promise<FormState>
   // The unit type must be one of this project's.
   const typology = await db.typology.findFirst({ where: { id: typologyId, projectId }, select: { id: true } });
   if (!typology) return { ok: false, message: "النموذج ده مش في المشروع", errors: { typologyId: "اختر النموذج" } };
-  const twin = await db.unit.findFirst({
-    where: {
-      typology: { projectId },
-      unitNumber: { equals: values.unitNumber, mode: "insensitive" },
-      building: values.building ? { equals: values.building, mode: "insensitive" } : null,
-      ...(id && { NOT: { id } }),
-    },
-    select: { id: true },
-  });
-  if (twin) return { ok: false, message: "فيه وحدة بنفس الرقم في نفس المبنى", errors: { unitNumber: "الرقم ده مستخدم في نفس المبنى" } };
+  if (await findTwinUnit(projectId, values.building, values.unitNumber, id)) return { ok: false, message: "فيه وحدة بنفس الرقم في نفس المبنى", errors: { unitNumber: "الرقم ده مستخدم في نفس المبنى" } };
   if (id) await db.unit.update({ where: { id, typology: { projectId } }, data: { ...values, typologyId } });
   else await db.unit.create({ data: { ...values, typologyId } });
   published();

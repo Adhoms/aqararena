@@ -23,7 +23,9 @@ Live at **https://aqararena.com** (Vercel + Neon). The public site is built from
 | `/ar/compare?p=a,b,c` | Project-vs-project comparison (up to 4), "differences only", share link, print / PDF |
 | `/ar/developers`, `/ar/developers/[slug]` | Developer directory and profile with portfolio by area |
 | `/ar/for-developers` | Landing page for developers: why list, how it works, request an account |
-| `/portal` | Developer portal (Arabic): sign in, request an account, edit company and projects, send for review |
+| `/portal` | Developer portal (Arabic): sign in, request an account, edit company and projects, send for review; per-project visitor statistics |
+| `/portal/projects/[id]/units` | Developer inventory: unit statuses and prices, live at once (no review), with Excel download / upload |
+| `/admin/stats` | Visitor statistics for every published project (last 30 days against the 30 before) |
 | `/admin` | Admin: data entry, Excel import, review of developer changes, developer accounts |
 
 ## Getting started
@@ -65,6 +67,8 @@ Skip the three `db:` steps (and leave `DATABASE_URL` out of `.env`) to run on th
 - `prisma/seed.ts` — loads the demo data into the database. `prisma/migrations/` — the database history; commit every new migration.
 - `src/lib/property.ts` — lists that mirror the schema enums (categories, unit types, finishing, statuses, amenities, areas).
 - `src/lib/catalog/payment.ts` — what a buyer pays on a plan. The calculator and the offer sheet both read it, so they always agree.
+- `src/lib/stats.ts`, `src/lib/stats-events.ts`, `src/components/stats/tracker.tsx` — visitor statistics: an element with `data-track="EVENT:slug"` counts when clicked (once per browser session), `<TrackView>` counts a page view. Only daily totals per project are stored.
+- `src/app/portal/unit-actions.ts` — the one place a developer's change goes live without review (units), with its limits: approved unit types only, no unit priced under its type's starting price, the admin emailed at most hourly per project.
 - `src/lib/price-history.ts` — records the price per m² whenever a price changes (admin forms, Excel import, approved developer edits). Call `recordPriceHistory` from any new code that writes prices.
 - `src/components/` — header, footer, project card, tabs, master plan, contact lists, comparison (`compare/`: saved list in localStorage, bottom bar, column pickers).
 - `src/app/globals.css` — design tokens (colors, fonts) from the approved design.

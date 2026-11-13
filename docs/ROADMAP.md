@@ -34,7 +34,8 @@ The goal of each phase is something real users can open.
 - [x] Developer accounts: request from `/for-developers` or created by the admin, username + password, temporary passwords
 - [x] Developer portal (`/portal`): developers edit their company profile and projects (unit types, payment plans, photos, distances); every change waits for admin approval with a before/after review
 - [ ] Master-plan zones in the developer portal (admin only for now)
-- [ ] Units in the developer portal (admin and Excel only for now). Note: removing or renaming a unit type's code in the portal deletes that type's units.
+- [x] Units in the developer portal: statuses and prices go live at once within limits (approved unit types, price not under the type's starting price), Excel download / upload, admin emailed at most hourly. Renaming a unit type's code keeps its units; the review page warns when a removal would delete units.
+- [x] Visitor statistics per project (views, favorites, comparisons, offer sheets, contact clicks, brochure, shares, price-alert subscribers) for developers in the portal and for the admin, daily totals only
 - [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings
 

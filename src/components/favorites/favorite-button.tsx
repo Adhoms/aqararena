@@ -1,6 +1,7 @@
 "use client";
 
 import { Heart } from "@phosphor-icons/react";
+import { trackAttr } from "@/lib/stats-events";
 import { useFavorites } from "./store";
 
 type Props = {
@@ -31,6 +32,7 @@ export function FavoriteButton({ slug, labels, variant = "plain", className = ""
       aria-label={label}
       title={label}
       onClick={() => toggle(slug)}
+      data-track={saved ? undefined : trackAttr("FAVORITE", slug)}
       className={`press inline-flex size-11 flex-none items-center justify-center rounded-full border ${look} ${className}`}
     >
       <Heart size={20} weight={saved ? "fill" : "regular"} aria-hidden="true" />

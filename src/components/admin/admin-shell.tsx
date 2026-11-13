@@ -23,6 +23,7 @@ export function AdminShell({ title, children, actions, back }: { title: ReactNod
             <Link href="/admin/accounts">الحسابات</Link>
             <Link href="/admin/messages">الرسائل</Link>
             <Link href="/admin/alerts">المشتركين</Link>
+            <Link href="/admin/stats">الإحصائيات</Link>
             <a href="/ar" target="_blank" rel="noreferrer">
               عرض الموقع ↗
             </a>

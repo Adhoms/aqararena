@@ -6,6 +6,7 @@ import { AmbientBackground } from "@/components/ambient-background";
 import { CompareTray } from "@/components/compare/compare-tray";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { ClickTracker } from "@/components/stats/tracker";
 import { Spotlight } from "@/components/spotlight";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { MAX_COMPARE } from "@/lib/compare";
@@ -78,6 +79,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
         <SiteHeader />
         <main id="main" tabIndex={-1} className="flex-1 outline-none">{children}</main>
         <SiteFooter />
+        <ClickTracker />
         <CompareTray
           locale={locale}
           labels={{

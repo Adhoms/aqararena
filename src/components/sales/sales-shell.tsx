@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { SalesNav } from "@/components/sales/sales-nav";
 import { salesLogout } from "@/app/sales/actions";
 import { ROLE_LABELS } from "@/lib/sales/fields";
 import type { SalesUser } from "@/lib/sales/session";
@@ -22,8 +23,7 @@ export function SalesShell({ me, title, children, actions }: { me: SalesUser; ti
           </Link>
           <span className="admin-badge">{me.developer.nameAr}</span>
           <nav aria-label="قائمة المبيعات" className="flex flex-wrap gap-4 text-sm">
-            <Link href="/sales">المشروعات</Link>
-            <Link href="/sales/me">ملفي</Link>
+            <SalesNav />
           </nav>
           <div className="ms-auto flex items-center gap-3 text-sm">
             <span className="text-muted">

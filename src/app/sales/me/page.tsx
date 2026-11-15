@@ -15,14 +15,14 @@ export default async function SalesMePage() {
     <SalesShell me={me} title="ملفي">
       <Panel title="بياناتك على العروض">
         <p className="mb-4 text-sm text-muted">الاسم والأرقام دي هي اللي العميل هيشوفها على عروض الأسعار اللي هتبعتها.</p>
-        <AdminForm action={updateSalesProfile}>
+        <AdminForm action={updateSalesProfile} resetOnSuccess>
           <Row>
             <TextField name="nameAr" label="الاسم بالعربي *" defaultValue={me.nameAr} autoComplete="name" />
             <TextField name="nameEn" label="الاسم بالإنجليزي" defaultValue={me.nameEn} dir="ltr" hint="بيظهر على العروض الإنجليزي" />
           </Row>
           <Row cols={3}>
             <TextField name="phone" label="الموبايل *" type="tel" defaultValue={me.phone} dir="ltr" autoComplete="tel" />
-            <TextField name="whatsapp" label="واتساب" type="tel" defaultValue={me.whatsapp} dir="ltr" autoComplete="tel" hint="فاضي = نفس الموبايل" />
+            <TextField name="whatsapp" label="واتساب" type="tel" defaultValue={me.whatsapp} dir="ltr" autoComplete="off" hint="فاضي = نفس الموبايل" />
             <TextField name="email" label="البريد الإلكتروني" type="email" defaultValue={me.email} dir="ltr" autoComplete="email" />
           </Row>
         </AdminForm>

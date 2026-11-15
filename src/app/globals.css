@@ -146,10 +146,27 @@
     outline-offset: 2px;
   }
 
+  /* The sticky header's real height (measured: two rows below xl, one row from xl, the same
+     breakpoint the header switches at). Anchors, sticky bars and full-height pages build on it. */
+  :root {
+    --header-h: 8.08rem;
+    --section-bar-h: 3.4rem;
+  }
+  @media (min-width: 80rem) {
+    :root {
+      --header-h: 4.3rem;
+    }
+  }
+
   /* Leaves room for the sticky header when jumping to an anchor. */
   [id] {
-    scroll-margin-top: 6.5rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
   }
+}
+
+/* Pages with the sticky sections bar (project pages) also clear the bar. */
+body:has([data-section-bar]) [id] {
+  scroll-margin-top: calc(var(--header-h) + var(--section-bar-h) + 1rem);
 }
 
 /* Sections fade up as they scroll into view; bars grow. Only where the browser supports

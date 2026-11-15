@@ -32,7 +32,7 @@ export default async function MapPage() {
         points={toMapPoints(projects, developers, insights, dict, locale)}
         locale={locale}
         labels={mapLabels(dict)}
-        className="h-[calc(100vh-190px)] min-h-[560px]"
+        className="h-[calc(100dvh-var(--header-h)-7.6rem)] min-h-[420px]"
       />
     </section>
   );

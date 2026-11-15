@@ -81,7 +81,7 @@ export function UnitInventory({ rows, models, labels }: { rows: InventoryRow[]; 
   );
 
   return (
-    <section id="inventory" aria-labelledby={`${id}-title`} className="flex scroll-mt-24 flex-col gap-5 rounded-3xl border border-line bg-surface p-5 sm:p-8 print:hidden">
+    <section id="inventory" aria-labelledby={`${id}-title`} className="flex flex-col gap-5 rounded-3xl border border-line bg-surface p-5 sm:p-8 print:hidden">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="flex max-w-2xl flex-col gap-1.5">
           <h3 id={`${id}-title`} className="font-display text-2xl font-medium">

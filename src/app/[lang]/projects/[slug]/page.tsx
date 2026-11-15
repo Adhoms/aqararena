@@ -339,7 +339,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
       </section>
 
       {/* ─── Sections bar, stays at the top while scrolling ─── */}
-      <nav aria-label={p.sections.overview} className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur-md print:hidden">
+      <nav data-section-bar aria-label={p.sections.overview} className="sticky top-(--header-h) z-20 border-b border-line bg-ground/90 backdrop-blur-md print:hidden">
         <Container className="flex gap-x-6.5 overflow-x-auto text-[15px] whitespace-nowrap">
           {sections.map(([id, label]) => (
             <a key={id} href={`#${id}`} className="py-3.5 text-body no-underline hover:text-ink">

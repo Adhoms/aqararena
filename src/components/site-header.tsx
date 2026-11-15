@@ -38,7 +38,7 @@ export async function SiteHeader() {
 
         <div className="ms-auto flex items-center gap-1.5 py-3 sm:gap-2.5 xl:ms-0">
           <ThemeToggle toDark={dict.theme.toDark} toLight={dict.theme.toLight} />
-          <FavoritesLink locale={locale} label={dict.nav.favorites} className="max-xl:hidden" />
+          <FavoritesLink locale={locale} label={dict.nav.favorites} className="max-md:hidden" />
           <LanguageSwitcher target={target} label={dict.language.switchTo} ariaLabel={dict.language.switchToLabel} />
           <CompareLink locale={locale} label={dict.nav.compareButton} countLabel={dict.nav.compareCount} />
         </div>

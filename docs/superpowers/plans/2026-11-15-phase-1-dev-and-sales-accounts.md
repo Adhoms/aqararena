@@ -218,6 +218,8 @@ git commit -m "SalesAccount table for developer sales teams"
 
 ### Task 3: Reading a salesperson's details from a form
 
+> **Done, then changed after code review (commit `0c9672d`).** `src/lib/sales/fields.ts` is the source of truth: phones are normalised (`normalizePhone`: Arabic-Indic and Persian digits, brackets and dots) and must match `telHref`'s pattern with 8 to 15 digits; `readSalesPerson` no longer returns a role; the role is read with `readSalesRole(f)`, used only by the portal. The code below is the original plan text.
+
 **Files:**
 - Create: `src/lib/sales/fields.ts`
 - Test: `src/lib/sales/fields.test.ts`
@@ -531,8 +533,8 @@ export async function changeSalesPassword(_: FormState, data: FormData): Promise
 export async function updateSalesProfile(_: FormState, data: FormData): Promise<FormState> {
   const me = await requireSales();
   const f = new FormReader(data);
-  const { role: _role, ...values } = readSalesPerson(f);
-  void _role;
+  // readSalesPerson has no role: only the company's portal account sets roles (readSalesRole).
+  const values = readSalesPerson(f);
   if (!f.ok) return f.result();
   await db.salesAccount.update({ where: { id: me.id }, data: values });
   return { ok: true, message: "اتحفظ ✓ البيانات دي هتظهر على عروضك" };
@@ -898,7 +900,7 @@ import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { generatePassword, hashPassword, normalizeUsername } from "@/lib/portal/password";
 import { requireAccount } from "@/lib/portal/session";
-import { readSalesPerson } from "@/lib/sales/fields";
+import { readSalesPerson, readSalesRole } from "@/lib/sales/fields";
 
 // The developer's portal account manages its own sales team. Temporary passwords are shown once,
 // to be handed to the salesperson, who must choose their own at first sign-in.
@@ -911,7 +913,7 @@ async function ownMember(developerId: string, id: string | null) {
 export async function createSalesAccount(_: FormState, data: FormData): Promise<FormState> {
   const me = await requireAccount();
   const f = new FormReader(data);
-  const values = readSalesPerson(f);
+  const values = { ...readSalesPerson(f), role: readSalesRole(f) };
   const username = normalizeUsername(String(data.get("username") ?? ""));
   if (!username) f.errors.username = "حروف إنجليزية صغيرة وأرقام و . _ - (3 لـ 32)";
   if (!f.ok || !username) return f.result();
@@ -931,7 +933,7 @@ export async function updateSalesAccount(_: FormState, data: FormData): Promise<
   const f = new FormReader(data);
   const member = await ownMember(me.developerId, f.id("id"));
   if (!member) return { ok: false, message: "الحساب ده مش في فريقك" };
-  const values = readSalesPerson(f);
+  const values = { ...readSalesPerson(f), role: readSalesRole(f) };
   if (!f.ok) return f.result();
   await db.salesAccount.update({ where: { id: member.id }, data: values });
   return { ok: true, message: "اتحفظ ✓" };

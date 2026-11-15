@@ -1,4 +1,5 @@
 import "server-only";
+import { scryptSync } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -11,10 +12,15 @@ import { SALES_COOKIE } from "./cookie";
 
 const SESSION_DAYS = 14;
 
+let cachedKey: { base: string; key: string } | undefined;
+
 function secret(): string | undefined {
   const base = process.env.SALES_SESSION_SECRET || process.env.PORTAL_SESSION_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
-  // A separate key from the admin and portal cookies, even when they come from the same setting.
-  return base ? `sales:${base}` : undefined;
+  if (!base) return undefined;
+  // Derived with scrypt so a salesperson holding a signed cookie can't cheaply guess the setting it came from
+  // (it may be the admin password). Computed once per process; a separate salt keeps it apart from other areas.
+  if (cachedKey?.base !== base) cachedKey = { base, key: scryptSync(base, "aqararena:sales-session", 32, { N: 16384, r: 8, p: 1 }).toString("base64url") };
+  return cachedKey.key;
 }
 
 export async function startSalesSession(account: { id: string; sessionVersion: number }) {
@@ -56,6 +62,7 @@ export async function currentSalesAccount(): Promise<SalesUser | null> {
   const parts = readToken(token, key, 3);
   if (!parts) return null;
   const [id, expires, version] = parts;
+  if (!/^\d+$/.test(expires) || !/^\d+$/.test(version)) return null;
   const until = Number(expires);
   if (!Number.isFinite(until) || until < Date.now()) return null;
   const account = await db.salesAccount.findUnique({

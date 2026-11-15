@@ -18,10 +18,10 @@ export async function SiteHeader() {
           <BrandMark />
         </Link>
 
-        {/* Phones: its own swipeable row under the logo. Desktop: inline between logo and buttons. */}
+        {/* Below xl: its own swipeable row under the logo (faded at the end). xl and up: inline between logo and buttons. */}
         <nav
           aria-label={dict.nav.label}
-          className="order-last -mx-4 flex w-[calc(100%+2rem)] gap-x-1 [scrollbar-width:none] overflow-x-auto px-4 whitespace-nowrap max-md:[mask-image:linear-gradient(to_left,transparent,#000_40px)] max-md:rtl:[mask-image:linear-gradient(to_right,transparent,#000_40px)] md:order-none md:mx-0 md:w-auto md:flex-1 md:px-0"
+          className="order-last -mx-4 flex w-[calc(100%+2rem)] gap-x-1 [scrollbar-width:none] overflow-x-auto px-4 whitespace-nowrap max-xl:[mask-image:linear-gradient(to_left,transparent,#000_40px)] max-xl:rtl:[mask-image:linear-gradient(to_right,transparent,#000_40px)] xl:order-none xl:mx-0 xl:w-auto xl:flex-1 xl:px-0"
         >
           <NavLinks
             links={[
@@ -30,15 +30,15 @@ export async function SiteHeader() {
               { href: `/${locale}/developers`, label: dict.nav.developers },
               { href: `/${locale}/areas`, label: dict.nav.areas },
               { href: `/${locale}/new-launches`, label: dict.nav.newLaunches },
-              { href: `/${locale}/dev`, label: dict.footer.forDevelopers },
+              { href: `/${locale}/dev`, label: dict.nav.forDevelopers },
               { href: `/${locale}/favorites`, label: dict.nav.favorites, mobileOnly: true },
             ]}
           />
         </nav>
 
-        <div className="ms-auto flex items-center gap-1.5 py-3 sm:gap-2.5 md:ms-0">
+        <div className="ms-auto flex items-center gap-1.5 py-3 sm:gap-2.5 xl:ms-0">
           <ThemeToggle toDark={dict.theme.toDark} toLight={dict.theme.toLight} />
-          <FavoritesLink locale={locale} label={dict.nav.favorites} className="max-md:hidden" />
+          <FavoritesLink locale={locale} label={dict.nav.favorites} className="max-xl:hidden" />
           <LanguageSwitcher target={target} label={dict.language.switchTo} ariaLabel={dict.language.switchToLabel} />
           <CompareLink locale={locale} label={dict.nav.compareButton} countLabel={dict.nav.compareCount} />
         </div>

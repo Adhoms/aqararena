@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Buildings, ChartLineUp, CheckCircle, UsersThree } from "@phosphor-icons/react/ssr";
-import { Container, Eyebrow, SectionHeading } from "@/components/ui";
+import { AddressBook, Buildings, CheckCircle, FilePdf, ListChecks, MagnifyingGlass, Timer, UserPlus, UsersThree } from "@phosphor-icons/react/ssr";
+import { Container, Eyebrow, Pill, SectionHeading } from "@/components/ui";
 import { pageAlternates } from "@/lib/site";
 import { getDictionary, getLocale } from "../dictionaries";
 
@@ -19,7 +19,9 @@ function Ctas({ request, login, onDark = false }: { request: string; login: stri
     <div className="flex flex-wrap gap-3">
       <Link
         href="/portal/register"
-        className="inline-flex min-h-12 items-center rounded-full bg-brass px-6 font-medium text-white no-underline transition-colors hover:bg-brass-dark hover:text-white"
+        className={`inline-flex min-h-12 items-center rounded-full px-6 font-medium no-underline transition-colors ${
+          onDark ? "bg-brass-light text-deep hover:bg-[#d8bc86] hover:text-deep" : "bg-brand text-white hover:bg-brand-2 hover:text-white"
+        }`}
       >
         {request}
       </Link>
@@ -34,6 +36,8 @@ function Ctas({ request, login, onDark = false }: { request: string; login: stri
     </div>
   );
 }
+
+const featureIcons = [UserPlus, ListChecks, MagnifyingGlass, Timer, FilePdf, AddressBook];
 
 export default async function DevPage() {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
@@ -59,16 +63,16 @@ export default async function DevPage() {
         <div className="grid gap-5 lg:grid-cols-2">
           <article className="flex flex-col gap-4 rounded-3xl border border-line bg-surface p-7 sm:p-9">
             <span className="flex flex-wrap items-center gap-3">
-              <span className="flex size-11 items-center justify-center rounded-full bg-brand/10 text-brand">
+              <span className="flex size-11 items-center justify-center rounded-full bg-brand/10 text-brass">
                 <Buildings size={22} weight="duotone" aria-hidden="true" />
               </span>
               <h3 className="font-display text-2xl font-medium">{t.portalCard.title}</h3>
-              <span className="rounded-full bg-brass-soft px-3 py-0.5 text-xs font-semibold text-brass-dark">{t.portalCard.badge}</span>
+              <Pill tone="brass">{t.portalCard.badge}</Pill>
             </span>
             <p className="leading-relaxed text-body">{t.portalCard.text}</p>
             <Link
               href="/portal/register"
-              className="mt-auto inline-flex min-h-12 items-center self-start rounded-full bg-brass px-6 font-medium text-white no-underline transition-colors hover:bg-brass-dark hover:text-white"
+              className="mt-auto inline-flex min-h-12 items-center self-start rounded-full bg-brand px-6 font-medium text-white no-underline transition-colors hover:bg-brand-2 hover:text-white"
             >
               {t.portalCard.cta}
             </Link>
@@ -81,12 +85,12 @@ export default async function DevPage() {
               <h3 dir="ltr" className="font-display text-2xl font-medium">
                 {t.salesCard.title}
               </h3>
-              <span className="rounded-full bg-white/10 px-3 py-0.5 text-xs font-semibold text-brass-light">{t.salesCard.badge}</span>
+              <span className="inline-flex rounded-full bg-white/10 px-3 py-0.5 text-xs font-medium text-white">{t.salesCard.badge}</span>
             </span>
             <p className="leading-relaxed text-on-dark">{t.salesCard.text}</p>
             <div className="mt-auto flex flex-wrap gap-3">
               <Link
-                href={`/${locale}/contact`}
+                href={`/${locale}/contact?kind=REQUEST`}
                 className="inline-flex min-h-12 items-center rounded-full bg-brass-light px-6 font-medium text-deep no-underline transition-colors hover:bg-[#d8bc86] hover:text-deep"
               >
                 {t.salesCard.cta}
@@ -144,20 +148,28 @@ export default async function DevPage() {
 
       <Container className="flex flex-col gap-9 pt-20 sm:pt-24">
         <div className="flex max-w-3xl flex-col gap-3">
-          <SectionHeading title={t.salesTitle} />
+          <SectionHeading eyebrow={<span dir="ltr">AqarArena Sales</span>} title={t.salesTitle} />
           <p className="text-lg leading-relaxed text-body">{t.salesSub}</p>
         </div>
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {t.salesFeatures.map((f) => (
-            <li key={f.title} className="flex flex-col gap-2 rounded-3xl border border-line bg-surface p-6">
-              <span className="flex items-center justify-between gap-3">
-                <ChartLineUp size={22} weight="duotone" className="text-brass" aria-hidden="true" />
-                {f.soon && <span className="rounded-full bg-brass-soft px-3 py-0.5 text-xs font-semibold text-brass-dark">{t.soonBadge}</span>}
-              </span>
-              <h3 className="font-display text-xl font-medium text-ink">{f.title}</h3>
-              <p className="text-sm leading-relaxed text-body">{f.text}</p>
-            </li>
-          ))}
+          {t.salesFeatures.map((f, i) => {
+            const Icon = featureIcons[i];
+            return (
+              <li key={f.title} className="relative flex flex-col gap-2 rounded-3xl border border-line bg-surface p-6">
+                <Icon size={22} weight="duotone" className="text-brass" aria-hidden="true" />
+                <h3 className="font-display text-xl font-medium text-ink">
+                  {f.title}
+                  {f.soon && <span className="sr-only"> ({t.soonBadge})</span>}
+                </h3>
+                <p className="text-sm leading-relaxed text-body">{f.text}</p>
+                {f.soon && (
+                  <span aria-hidden="true" className="absolute end-5 top-5">
+                    <Pill tone="brass">{t.soonBadge}</Pill>
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </Container>
 

@@ -22,7 +22,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     // The developers' landing page moved; old links and search results keep working.
-    return [{ source: "/:lang(ar|en)/for-developers", destination: "/:lang/dev", permanent: true }];
+    return [
+      { source: "/:lang(ar|en)/for-developers", destination: "/:lang/dev", permanent: true },
+      // Without a language the proxy adds one afterwards.
+      { source: "/for-developers", destination: "/dev", permanent: true },
+    ];
   },
   partialPrefetching: true,
   turbopack: {

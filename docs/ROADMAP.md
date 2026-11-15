@@ -31,7 +31,7 @@ The goal of each phase is something real users can open.
 
 ## Phase 2: Developer portal and revenue
 
-- [x] Developer accounts: request from `/for-developers` or created by the admin, username + password, temporary passwords
+- [x] Developer accounts: request from `/dev` or created by the admin, username + password, temporary passwords
 - [x] Developer portal (`/portal`): developers edit their company profile and projects (unit types, payment plans, photos, distances); every change waits for admin approval with a before/after review
 - [ ] Master-plan zones in the developer portal (admin only for now)
 - [x] Units in the developer portal: statuses and prices go live at once within limits (approved unit types, price not under the type's starting price), Excel download / upload, admin emailed at most hourly. Renaming a unit type's code keeps its units; the review page warns when a removal would delete units.

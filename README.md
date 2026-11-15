@@ -22,7 +22,7 @@ Live at **https://aqararena.com** (Vercel + Neon). The public site is built from
 | `/ar/projects/[slug]/offer?u=CODE&plan=N` | Printable offer sheet (A4) for one unit type on one payment plan: schedule year by year, developer contacts, WhatsApp share |
 | `/ar/compare?p=a,b,c` | Project-vs-project comparison (up to 4), "differences only", share link, print / PDF |
 | `/ar/developers`, `/ar/developers/[slug]` | Developer directory and profile with portfolio by area |
-| `/ar/for-developers` | Landing page for developers: why list, how it works, request an account |
+| `/ar/dev` | Landing page for developers: why list, how it works, request an account |
 | `/portal` | Developer portal (Arabic): sign in, request an account, edit company and projects, send for review; per-project visitor statistics |
 | `/portal/projects/[id]/units` | Developer inventory: unit statuses and prices, live at once (no review), with Excel download / upload |
 | `/admin/stats` | Visitor statistics for every published project (last 30 days against the 30 before) |

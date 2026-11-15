@@ -20,7 +20,8 @@
     "map": "Map",
     "skip": "Skip to content",
     "favorites": "Favorites",
-    "newLaunches": "New launches"
+    "newLaunches": "New launches",
+    "forDevelopers": "List your project"
   },
   "language": {
     "switchTo": "العربية",
@@ -656,7 +657,7 @@
     "offer": "Open the offer sheet"
   },
   "forDevelopersPage": {
-    "metaTitle": "AqarArena for developers: the portal and AqarArena Sales",
+    "metaTitle": "For developers: the portal and AqarArena Sales",
     "metaDescription": "Show your projects, prices and units on AqarArena for free, and give your sales team their own AqarArena Sales accounts on the same data.",
     "eyebrow": "For real-estate developers",
     "title": "Put your projects in front of serious buyers, with your own numbers",
@@ -708,7 +709,7 @@
     ],
     "closingTitle": "Ready to start?",
     "closingText": "Accounts are free. All you need is your company's details; add your projects at your own pace.",
-    "portalNote": "The developer portal is in Arabic.",
+    "portalNote": "The developer portal and AqarArena Sales are in Arabic.",
     "productsTitle": "Two products for your company",
     "portalCard": {
       "title": "Developer portal",
@@ -719,12 +720,12 @@
     "salesCard": {
       "title": "AqarArena Sales",
       "badge": "For sales teams",
-      "text": "A tool for your sales team: every salesperson has their own account, opens your projects and sees which units are available. Inventory search, temporary holds and PDF offers are coming soon.",
-      "cta": "Talk to us about Sales",
+      "text": "A tool for your sales team: every salesperson has their own account, opens your projects and sees how many units are available in each project. Coming soon: inventory search, temporary holds and PDF offers.",
+      "cta": "Talk to us about AqarArena Sales",
       "login": "Sales sign-in"
     },
-    "salesTitle": "AqarArena Sales: your team sells from the same data",
-    "salesSub": "The same prices and units as the site, in your sales team's hands. Any update you make in the portal reaches them at once.",
+    "salesTitle": "Your team sells from the same data",
+    "salesSub": "The same projects and units as the site, in your sales team's hands. Unit status you change in the inventory reaches them at once.",
     "soonBadge": "Coming soon",
     "salesFeatures": [
       {
@@ -744,12 +745,12 @@
       },
       {
         "title": "Temporary holds",
-        "text": "A unit is held for one salesperson for a set time, and is released by itself if not confirmed.",
+        "text": "A unit is held for one salesperson for a set time, and is released automatically if not confirmed.",
         "soon": true
       },
       {
         "title": "PDF offers",
-        "text": "With the payment schedule instalment by instalment and the salesperson's name and numbers, sent by WhatsApp, Telegram or email.",
+        "text": "With the payment schedule installment by installment and the salesperson's name and numbers, sent by WhatsApp, Telegram or email.",
         "soon": true
       },
       {

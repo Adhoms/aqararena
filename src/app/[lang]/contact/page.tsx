@@ -36,7 +36,7 @@ export default async function ContactPage() {
           <li>{c.responseTime}</li>
           <li>{c.notBroker}</li>
           <li>
-            {c.developersNote} <Link href={`/${locale}/for-developers`}>{dict.footer.listProject}</Link>
+            {c.developersNote} <Link href={`/${locale}/dev`}>{dict.footer.listProject}</Link>
           </li>
         </ul>
       </div>

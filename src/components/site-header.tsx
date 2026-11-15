@@ -30,6 +30,7 @@ export async function SiteHeader() {
               { href: `/${locale}/developers`, label: dict.nav.developers },
               { href: `/${locale}/areas`, label: dict.nav.areas },
               { href: `/${locale}/new-launches`, label: dict.nav.newLaunches },
+              { href: `/${locale}/dev`, label: dict.footer.forDevelopers },
               { href: `/${locale}/favorites`, label: dict.nav.favorites, mobileOnly: true },
             ]}
           />

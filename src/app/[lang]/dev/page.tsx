@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CheckCircle } from "@phosphor-icons/react/ssr";
+import { Buildings, ChartLineUp, CheckCircle, UsersThree } from "@phosphor-icons/react/ssr";
 import { Container, Eyebrow, SectionHeading } from "@/components/ui";
 import { pageAlternates } from "@/lib/site";
 import { getDictionary, getLocale } from "../dictionaries";
@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: dict.forDevelopersPage.metaTitle,
     description: dict.forDevelopersPage.metaDescription,
-    alternates: pageAlternates(locale, "/for-developers"),
+    alternates: pageAlternates(locale, "/dev"),
   };
 }
 
@@ -35,8 +35,8 @@ function Ctas({ request, login, onDark = false }: { request: string; login: stri
   );
 }
 
-export default async function ForDevelopersPage() {
-  const dict = await getDictionary();
+export default async function DevPage() {
+  const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
   const t = dict.forDevelopersPage;
 
   return (
@@ -53,6 +53,54 @@ export default async function ForDevelopersPage() {
           {t.portalNote && <p className="text-sm text-on-dark-muted">{t.portalNote}</p>}
         </Container>
       </section>
+
+      <Container className="flex flex-col gap-9 pt-20 sm:pt-24">
+        <SectionHeading title={t.productsTitle} />
+        <div className="grid gap-5 lg:grid-cols-2">
+          <article className="flex flex-col gap-4 rounded-3xl border border-line bg-surface p-7 sm:p-9">
+            <span className="flex flex-wrap items-center gap-3">
+              <span className="flex size-11 items-center justify-center rounded-full bg-brand/10 text-brand">
+                <Buildings size={22} weight="duotone" aria-hidden="true" />
+              </span>
+              <h3 className="font-display text-2xl font-medium">{t.portalCard.title}</h3>
+              <span className="rounded-full bg-brass-soft px-3 py-0.5 text-xs font-semibold text-brass-dark">{t.portalCard.badge}</span>
+            </span>
+            <p className="leading-relaxed text-body">{t.portalCard.text}</p>
+            <Link
+              href="/portal/register"
+              className="mt-auto inline-flex min-h-12 items-center self-start rounded-full bg-brass px-6 font-medium text-white no-underline transition-colors hover:bg-brass-dark hover:text-white"
+            >
+              {t.portalCard.cta}
+            </Link>
+          </article>
+          <article className="flex flex-col gap-4 rounded-3xl bg-brand p-7 text-white sm:p-9">
+            <span className="flex flex-wrap items-center gap-3">
+              <span className="flex size-11 items-center justify-center rounded-full bg-white/10 text-brass-light">
+                <UsersThree size={22} weight="duotone" aria-hidden="true" />
+              </span>
+              <h3 dir="ltr" className="font-display text-2xl font-medium">
+                {t.salesCard.title}
+              </h3>
+              <span className="rounded-full bg-white/10 px-3 py-0.5 text-xs font-semibold text-brass-light">{t.salesCard.badge}</span>
+            </span>
+            <p className="leading-relaxed text-on-dark">{t.salesCard.text}</p>
+            <div className="mt-auto flex flex-wrap gap-3">
+              <Link
+                href={`/${locale}/contact`}
+                className="inline-flex min-h-12 items-center rounded-full bg-brass-light px-6 font-medium text-deep no-underline transition-colors hover:bg-[#d8bc86] hover:text-deep"
+              >
+                {t.salesCard.cta}
+              </Link>
+              <Link
+                href="/sales/login"
+                className="inline-flex min-h-12 items-center rounded-full border border-white/40 px-6 font-medium text-white no-underline transition-colors hover:border-white hover:text-white"
+              >
+                {t.salesCard.login}
+              </Link>
+            </div>
+          </article>
+        </div>
+      </Container>
 
       <Container className="flex flex-col gap-9 pt-20 sm:pt-24">
         <SectionHeading title={t.benefitsTitle} />
@@ -92,6 +140,25 @@ export default async function ForDevelopersPage() {
             ))}
           </ul>
         </div>
+      </Container>
+
+      <Container className="flex flex-col gap-9 pt-20 sm:pt-24">
+        <div className="flex max-w-3xl flex-col gap-3">
+          <SectionHeading title={t.salesTitle} />
+          <p className="text-lg leading-relaxed text-body">{t.salesSub}</p>
+        </div>
+        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {t.salesFeatures.map((f) => (
+            <li key={f.title} className="flex flex-col gap-2 rounded-3xl border border-line bg-surface p-6">
+              <span className="flex items-center justify-between gap-3">
+                <ChartLineUp size={22} weight="duotone" className="text-brass" aria-hidden="true" />
+                {f.soon && <span className="rounded-full bg-brass-soft px-3 py-0.5 text-xs font-semibold text-brass-dark">{t.soonBadge}</span>}
+              </span>
+              <h3 className="font-display text-xl font-medium text-ink">{f.title}</h3>
+              <p className="text-sm leading-relaxed text-body">{f.text}</p>
+            </li>
+          ))}
+        </ul>
       </Container>
 
       <Container className="pt-20 pb-24 sm:pt-24">

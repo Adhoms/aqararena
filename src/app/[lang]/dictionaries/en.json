@@ -656,8 +656,8 @@
     "offer": "Open the offer sheet"
   },
   "forDevelopersPage": {
-    "metaTitle": "For developers: list your projects for free",
-    "metaDescription": "Add your projects, prices, payment plans and photos to AqarArena yourself. Buyers contact you directly on your official numbers, with no broker in between.",
+    "metaTitle": "AqarArena for developers: the portal and AqarArena Sales",
+    "metaDescription": "Show your projects, prices and units on AqarArena for free, and give your sales team their own AqarArena Sales accounts on the same data.",
     "eyebrow": "For real-estate developers",
     "title": "Put your projects in front of serious buyers, with your own numbers",
     "sub": "AqarArena is a neutral guide to every project in Egypt. Add your projects, prices, payment plans and photos from your company's own portal, and buyers reach you directly, with no broker.",
@@ -708,7 +708,56 @@
     ],
     "closingTitle": "Ready to start?",
     "closingText": "Accounts are free. All you need is your company's details; add your projects at your own pace.",
-    "portalNote": "The developer portal is in Arabic."
+    "portalNote": "The developer portal is in Arabic.",
+    "productsTitle": "Two products for your company",
+    "portalCard": {
+      "title": "Developer portal",
+      "badge": "Free",
+      "text": "Show your projects on AqarArena: details, prices, payment plans, photos, master plan, and units with their status. And see each project's visitors.",
+      "cta": "Request an account"
+    },
+    "salesCard": {
+      "title": "AqarArena Sales",
+      "badge": "For sales teams",
+      "text": "A tool for your sales team: every salesperson has their own account, opens your projects and sees which units are available. Inventory search, temporary holds and PDF offers are coming soon.",
+      "cta": "Talk to us about Sales",
+      "login": "Sales sign-in"
+    },
+    "salesTitle": "AqarArena Sales: your team sells from the same data",
+    "salesSub": "The same prices and units as the site, in your sales team's hands. Any update you make in the portal reaches them at once.",
+    "soonBadge": "Coming soon",
+    "salesFeatures": [
+      {
+        "title": "An account per salesperson",
+        "text": "Each person has their own username and password; you add and disable them from the portal.",
+        "soon": false
+      },
+      {
+        "title": "Your projects and their available units",
+        "text": "Each salesperson opens your projects and sees how many units are available in each, from the same data as the portal.",
+        "soon": false
+      },
+      {
+        "title": "Inventory search",
+        "text": "By budget, bedrooms, floor and view, with only available units shown.",
+        "soon": true
+      },
+      {
+        "title": "Temporary holds",
+        "text": "A unit is held for one salesperson for a set time, and is released by itself if not confirmed.",
+        "soon": true
+      },
+      {
+        "title": "PDF offers",
+        "text": "With the payment schedule instalment by instalment and the salesperson's name and numbers, sent by WhatsApp, Telegram or email.",
+        "soon": true
+      },
+      {
+        "title": "Clients and follow-ups",
+        "text": "Every client with their offers, holds and follow-up dates, and the team lead sees them all.",
+        "soon": true
+      }
+    ]
   },
   "info": {
     "updated": "Last updated: {date}",

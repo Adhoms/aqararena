@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    // The developers' landing page moved; old links and search results keep working.
+    return [{ source: "/:lang(ar|en)/for-developers", destination: "/:lang/dev", permanent: true }];
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

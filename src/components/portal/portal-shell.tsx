@@ -29,6 +29,7 @@ export function PortalShell({
           <span className="admin-badge">{company}</span>
           <nav className="flex flex-wrap gap-4 text-sm">
             <Link href="/portal">مشروعاتي</Link>
+            <Link href="/portal/team">فريق المبيعات</Link>
             <Link href="/portal/password">كلمة المرور</Link>
             <a href="/ar" target="_blank" rel="noreferrer">
               الموقع ↗

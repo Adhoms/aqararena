@@ -1,5 +1,7 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
@@ -10,6 +12,10 @@ import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } 
 
 const slow = () => new Promise((r) => setTimeout(r, 800));
 
+// A real scrypt hash of a random password, so unknown usernames take as long as wrong passwords.
+let dummyHash: Promise<string> | undefined;
+const dummy = () => (dummyHash ??= hashPassword(randomBytes(18).toString("base64url")));
+
 export async function salesLogin(_: FormState, data: FormData): Promise<FormState> {
   const username = normalizeUsername(String(data.get("username") ?? ""));
   const password = String(data.get("password") ?? "");
@@ -18,15 +24,17 @@ export async function salesLogin(_: FormState, data: FormData): Promise<FormStat
   const wait = await lockedMinutes(keys);
   if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = username ? await db.salesAccount.findUnique({ where: { username } }) : null;
-  if (!account || !(await verifyPassword(password, account.passwordHash))) {
+  const matches = await verifyPassword(password, account?.passwordHash ?? (await dummy()));
+  if (!account || !matches) {
     await slow();
     await recordFailure(keys);
     return { ok: false, message: "اسم المستخدم أو كلمة المرور غير صحيحة" };
   }
-  await clearFailures(keys);
+  // Only the account counter is cleared; the address counter keeps counting so one login cannot reset it.
+  await clearFailures(keys.filter((k) => k.startsWith("sales-user:")));
   if (account.status !== "ACTIVE") return { ok: false, message: "الحساب ده موقوف. كلّم مدير الحساب في شركتك." };
-  await db.salesAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
   await startSalesSession(account);
+  await db.salesAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
   redirect(account.mustChangePassword ? "/sales/password" : "/sales");
 }
 
@@ -37,11 +45,17 @@ export async function salesLogout() {
 
 export async function changeSalesPassword(_: FormState, data: FormData): Promise<FormState> {
   const me = await requireSales({ allowTemporaryPassword: true });
+  const keys = [`sales-pw:${me.id}`];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = await db.salesAccount.findUniqueOrThrow({ where: { id: me.id } });
   const current = String(data.get("current") ?? "");
   const next = String(data.get("password") ?? "");
   const errors: Record<string, string> = {};
-  if (!(await verifyPassword(current, account.passwordHash))) errors.current = "كلمة المرور الحالية غير صحيحة";
+  if (!(await verifyPassword(current, account.passwordHash))) {
+    errors.current = "كلمة المرور الحالية غير صحيحة";
+    await recordFailure(keys);
+  }
   if (next.length < MIN_PASSWORD) errors.password = `${MIN_PASSWORD} حروف على الأقل`;
   else if (next === current) errors.password = "اختار كلمة مرور جديدة";
   if (next !== String(data.get("confirm") ?? "")) errors.confirm = "كلمتين المرور مش زي بعض";
@@ -53,6 +67,7 @@ export async function changeSalesPassword(_: FormState, data: FormData): Promise
     where: { id: account.id },
     data: { passwordHash: await hashPassword(next), mustChangePassword: false, sessionVersion: { increment: 1 } },
   });
+  await clearFailures(keys);
   await startSalesSession(updated);
   redirect("/sales?password=1");
 }
@@ -65,5 +80,6 @@ export async function updateSalesProfile(_: FormState, data: FormData): Promise<
   const values = readSalesPerson(f);
   if (!f.ok) return f.result();
   await db.salesAccount.update({ where: { id: me.id }, data: values });
+  revalidatePath("/sales", "layout");
   return { ok: true, message: "اتحفظ ✓ البيانات دي هتظهر على عروضك" };
 }

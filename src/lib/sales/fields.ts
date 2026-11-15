@@ -12,9 +12,9 @@ const PERSIAN = "۰۱۲۳۴۵۶۷۸۹";
 /** Converts Arabic-Indic and Persian digits to 0-9, turns ( ) . into spaces, collapses spaces. */
 export function normalizePhone(input: string): string {
   return input
-    .replace(/[‎‏‪-‮⁦-⁩]/g, "")
-    .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC.indexOf(d)))
-    .replace(/[۰-۹]/g, (d) => String(PERSIAN.indexOf(d)))
+    .replace(/[\u061C\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "")
+    .replace(/[\u0660-\u0669]/g, (d) => String(ARABIC_INDIC.indexOf(d)))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(PERSIAN.indexOf(d)))
     .replace(/[().]/g, " ")
     .replace(/\s+/g, " ")
     .trim();

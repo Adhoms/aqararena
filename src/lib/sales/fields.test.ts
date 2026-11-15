@@ -89,3 +89,9 @@ test("invisible direction marks around a phone number are ignored", () => {
   assert.equal(readSalesPerson(b).phone, "01001234567");
   assert.equal(b.ok, true);
 });
+
+test("an Arabic letter mark before a phone number is ignored", () => {
+  const f = form({ nameAr: "منى", phone: "\u061C01001234567" });
+  assert.equal(readSalesPerson(f).phone, "01001234567");
+  assert.equal(f.ok, true);
+});

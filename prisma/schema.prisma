@@ -148,29 +148,30 @@ model Area {
 // ─── Developers & projects ──────────────────────────────────────────────
 
 model Developer {
-  id          String             @id @default(cuid())
-  slug        String             @unique
-  nameAr      String
-  nameEn      String
-  logoUrl     String?
-  coverUrl    String?
-  foundedYear Int?
-  aboutAr     String?
-  aboutEn     String?
-  website     String?
-  hotline     String?
-  salesPhone  String?
-  whatsapp    String?
-  email       String?
-  hqAddressAr String?
-  hqAddressEn String?
-  verified    Boolean            @default(false)
-  plan        DeveloperPlan      @default(BASIC)
-  projects    Project[]
-  accounts    DeveloperAccount[]
-  submissions Submission[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id            String             @id @default(cuid())
+  slug          String             @unique
+  nameAr        String
+  nameEn        String
+  logoUrl       String?
+  coverUrl      String?
+  foundedYear   Int?
+  aboutAr       String?
+  aboutEn       String?
+  website       String?
+  hotline       String?
+  salesPhone    String?
+  whatsapp      String?
+  email         String?
+  hqAddressAr   String?
+  hqAddressEn   String?
+  verified      Boolean            @default(false)
+  plan          DeveloperPlan      @default(BASIC)
+  projects      Project[]
+  accounts      DeveloperAccount[]
+  submissions   Submission[]
+  salesAccounts SalesAccount[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 }
 
 model Project {
@@ -584,4 +585,39 @@ model ProjectStat {
 
   @@id([projectId, day, event])
   @@index([day])
+}
+
+// ─── AqarArena Sales ────────────────────────────────────────────────────
+
+/// AGENT: sees their own clients and work. LEAD: also sees the whole team's.
+enum SalesRole {
+  AGENT
+  LEAD
+}
+
+/// A member of a developer's sales team, created from the developer portal. Signs in at /sales.
+/// The name and numbers here are the ones printed on that person's offers.
+model SalesAccount {
+  id                 String        @id @default(cuid())
+  developerId        String
+  developer          Developer     @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  username           String        @unique
+  /// scrypt hash, see src/lib/portal/password.ts
+  passwordHash       String
+  role               SalesRole     @default(AGENT)
+  /// ACTIVE or DISABLED (PENDING is not used for sales accounts).
+  status             AccountStatus @default(ACTIVE)
+  nameAr             String
+  nameEn             String?
+  phone              String
+  whatsapp           String?
+  email              String?
+  mustChangePassword Boolean       @default(true)
+  /// Raised to sign the account out everywhere (password change, disable).
+  sessionVersion     Int           @default(0)
+  lastLoginAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([developerId, status])
 }

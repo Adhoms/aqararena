@@ -25,6 +25,12 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return key.length === expected.length && timingSafeEqual(key, expected);
 }
 
+/**
+ * A well-formed hash that no password matches (random salt and random hash bytes). Checking a password
+ * against it costs the same scrypt work as a real one, so unknown usernames answer as slowly as wrong passwords.
+ */
+export const UNMATCHABLE_HASH = `scrypt$${randomBytes(16).toString("base64url")}$${randomBytes(KEY_LENGTH).toString("base64url")}`;
+
 /** A password the admin can read out or paste: 12 characters without look-alikes (0/O, 1/l). */
 export function generatePassword(): string {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";

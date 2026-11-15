@@ -1,10 +1,9 @@
 import "server-only";
-import { scryptSync } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { db } from "@/lib/db";
-import { readToken, signToken } from "@/lib/session-token";
+import { deriveKey, readSessionToken, signToken } from "@/lib/session-token";
 import { SALES_COOKIE } from "./cookie";
 
 // A signed cookie holding the account id, an expiry and the account's session version.
@@ -12,15 +11,11 @@ import { SALES_COOKIE } from "./cookie";
 
 const SESSION_DAYS = 14;
 
-let cachedKey: { base: string; key: string } | undefined;
-
 function secret(): string | undefined {
   const base = process.env.SALES_SESSION_SECRET || process.env.PORTAL_SESSION_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
-  if (!base) return undefined;
-  // Derived with scrypt so a salesperson holding a signed cookie can't cheaply guess the setting it came from
-  // (it may be the admin password). Computed once per process; a separate salt keeps it apart from other areas.
-  if (cachedKey?.base !== base) cachedKey = { base, key: scryptSync(base, "aqararena:sales-session", 32, { N: 16384, r: 8, p: 1 }).toString("base64url") };
-  return cachedKey.key;
+  // Derived with scrypt so a salesperson holding a signed cookie can't cheaply guess the setting it came
+  // from (it may be the admin password); the salt keeps it apart from the admin and portal keys.
+  return base ? deriveKey(base, "aqararena:sales-session") : undefined;
 }
 
 export async function startSalesSession(account: { id: string; sessionVersion: number }) {
@@ -59,12 +54,9 @@ export async function currentSalesAccount(): Promise<SalesUser | null> {
   const key = secret();
   const token = (await cookies()).get(SALES_COOKIE)?.value;
   if (!key || !token) return null;
-  const parts = readToken(token, key, 3);
-  if (!parts) return null;
-  const [id, expires, version] = parts;
-  if (!/^\d+$/.test(expires) || !/^\d+$/.test(version)) return null;
-  const until = Number(expires);
-  if (!Number.isFinite(until) || until < Date.now()) return null;
+  const session = readSessionToken(token, key);
+  if (!session) return null;
+  const { id, version } = session;
   const account = await db.salesAccount.findUnique({
     where: { id },
     select: {
@@ -82,7 +74,7 @@ export async function currentSalesAccount(): Promise<SalesUser | null> {
       developer: { select: { id: true, nameAr: true, nameEn: true, slug: true } },
     },
   });
-  if (!account || account.status !== "ACTIVE" || account.sessionVersion !== Number(version)) return null;
+  if (!account || account.status !== "ACTIVE" || account.sessionVersion !== version) return null;
   const { status: _s, sessionVersion: _v, ...user } = account;
   void _s;
   void _v;

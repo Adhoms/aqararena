@@ -1,20 +1,15 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
-import { MIN_PASSWORD, hashPassword, normalizeUsername, verifyPassword } from "@/lib/portal/password";
+import { MIN_PASSWORD, UNMATCHABLE_HASH, hashPassword, normalizeUsername, verifyPassword } from "@/lib/portal/password";
 import { readSalesPerson } from "@/lib/sales/fields";
 import { endSalesSession, requireSales, startSalesSession } from "@/lib/sales/session";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 
 const slow = () => new Promise((r) => setTimeout(r, 800));
-
-// A real scrypt hash of a random password, so unknown usernames take as long as wrong passwords.
-let dummyHash: Promise<string> | undefined;
-const dummy = () => (dummyHash ??= hashPassword(randomBytes(18).toString("base64url")));
 
 export async function salesLogin(_: FormState, data: FormData): Promise<FormState> {
   const username = normalizeUsername(String(data.get("username") ?? ""));
@@ -24,7 +19,7 @@ export async function salesLogin(_: FormState, data: FormData): Promise<FormStat
   const wait = await lockedMinutes(keys);
   if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = username ? await db.salesAccount.findUnique({ where: { username } }) : null;
-  const matches = await verifyPassword(password, account?.passwordHash ?? (await dummy()));
+  const matches = await verifyPassword(password, account?.passwordHash ?? UNMATCHABLE_HASH);
   if (!account || !matches) {
     await slow();
     await recordFailure(keys);

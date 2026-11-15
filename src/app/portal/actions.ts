@@ -6,7 +6,7 @@ import { notifyAdmin } from "@/lib/email";
 import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { deleteIfUnused } from "@/lib/admin/blob";
-import { hashPassword, MIN_PASSWORD, normalizeUsername, verifyPassword } from "@/lib/portal/password";
+import { hashPassword, MIN_PASSWORD, normalizeUsername, UNMATCHABLE_HASH, verifyPassword } from "@/lib/portal/password";
 import { endPortalSession, requireAccount, startPortalSession } from "@/lib/portal/session";
 import { emptyProjectDraft, type DraftErrors } from "@/lib/portal/draft-types";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
@@ -32,12 +32,15 @@ export async function portalLogin(_: FormState, data: FormData): Promise<FormSta
   const wait = await lockedMinutes(keys);
   if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = username ? await db.developerAccount.findUnique({ where: { username } }) : null;
-  if (!account || !(await verifyPassword(password, account.passwordHash))) {
+  // Unknown usernames are checked against a hash no password matches, so they take as long as wrong passwords.
+  const matches = await verifyPassword(password, account?.passwordHash ?? UNMATCHABLE_HASH);
+  if (!account || !matches) {
     await slow();
     await recordFailure(keys);
     return { ok: false, message: "اسم المستخدم أو كلمة المرور غير صحيحة" };
   }
-  await clearFailures(keys);
+  // Only the account counter is cleared; the address counter keeps counting so one login cannot reset it.
+  await clearFailures(keys.filter((k) => k.startsWith("portal-user:")));
   if (account.status === "PENDING") return { ok: false, message: "طلبك لسه قيد المراجعة. هنبلغك أول ما الحساب يتفعّل." };
   if (account.status === "DISABLED" || !account.developerId) return { ok: false, message: "الحساب ده موقوف. تواصل معانا." };
   await db.developerAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
@@ -110,11 +113,18 @@ export async function requestAccount(_: FormState, data: FormData): Promise<Form
 
 export async function changePassword(_: FormState, data: FormData): Promise<FormState> {
   const me = await requireAccount({ allowTemporaryPassword: true });
+  // A stolen session can't be used to guess the current password without limit.
+  const keys = [`portal-pw:${me.id}`];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = await db.developerAccount.findUniqueOrThrow({ where: { id: me.id } });
   const current = String(data.get("current") ?? "");
   const next = String(data.get("password") ?? "");
   const errors: Record<string, string> = {};
-  if (!(await verifyPassword(current, account.passwordHash))) errors.current = "كلمة المرور الحالية غير صحيحة";
+  if (!(await verifyPassword(current, account.passwordHash))) {
+    errors.current = "كلمة المرور الحالية غير صحيحة";
+    await recordFailure(keys);
+  }
   if (next.length < MIN_PASSWORD) errors.password = `${MIN_PASSWORD} حروف على الأقل`;
   else if (next === current) errors.password = "اختار كلمة مرور جديدة";
   if (next !== String(data.get("confirm") ?? "")) errors.confirm = "كلمتين المرور مش زي بعض";
@@ -126,6 +136,7 @@ export async function changePassword(_: FormState, data: FormData): Promise<Form
     where: { id: account.id },
     data: { passwordHash: await hashPassword(next), mustChangePassword: false, sessionVersion: { increment: 1 } },
   });
+  await clearFailures(keys);
   await startPortalSession(updated);
   redirect("/portal?password=1");
 }

@@ -1,9 +1,9 @@
 import "server-only";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { db } from "@/lib/db";
+import { deriveKey, readSessionToken, signToken } from "@/lib/session-token";
 import { PORTAL_COOKIE } from "./cookie";
 
 // A signed cookie holding the account id, an expiry and the account's session version.
@@ -13,24 +13,16 @@ const SESSION_DAYS = 14;
 
 function secret(): string | undefined {
   const base = process.env.PORTAL_SESSION_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
-  // A separate key from the admin cookie, even when both come from the same setting.
-  return base ? `portal:${base}` : undefined;
-}
-
-const sign = (value: string, key: string) => createHmac("sha256", key).update(value).digest("base64url");
-
-function safeEqual(a: string, b: string) {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
+  // Derived with scrypt so a developer holding a signed cookie can't cheaply guess the setting it came
+  // from (it may be the admin password); the salt keeps it apart from the admin and sales keys.
+  return base ? deriveKey(base, "aqararena:portal-session") : undefined;
 }
 
 export async function startPortalSession(account: { id: string; sessionVersion: number }) {
   const key = secret();
   if (!key) throw new Error("Set PORTAL_SESSION_SECRET (or ADMIN_PASSWORD) to use the developer portal.");
   const expires = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
-  const value = `${account.id}.${expires}.${account.sessionVersion}`;
-  (await cookies()).set(PORTAL_COOKIE, `${value}.${sign(value, key)}`, {
+  (await cookies()).set(PORTAL_COOKIE, signToken([account.id, String(expires), String(account.sessionVersion)], key), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -57,9 +49,9 @@ export async function currentAccount(): Promise<PortalAccount | null> {
   const key = secret();
   const token = (await cookies()).get(PORTAL_COOKIE)?.value;
   if (!key || !token) return null;
-  const [id, expires, version, signature] = token.split(".");
-  if (!id || !expires || !version || !signature) return null;
-  if (!safeEqual(signature, sign(`${id}.${expires}.${version}`, key)) || Number(expires) < Date.now()) return null;
+  const session = readSessionToken(token, key);
+  if (!session) return null;
+  const { id, version } = session;
 
   const account = await db.developerAccount.findUnique({
     where: { id },
@@ -73,7 +65,7 @@ export async function currentAccount(): Promise<PortalAccount | null> {
       developer: { select: { id: true, nameAr: true, nameEn: true, slug: true } },
     },
   });
-  if (!account || account.status !== "ACTIVE" || !account.developer || account.sessionVersion !== Number(version)) return null;
+  if (!account || account.status !== "ACTIVE" || !account.developer || account.sessionVersion !== version) return null;
   return { ...account, developerId: account.developer.id, developer: account.developer };
 }
 

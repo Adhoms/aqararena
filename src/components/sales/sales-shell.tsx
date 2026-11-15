@@ -15,13 +15,13 @@ const brand = (
 export function SalesShell({ me, title, children, actions }: { me: SalesUser; title: ReactNode; children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur">
+      <header className="sm:sticky sm:top-0 z-20 border-b border-line bg-ground/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
           <Link href="/sales" className="no-underline">
             {brand}
           </Link>
           <span className="admin-badge">{me.developer.nameAr}</span>
-          <nav aria-label="AqarArena Sales" className="flex flex-wrap gap-4 text-sm">
+          <nav aria-label="قائمة المبيعات" className="flex flex-wrap gap-4 text-sm">
             <Link href="/sales">المشروعات</Link>
             <Link href="/sales/me">ملفي</Link>
           </nav>
@@ -54,7 +54,7 @@ export function SalesCard({ title, subtitle, children }: { title: string; subtit
     <main className="flex min-h-screen items-center justify-center p-4">
       <div className="admin-panel flex w-full max-w-sm flex-col gap-5">
         <div className="flex flex-col gap-2">
-          {brand}
+          <span className="self-start">{brand}</span>
           <h1 className="font-display text-2xl font-light">{title}</h1>
           {subtitle && <p className="text-sm text-muted">{subtitle}</p>}
         </div>

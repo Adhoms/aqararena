@@ -11,7 +11,7 @@ const alexandria = Alexandria({ variable: "--font-alexandria", subsets: ["arabic
 export const instant = false;
 
 export const metadata: Metadata = {
-  title: "AqarArena Sales",
+  title: { default: "AqarArena Sales", template: "%s | AqarArena Sales" },
   robots: { index: false, follow: false },
 };
 

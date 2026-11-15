@@ -26,6 +26,7 @@ export function TextField({
   dir,
   placeholder,
   step,
+  autoComplete,
   ...rest
 }: Common & {
   type?: "text" | "number" | "url" | "email" | "tel" | "date" | "password";
@@ -34,6 +35,7 @@ export function TextField({
   dir?: "ltr" | "rtl";
   placeholder?: string;
   step?: string;
+  autoComplete?: string;
 }) {
   return (
     <Wrap {...rest}>
@@ -48,6 +50,7 @@ export function TextField({
         dir={dir ?? (["url", "email", "tel", "number", "date"].includes(type) ? "ltr" : undefined)}
         placeholder={placeholder}
         step={step}
+        autoComplete={autoComplete}
         className="admin-input"
       />
     </Wrap>

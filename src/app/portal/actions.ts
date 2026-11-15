@@ -92,6 +92,11 @@ export async function requestAccount(_: FormState, data: FormData): Promise<Form
   if (password !== String(data.get("confirm") ?? "")) f.errors.confirm = "كلمتين المرور مش زي بعض";
   if (values.email && !/^\S+@\S+\.\S+$/.test(values.email)) f.errors.email = "بريد إلكتروني غير صالح";
   if (!f.ok || !username) return f.result();
+  // A few requests per address: stops request spam and slows down checking which usernames exist.
+  const keys = [`register-ip:${await clientIp()}`];
+  const wait = await lockedMinutes(keys);
+  if (wait) return { ok: false, message: lockedMessage(wait) };
+  await recordFailure(keys);
   if (await db.developerAccount.findUnique({ where: { username }, select: { id: true } })) {
     return { ok: false, message: "اسم المستخدم ده مستخدم", errors: { username: "اختار اسم تاني" } };
   }

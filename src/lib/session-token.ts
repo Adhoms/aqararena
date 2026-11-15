@@ -47,7 +47,7 @@ export function readSessionToken(token: string, key: string, now = Date.now()): 
   const parts = readToken(token, key, 3);
   if (!parts) return null;
   const [id, expires, version] = parts;
-  if (!id || !/^\d{1,16}$/.test(expires) || !/^\d{1,9}$/.test(version)) return null;
+  if (!id || !/^\d{1,16}$/.test(expires) || !/^\d{1,10}$/.test(version)) return null;
   if (Number(expires) < now) return null;
   return { id, version: Number(version) };
 }

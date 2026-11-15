@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { scryptSync } from "node:crypto";
 import { test } from "node:test";
 import { deriveKey, readSessionToken, readToken, signToken } from "./session-token";
 
@@ -41,4 +42,9 @@ test("derived keys differ per salt and are stable", () => {
   assert.equal(deriveKey("secret", "a"), deriveKey("secret", "a"));
   assert.notEqual(deriveKey("secret", "a"), deriveKey("secret", "b"));
   assert.notEqual(deriveKey("secret", "a"), "secret");
+});
+
+test("the sales key is derived exactly as before, so existing sales sessions stay valid", () => {
+  const expected = scryptSync("secret", "aqararena:sales-session", 32, { N: 16384, r: 8, p: 1 }).toString("base64url");
+  assert.equal(deriveKey("secret", "aqararena:sales-session"), expected);
 });

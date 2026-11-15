@@ -80,3 +80,12 @@ test("an empty nameEn reads as null", () => {
   assert.equal(readSalesPerson(f).nameEn, null);
   assert.equal(f.ok, true);
 });
+
+test("invisible direction marks around a phone number are ignored", () => {
+  const a = form({ nameAr: "منى", phone: "\u202A+20 100 123 4567\u202C" });
+  assert.equal(readSalesPerson(a).phone, "+20 100 123 4567");
+  assert.equal(a.ok, true);
+  const b = form({ nameAr: "منى", phone: "\u200E01001234567" });
+  assert.equal(readSalesPerson(b).phone, "01001234567");
+  assert.equal(b.ok, true);
+});

@@ -1,8 +1,9 @@
+import { SITE_URL } from "@/lib/site";
 import { db } from "@/lib/db";
 import { requireAccount } from "@/lib/portal/session";
 import { ROLE_LABELS, SALES_ROLES } from "@/lib/sales/fields";
 import { PortalShell } from "@/components/portal/portal-shell";
-import { AdminForm } from "@/components/admin/admin-form";
+import { AdminForm, ConfirmForm } from "@/components/admin/admin-form";
 import { Panel, Row, Select, TextField } from "@/components/admin/fields";
 import { createSalesAccount, resetSalesPassword, setSalesStatus, updateSalesAccount } from "../team-actions";
 
@@ -15,14 +16,14 @@ function PersonFields({ m }: { m?: Member }) {
   return (
     <>
       <Row cols={3}>
-        <TextField name="nameAr" label="الاسم بالعربي *" defaultValue={m?.nameAr} autoComplete="name" />
-        <TextField name="nameEn" label="الاسم بالإنجليزي" defaultValue={m?.nameEn} dir="ltr" autoComplete="name" />
+        <TextField name="nameAr" label="الاسم بالعربي *" defaultValue={m?.nameAr} autoComplete="off" />
+        <TextField name="nameEn" label="الاسم بالإنجليزي" defaultValue={m?.nameEn} dir="ltr" autoComplete="off" />
         <Select name="role" label="الدور *" defaultValue={m?.role ?? "AGENT"} options={roleOptions} />
       </Row>
       <Row cols={3}>
-        <TextField name="phone" label="الموبايل *" type="tel" defaultValue={m?.phone} dir="ltr" autoComplete="tel" />
+        <TextField name="phone" label="الموبايل *" type="tel" defaultValue={m?.phone} dir="ltr" autoComplete="off" />
         <TextField name="whatsapp" label="واتساب" type="tel" defaultValue={m?.whatsapp} dir="ltr" autoComplete="off" />
-        <TextField name="email" label="البريد الإلكتروني" type="email" defaultValue={m?.email} dir="ltr" autoComplete="email" />
+        <TextField name="email" label="البريد الإلكتروني" type="email" defaultValue={m?.email} dir="ltr" autoComplete="off" />
       </Row>
     </>
   );
@@ -37,13 +38,13 @@ export default async function PortalTeamPage() {
       <section className="admin-panel flex flex-col gap-2 text-sm">
         <p className="font-medium">AqarArena Sales</p>
         <p className="text-muted">
-          كل سيلز بيدخل من <span dir="ltr">aqararena.com/sales</span> باسم مستخدم وكلمة مرور خاصين بيه، وبيشوف مشروعات شركتك بس. «قائد الفريق» بيشوف شغل الفريق كله. الاسم والأرقام هنا بتظهر على عروض الأسعار اللي السيلز بيبعتها.
+          كل سيلز بيدخل من <span dir="ltr">{SITE_URL.replace(/^https?:\/\//, "")}/sales</span> باسم مستخدم وكلمة مرور خاصين بيه، وبيشوف مشروعات شركتك بس. «قائد الفريق» بيشوف شغل الفريق كله. الاسم والأرقام هنا بتظهر على عروض الأسعار اللي السيلز بيبعتها.
         </p>
       </section>
 
       <Panel title={`الفريق (${team.length.toLocaleString("ar-EG")})`}>
         <div className="flex flex-col gap-3">
-          {team.length === 0 && <p className="text-sm text-muted">لسه مفيش حد. ضيف أول عضو تحت.</p>}
+          {team.length === 0 && <p className="text-sm text-muted">لسه مفيش حد. ضيف أول عضو من الفورم اللي تحت.</p>}
           {team.map((m) => (
             <details key={m.id} className="admin-item">
               <summary>
@@ -64,30 +65,28 @@ export default async function PortalTeamPage() {
                 <PersonFields m={m} />
               </AdminForm>
               <div className="mt-4 flex flex-wrap items-start gap-3 border-t border-divider pt-4">
-                <AdminForm action={resetSalesPassword} submitLabel="كلمة مرور مؤقتة جديدة">
+                <AdminForm action={resetSalesPassword} submitLabel="كلمة مرور مؤقتة جديدة" secret confirmText="كلمة المرور الحالية هتتلغي والسيلز هيخرج من كل الأجهزة. نكمل؟">
                   <input type="hidden" name="id" value={m.id} />
                 </AdminForm>
-                <form action={setSalesStatus}>
-                  <input type="hidden" name="id" value={m.id} />
-                  <input type="hidden" name="status" value={m.status === "ACTIVE" ? "DISABLED" : "ACTIVE"} />
-                  <button type="submit" className={m.status === "ACTIVE" ? "admin-btn-danger" : "admin-btn-ghost"}>
-                    {m.status === "ACTIVE" ? "إيقاف الحساب" : "تفعيل الحساب"}
-                  </button>
-                </form>
+                <ConfirmForm
+                  action={setSalesStatus}
+                  fields={{ id: m.id, status: m.status === "ACTIVE" ? "DISABLED" : "ACTIVE" }}
+                  confirmText={m.status === "ACTIVE" ? "هتوقف الحساب والسيلز هيخرج من كل الأجهزة. نكمل؟" : undefined}
+                  label={m.status === "ACTIVE" ? "إيقاف الحساب" : "تفعيل الحساب"}
+                  className={m.status === "ACTIVE" ? "admin-btn-danger" : "admin-btn-ghost"}
+                />
               </div>
             </details>
           ))}
-          <details className="admin-item border-dashed" open={team.length === 0}>
-            <summary>
-              <span className="font-medium text-link">+ إضافة عضو للفريق</span>
-            </summary>
-            <AdminForm action={createSalesAccount} submitLabel="إضافة" resetOnSuccess>
-              <TextField name="username" label="اسم المستخدم *" dir="ltr" autoComplete="off" hint="حروف إنجليزية صغيرة وأرقام، مثلًا ahmed.ali" />
-              <PersonFields />
-              <p className="text-xs text-muted">هتظهرلك كلمة مرور مؤقتة مرة واحدة. ابعتها للسيلز، وهو هيختار كلمة مرور جديدة أول ما يدخل.</p>
-            </AdminForm>
-          </details>
         </div>
+      </Panel>
+
+      <Panel title="إضافة عضو للفريق">
+        <AdminForm action={createSalesAccount} submitLabel="إضافة" resetOnSuccess secret>
+          <TextField name="username" label="اسم المستخدم *" dir="ltr" autoComplete="off" autoCapitalize="none" spellCheck={false} hint="حروف إنجليزية صغيرة وأرقام، مثلًا ahmed.ali" />
+          <PersonFields />
+          <p className="text-xs text-muted">هتظهرلك كلمة مرور مؤقتة مرة واحدة. ابعتها للسيلز، وهو هيختار كلمة مرور جديدة أول ما يدخل.</p>
+        </AdminForm>
       </Panel>
     </PortalShell>
   );

@@ -1,11 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { generatePassword, hashPassword, normalizeUsername } from "@/lib/portal/password";
 import { requireAccount } from "@/lib/portal/session";
+import { SITE_URL } from "@/lib/site";
 import { readSalesPerson, readSalesRole } from "@/lib/sales/fields";
 
 // The developer's portal account manages its own sales team. Temporary passwords are shown once,
@@ -35,9 +37,11 @@ export async function createSalesAccount(_: FormState, data: FormData): Promise<
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return TAKEN;
     throw e;
   }
+  revalidatePath("/portal/team");
   return {
     ok: true,
-    message: `اتعمل الحساب ✓ اسم المستخدم: ${username} · كلمة المرور المؤقتة: ${password} (انسخها دلوقتي، مش هتظهر تاني). الدخول من aqararena.com/sales`,
+    message: `اتعمل الحساب ✓ اسم المستخدم: ${username}. انسخ كلمة المرور المؤقتة دلوقتي، مش هتظهر تاني. الدخول من ${SITE_URL}/sales`,
+    secret: password,
   };
 }
 
@@ -49,6 +53,7 @@ export async function updateSalesAccount(_: FormState, data: FormData): Promise<
   const values = { ...readSalesPerson(f), role: readSalesRole(f) };
   if (!f.ok) return f.result();
   await db.salesAccount.update({ where: { id: member.id }, data: values });
+  revalidatePath("/portal/team");
   return { ok: true, message: "اتحفظ ✓" };
 }
 
@@ -61,7 +66,8 @@ export async function resetSalesPassword(_: FormState, data: FormData): Promise<
     where: { id: member.id },
     data: { passwordHash: await hashPassword(password), mustChangePassword: true, sessionVersion: { increment: 1 } },
   });
-  return { ok: true, message: `كلمة المرور المؤقتة لـ ${member.username}: ${password} (انسخها دلوقتي، مش هتظهر تاني)` };
+  revalidatePath("/portal/team");
+  return { ok: true, message: `كلمة المرور المؤقتة لـ ${member.username}: انسخها دلوقتي، مش هتظهر تاني.`, secret: password };
 }
 
 export async function setSalesStatus(data: FormData) {
@@ -70,5 +76,6 @@ export async function setSalesStatus(data: FormData) {
   if (!member) notFound();
   const status = data.get("status") === "ACTIVE" ? "ACTIVE" : "DISABLED";
   await db.salesAccount.update({ where: { id: member.id }, data: { status, sessionVersion: { increment: 1 } } });
+  revalidatePath("/portal/team");
   redirect("/portal/team");
 }

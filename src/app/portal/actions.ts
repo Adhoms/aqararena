@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { deleteIfUnused } from "@/lib/admin/blob";
 import { hashPassword, MIN_PASSWORD, normalizeUsername, UNMATCHABLE_HASH, verifyPassword } from "@/lib/portal/password";
-import { endPortalSession, requireAccount, startPortalSession } from "@/lib/portal/session";
+import { requireAccount, startPortalSession } from "@/lib/portal/session";
 import { emptyProjectDraft, type DraftErrors } from "@/lib/portal/draft-types";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import {
@@ -66,11 +66,6 @@ export async function requestPasswordReset(_: FormState, data: FormData): Promis
     after(() => notifyAdmin(`طلب كلمة مرور جديدة: ${username} · AqarArena`, [`اسم المستخدم: ${username}`, `الموبايل اللي كتبه: ${phone}`, "", "اتأكد من الرقم وطلّع كلمة مرور مؤقتة من لوحة التحكم ← الحسابات."]));
   }
   return { ok: true, message: "وصلنا طلبك ✓ هنتأكد من البيانات ونتواصل معاك على رقمك بكلمة مرور مؤقتة." };
-}
-
-export async function portalLogout() {
-  await endPortalSession();
-  redirect("/portal/login");
 }
 
 export async function requestAccount(_: FormState, data: FormData): Promise<FormState> {

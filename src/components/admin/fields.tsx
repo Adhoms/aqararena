@@ -27,6 +27,8 @@ export function TextField({
   placeholder,
   step,
   autoComplete,
+  autoCapitalize,
+  spellCheck,
   ...rest
 }: Common & {
   type?: "text" | "number" | "url" | "email" | "tel" | "date" | "password";
@@ -36,6 +38,8 @@ export function TextField({
   placeholder?: string;
   step?: string;
   autoComplete?: string;
+  autoCapitalize?: "none" | "off" | "sentences" | "words" | "characters";
+  spellCheck?: boolean;
 }) {
   return (
     <Wrap {...rest}>
@@ -51,6 +55,8 @@ export function TextField({
         placeholder={placeholder}
         step={step}
         autoComplete={autoComplete}
+        autoCapitalize={autoCapitalize}
+        spellCheck={spellCheck}
         className="admin-input"
       />
     </Wrap>

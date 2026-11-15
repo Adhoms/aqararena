@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { portalLogout } from "@/app/portal/actions";
 
 /** Header and frame for every signed-in portal page. */
 export function PortalShell({
@@ -35,7 +34,8 @@ export function PortalShell({
               الموقع ↗
             </a>
           </nav>
-          <form action={portalLogout} className="ms-auto">
+          {/* A plain POST to a route: the browser does a full page load, so no client state outlives the session. */}
+          <form action="/portal/logout" method="post" className="ms-auto">
             <button type="submit" className="admin-btn-ghost">
               خروج
             </button>

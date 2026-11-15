@@ -14,7 +14,7 @@ export function proxy(request: NextRequest) {
   // The admin area has no locale. Without a session cookie, go straight to the sign-in page
   // (the pages and actions still verify the cookie themselves).
   if (firstSegment === "admin") {
-    if (pathname !== "/admin/login" && !request.cookies.has(SESSION_COOKIE)) {
+    if (pathname !== "/admin/login" && pathname !== "/admin/logout" && !request.cookies.has(SESSION_COOKIE)) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }
     return;

@@ -144,7 +144,7 @@ export async function createAccount(_: FormState, data: FormData): Promise<FormS
   await db.developerAccount.create({
     data: { username, developerId, status: "ACTIVE", mustChangePassword: true, passwordHash: await hashPassword(password) },
   });
-  return { ok: true, message: `اتعمل الحساب ✓ اسم المستخدم: ${username} · كلمة المرور المؤقتة: ${password} (انسخها دلوقتي، مش هتظهر تاني. المطور هيغيّرها أول ما يدخل)` };
+  return { ok: true, message: `اتعمل الحساب ✓ اسم المستخدم: ${username}. انسخ كلمة المرور المؤقتة دلوقتي، مش هتظهر تاني. المطور هيغيّرها أول ما يدخل.`, secret: password };
 }
 
 export async function resetPassword(_: FormState, data: FormData): Promise<FormState> {
@@ -155,7 +155,7 @@ export async function resetPassword(_: FormState, data: FormData): Promise<FormS
     where: { id },
     data: { passwordHash: await hashPassword(password), mustChangePassword: true, sessionVersion: { increment: 1 }, resetRequestedAt: null },
   });
-  return { ok: true, message: `كلمة المرور المؤقتة لـ ${account.username}: ${password} (انسخها دلوقتي)` };
+  return { ok: true, message: `كلمة المرور المؤقتة لـ ${account.username}: انسخها دلوقتي، مش هتظهر تاني.`, secret: password };
 }
 
 export async function setAccountStatus(data: FormData) {

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { CATALOG_TAG } from "@/lib/catalog";
-import { endSession, passwordMatches, requireAdmin, startSession } from "@/lib/admin/auth";
+import { passwordMatches, requireAdmin, startSession } from "@/lib/admin/auth";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { deleteIfUnused } from "@/lib/admin/blob";
@@ -50,11 +50,6 @@ export async function login(_: FormState, data: FormData): Promise<FormState> {
   await clearFailures(keys);
   await startSession();
   redirect("/admin");
-}
-
-export async function logout() {
-  await endSession();
-  redirect("/admin/login");
 }
 
 // ─── Developers ─────────────────────────────────────────────────────────

@@ -2,4 +2,4 @@
 export const SALES_COOKIE = "aqar_sales";
 
 /** /sales pages anyone can open without signing in. */
-export const SALES_PUBLIC_PATHS = ["/sales/login"];
+export const SALES_PUBLIC_PATHS = ["/sales/login", "/sales/logout"];

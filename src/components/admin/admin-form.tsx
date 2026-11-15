@@ -41,12 +41,22 @@ function FormBody({
   const [state, dispatch, pending] = useActionState(action, {});
   const [copied, setCopied] = useState(false);
 
-  // Runs when Activity hides the page (and on unmount): drop the form's state.
-  useLayoutEffect(() => {
-    if (!onHide) return;
-    return () => onHide();
+  // Once a secret has been shown, drop the form's state when Activity hides the page (or on unmount).
+  // Not before: StrictMode runs effect cleanups on mount in development, which would loop.
+  const shown = useRef(false);
+  useEffect(() => {
+    if (state.secret) shown.current = true;
+  }, [state.secret]);
+  useLayoutEffect(
+    () => () => {
+      if (shown.current) {
+        shown.current = false;
+        onHide?.();
+      }
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    [],
+  );
   const ref = useRef<HTMLFormElement>(null);
 
   // Mark invalid fields and show their messages.
@@ -123,21 +133,7 @@ export function DeleteButton({
   confirmText?: string;
   label?: string;
 }) {
-  return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        if (!window.confirm(confirmText)) e.preventDefault();
-      }}
-    >
-      {Object.entries(fields).map(([k, v]) => (
-        <input key={k} type="hidden" name={k} value={v} />
-      ))}
-      <button type="submit" className="admin-btn-danger">
-        {label}
-      </button>
-    </form>
-  );
+  return <ConfirmForm action={action} fields={fields} confirmText={confirmText} label={label} className="admin-btn-danger" />;
 }
 
 /** A small form for a status toggle; asks first when `confirmText` is set. */

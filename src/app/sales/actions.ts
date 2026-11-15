@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { MIN_PASSWORD, UNMATCHABLE_HASH, hashPassword, normalizeUsername, verifyPassword } from "@/lib/portal/password";
 import { readSalesPerson } from "@/lib/sales/fields";
-import { endSalesSession, requireSales, startSalesSession } from "@/lib/sales/session";
+import { requireSales, startSalesSession } from "@/lib/sales/session";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 
 const slow = () => new Promise((r) => setTimeout(r, 800));
@@ -31,11 +31,6 @@ export async function salesLogin(_: FormState, data: FormData): Promise<FormStat
   await startSalesSession(account);
   await db.salesAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
   redirect(account.mustChangePassword ? "/sales/password" : "/sales");
-}
-
-export async function salesLogout() {
-  await endSalesSession();
-  redirect("/sales/login");
 }
 
 export async function changeSalesPassword(_: FormState, data: FormData): Promise<FormState> {

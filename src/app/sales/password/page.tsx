@@ -4,7 +4,7 @@ import { AdminForm } from "@/components/admin/admin-form";
 import { TextField } from "@/components/admin/fields";
 import { SalesCard } from "@/components/sales/sales-shell";
 import { requireSales } from "@/lib/sales/session";
-import { changeSalesPassword, salesLogout } from "../actions";
+import { changeSalesPassword } from "../actions";
 
 export const metadata: Metadata = { title: "كلمة المرور" };
 
@@ -29,7 +29,7 @@ export default async function SalesPasswordPage() {
         <TextField name="confirm" type="password" label="تأكيد كلمة المرور الجديدة" autoComplete="new-password" required />
       </AdminForm>
       {me.mustChangePassword ? (
-        <form action={salesLogout}>
+        <form action="/sales/logout" method="post">
           <button type="submit" className="admin-btn-ghost">
             خروج
           </button>

@@ -16,7 +16,7 @@ const egp = (v: { toString(): string } | null) => (v ? `${Number(v).toLocaleStri
 const dec = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? undefined : v.toString());
 
 // A developer's units for one project: status, price, building and floor. Changes here go live
-// on the site at once (within the rules in app/portal/unit-actions.ts).
+// to the sales team at once (within the rules in app/portal/unit-actions.ts).
 export default async function PortalUnitsPage({ params, searchParams }: PageProps<"/portal/projects/[id]/units">) {
   const me = await requireAccount();
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -64,18 +64,13 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
   return (
     <PortalShell company={me.developer.nameAr} title={`المخزون: ${project.nameAr}`} back>
       <section className="admin-panel flex flex-col gap-2 text-sm">
-        <p className="font-medium">التعديلات هنا بتظهر على الموقع على طول</p>
+        <p className="font-medium">التعديلات هنا بتوصل لفريق مبيعاتك على طول</p>
         <p className="text-muted">
-          الزوار بيشوفوا كل وحدة بحالتها (متاحة / محجوزة / مباعة) في صفحة المشروع. حدّث الحالة أول ما وحدة تتباع أو تتحجز. سعر الوحدة مايقدرش يقل عن سعر «يبدأ من» للنموذج، ولتغيير النماذج نفسها أو أسعارها افتح «تعديل» المشروع من الصفحة الرئيسية.
+          حالة الوحدات (متاحة / محجوزة / مباعة) بتظهر لفريق مبيعاتك في AqarArena Sales، مش للزوار على الموقع. حدّث الحالة أول ما وحدة تتباع أو تتحجز. سعر الوحدة مايقدرش يقل عن سعر «يبدأ من» للنموذج، ولتغيير النماذج نفسها أو أسعارها افتح «تعديل» المشروع من الصفحة الرئيسية.
         </p>
         <p>
           متاحة <b>{count("AVAILABLE").toLocaleString("ar-EG")}</b> · محجوزة <b>{count("RESERVED").toLocaleString("ar-EG")}</b> · مباعة{" "}
           <b>{count("SOLD").toLocaleString("ar-EG")}</b>
-          {project.published && (
-            <a href={`/ar/projects/${project.slug}#inventory`} target="_blank" rel="noreferrer" className="ms-3">
-              شوفها على الموقع ↗
-            </a>
-          )}
         </p>
       </section>
 

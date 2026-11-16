@@ -4,6 +4,11 @@
 export const STAT_EVENTS = ["VIEW", "FAVORITE", "COMPARE", "OFFER", "CALL", "WHATSAPP", "WEBSITE", "EMAIL", "BROCHURE", "SHARE"] as const;
 export type StatEvent = (typeof STAT_EVENTS)[number];
 
+/** Events the public site no longer records (offer sheets and WhatsApp shares moved to Sales); hidden from the stats screens. */
+export const RETIRED_STAT_EVENTS: StatEvent[] = ["OFFER", "SHARE"];
+/** What the stats screens list. */
+export const SHOWN_STAT_EVENTS = STAT_EVENTS.filter((e) => !RETIRED_STAT_EVENTS.includes(e));
+
 export const isStatEvent = (v: unknown): v is StatEvent => typeof v === "string" && (STAT_EVENTS as readonly string[]).includes(v);
 
 /** Arabic names for the admin and the developer portal. */

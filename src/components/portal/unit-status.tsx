@@ -9,7 +9,7 @@ const STATUSES = [
   ["SOLD", "مباعة"],
 ] as const;
 
-/** Changes a unit's status from the table; the change is live on the site right away. */
+/** Changes a unit's status from the table; the sales team sees the change right away. */
 export function UnitStatusSelect({ unitId, value, label }: { unitId: string; value: string; label: string }) {
   const [current, setCurrent] = useState(value);
   const [note, setNote] = useState("");

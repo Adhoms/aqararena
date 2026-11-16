@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { finishingsOf, isAmenity, isAreaSlug, isSubType, type AreaSlug } from "@/lib/property";
-import type { Developer, Project, ProjectUnits, Text } from "./types";
+import type { Developer, Project, Text } from "./types";
 import { needsUnitMatch, type ProjectFilters } from "./filters";
 
 // Reads developers and projects from PostgreSQL and turns the rows into the plain
@@ -24,7 +24,6 @@ const projectInclude = {
   distances: { orderBy: { sortOrder: "asc" } },
   media: { where: { kind: { in: ["IMAGE", "BROCHURE", "MASTER_PLAN", "FLOOR_PLAN_2D", "LAYOUT_SKETCH"] } }, orderBy: { sortOrder: "asc" } },
   // Project-wide average only; the rows per unit type are kept for later.
-  priceHistory: { where: { typologyId: null }, orderBy: { recordedAt: "asc" } },
 } satisfies Prisma.ProjectInclude;
 
 type ProjectRow = Prisma.ProjectGetPayload<{ include: typeof projectInclude }>;
@@ -128,7 +127,6 @@ function toProject(p: ProjectRow): Project {
     distances: p.distances.map((d) => ({ place: text(d.placeAr, d.placeEn), minutes: d.minutes })),
     isFeatured: p.isFeatured,
     pricesUpdated: p.pricesUpdatedAt?.toISOString().slice(0, 10),
-    priceHistory: p.priceHistory.map((h) => ({ date: h.recordedAt.toISOString().slice(0, 10), perM2: Number(h.pricePerM2) })),
   };
 }
 
@@ -158,30 +156,6 @@ export async function dbProject(slug: string): Promise<Project | undefined> {
   const row = await db.project.findFirst({ where: { slug, published: true }, include: projectInclude });
   const project = row ? toProject(row) : undefined;
   return project && showable(project) ? project : undefined;
-}
-
-/** Every unit of a published project, with the date of the newest change. */
-export async function dbProjectUnits(slug: string): Promise<ProjectUnits> {
-  const rows = await db.unit.findMany({
-    where: { typology: { priceFrom: { not: null }, project: { slug, published: true } } },
-    include: { typology: { select: { code: true } } },
-    orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }],
-  });
-  const newest = rows.reduce<Date | undefined>((latest, u) => (!latest || u.updatedAt > latest ? u.updatedAt : latest), undefined);
-  return {
-    units: rows.map((u) => ({
-      id: u.id,
-      typologyCode: u.typology.code,
-      building: u.building ?? undefined,
-      floor: u.floor ?? undefined,
-      number: u.unitNumber ?? undefined,
-      orientation: u.orientation ?? undefined,
-      view: u.view ?? undefined,
-      price: num(u.price),
-      availability: u.availability,
-    })),
-    updated: newest?.toISOString().slice(0, 10),
-  };
 }
 
 /** Turns the visitor's filters into a database query. Sorting by price happens after loading. */

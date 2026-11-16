@@ -27,8 +27,6 @@ type Labels = {
   split: string;
   parts: { down: string; installments: string; delivery: string; maintenance: string };
   note: string;
-  /** Link text for the printable offer sheet of the current choice. */
-  offer: string;
   frequencyPer: Record<InstallmentFrequency, string>;
   /** Plan names in the page's language, in the same order as `plans`. */
   planNames: string[];
@@ -40,8 +38,6 @@ type Props = {
   maintenancePct?: number;
   locale: Locale;
   labels: Labels;
-  /** The project's offer page; the chosen unit and plan are added to it. */
-  offerHref: string;
 };
 
 /** The four parts of what a buyer pays, in the order they are paid. */
@@ -53,7 +49,7 @@ const PART_STYLES = {
 } as const;
 
 /** Every pound a buyer pays for one unit type on one plan: at contract, per installment, at handover, in total. */
-export function PaymentCalculator({ units, plans, maintenancePct, locale, labels, offerHref }: Props) {
+export function PaymentCalculator({ units, plans, maintenancePct, locale, labels }: Props) {
   const id = useId();
   const [unitCode, setUnitCode] = useState(units[0]?.code);
   const [planIndex, setPlanIndex] = useState(0);
@@ -139,12 +135,6 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, labels
           </div>
         </fieldset>
         <p className="text-xs text-muted">{labels.note}</p>
-        <a
-          href={`${offerHref}?u=${encodeURIComponent(unit.code)}&plan=${plans.indexOf(plan)}`}
-          className="press inline-flex min-h-12 items-center justify-center self-start rounded-full bg-brand px-5.5 text-[15px] font-medium text-white no-underline hover:bg-brand-2 hover:text-white print:hidden"
-        >
-          {labels.offer}
-        </a>
       </div>
 
       <div className="flex flex-col gap-5" aria-live="polite">

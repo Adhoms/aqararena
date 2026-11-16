@@ -2,7 +2,7 @@ import { INSTALLMENTS_PER_YEAR } from "@/lib/property";
 import type { PaymentPlan } from "./types";
 
 // What a buyer pays for one unit on one plan. The calculator on the project page and the
-// printable offer sheet both read these figures, so the two can never disagree.
+// offer sheets Sales will make both read these figures, so the two can never disagree.
 
 export type PaymentBreakdown = {
   price: number;

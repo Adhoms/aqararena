@@ -1,11 +1,10 @@
 import { Check } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
-import { pageAlternates, SITE_URL } from "@/lib/site";
+import { pageAlternates } from "@/lib/site";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { CompareShell, CompareSync, ProjectPicker, RestoreSavedList } from "@/components/compare/compare-client";
 import { PrintButton, ShareButton } from "@/components/share-button";
-import { WhatsAppShare } from "@/components/whatsapp-share";
 import { Container, Eyebrow } from "@/components/ui";
 import { ProjectCover } from "@/components/project-cover";
 import { getMarketInsights, getProjectsBySlugs, listDevelopers, listProjectOptions, summarize, type Developer, type MarketInsights, type Project } from "@/lib/catalog";
@@ -99,12 +98,6 @@ async function CompareBody({
       label={c.diffOnly}
       toolbar={
         <>
-          <WhatsAppShare
-            text={fill(dict.whatsappShare.compare, { names: projects.map((p) => p.name[locale]).join(locale === "ar" ? "، " : ", ") })}
-            url={`${SITE_URL}/${locale}/compare?p=${shown.join(",")}`}
-            label={dict.whatsappShare.send}
-            className="press min-h-12 rounded-full border border-line-strong bg-surface px-5 text-[15px] text-ink hover:border-ink hover:text-ink"
-          />
           <ShareButton
             label={c.share}
             copiedLabel={c.copied}

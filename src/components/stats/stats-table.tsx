@@ -1,5 +1,5 @@
 import type { ProjectStats } from "@/lib/stats";
-import { changePct, CONTACT_EVENTS, STAT_EVENTS, STAT_LABELS, type StatEvent } from "@/lib/stats-events";
+import { changePct, CONTACT_EVENTS, SHOWN_STAT_EVENTS, STAT_LABELS, type StatEvent } from "@/lib/stats-events";
 
 // Visitor statistics for a list of projects, for the admin and the developer portal (both Arabic).
 
@@ -39,7 +39,6 @@ export function StatsTable({ rows, days = 30 }: { rows: { id: string; name: stri
               <th>ضغطات التواصل</th>
               <th>{STAT_LABELS.FAVORITE}</th>
               <th>{STAT_LABELS.COMPARE}</th>
-              <th>{STAT_LABELS.OFFER}</th>
               <th>مشتركين التنبيهات</th>
             </tr>
           </thead>
@@ -50,7 +49,7 @@ export function StatsTable({ rows, days = 30 }: { rows: { id: string; name: stri
                   <details>
                     <summary className="cursor-pointer font-medium">{href ? <a href={href}>{name}</a> : name}</summary>
                     <dl className="mt-2 grid grid-cols-[auto_auto] gap-x-4 gap-y-1 text-xs">
-                      {STAT_EVENTS.map((e) => (
+                      {SHOWN_STAT_EVENTS.map((e) => (
                         <div key={e} className="contents">
                           <dt className="text-muted">{STAT_LABELS[e]}</dt>
                           <dd>
@@ -72,9 +71,6 @@ export function StatsTable({ rows, days = 30 }: { rows: { id: string; name: stri
                 </td>
                 <td>
                   <Figure {...stats.totals.COMPARE} />
-                </td>
-                <td>
-                  <Figure {...stats.totals.OFFER} />
                 </td>
                 <td className="font-semibold">{num(stats.subscribers)}</td>
               </tr>

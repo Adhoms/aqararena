@@ -136,6 +136,7 @@ export type Project = {
   isFeatured: boolean;
   pricesUpdated?: string;
   /** Average price per m² at each change, oldest first. Empty until prices have been recorded. */
+  /** Demo data for the database seed only; the public site no longer shows or loads it. */
   priceHistory?: PricePoint[];
 };
 

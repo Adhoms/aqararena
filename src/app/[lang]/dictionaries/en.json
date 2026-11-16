@@ -653,8 +653,7 @@
       "delivery": "Handover",
       "maintenance": "Maintenance"
     },
-    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest.",
-    "offer": "Open the offer sheet"
+    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest."
   },
   "forDevelopersPage": {
     "metaTitle": "For developers: the portal and AqarArena Sales",
@@ -714,7 +713,7 @@
     "portalCard": {
       "title": "Developer portal",
       "badge": "Free",
-      "text": "Show your projects on AqarArena: details, prices, payment plans, photos, master plan, and units with their status. And see each project's visitors.",
+      "text": "Show your projects on AqarArena: details, prices, payment plans, photos and master plan. And see each project's visitors.",
       "cta": "Request an account"
     },
     "salesCard": {
@@ -861,41 +860,7 @@
     "perM2": "{amount} per m²",
     "chart": "Chart of the average price per m² from {from} to {to}"
   },
-  "offer": {
-    "metaTitle": "Offer sheet: {name}",
-    "eyebrow": "Indicative offer sheet",
-    "by": "By {dev} · {place}",
-    "issued": "Sheet date: {date}",
-    "pricesUpdated": "Prices last updated by the developer: {date}",
-    "unitTitle": "The unit",
-    "planTitle": "Payment plan",
-    "scheduleTitle": "Payment schedule",
-    "when": "When",
-    "what": "Item",
-    "amount": "Amount",
-    "atContract": "At contract",
-    "downPayment": "Down payment ({pct}%)",
-    "cashPrice": "Price after cash discount ({pct}%)",
-    "year": "Year {n}",
-    "installments": "{count} installments × {amount}",
-    "atDelivery": "At handover ({year})",
-    "deliveryPayment": "Handover payment ({pct}%)",
-    "maintenance": "Maintenance deposit ({pct}%)",
-    "total": "Total",
-    "type": "Type",
-    "delivery": "Expected delivery",
-    "contactTitle": "To buy, contact {dev} directly",
-    "disclaimer": "Indicative, rounded figures worked out from the developer's published prices and plans on the sheet date. The final price, the unit's availability and the contract terms come from the developer. AqarArena doesn't sell or take payments.",
-    "print": "Print / save as PDF",
-    "share": "Share the link",
-    "back": "Project page",
-    "change": "Change the unit or plan",
-    "loading": "Preparing the offer sheet…",
-    "priceNote": "The price is the unit type's starting price. A particular unit can cost more depending on its floor and view."
-  },
   "whatsappShare": {
-    "send": "Send on WhatsApp",
-    "project": "{name} by {dev} in {place}. Starting from {price}.",
-    "compare": "Comparison on AqarArena: {names}"
+    "send": "Send on WhatsApp"
   }
 }

@@ -663,6 +663,7 @@ export const projects: Project[] = [
 ];
 
 // ─── Demo inventory and price history ───────────────────────────────────
+// Used by prisma/seed.ts for the portal and Sales; the public site does not read these.
 
 const demoViews = ["landscape", "garden", "park", "main_street", "pool"] as const;
 const demoFaces = ["north", "north-east", "east", "south", "west", "north-west"] as const;

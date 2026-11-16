@@ -32,7 +32,7 @@ async function changed(me: PortalAccount, project: { id: string; nameAr: string;
   after(() =>
     notifyAdmin(`تحديث مخزون: ${project.nameAr} · AqarArena`, [
       `${me.developer.nameAr} عدّل وحدات «${project.nameAr}»: ${what}`,
-      "التعديلات دي بتظهر على الموقع على طول. الإيميل ده بيوصل مرة واحدة في الساعة بالكتير لكل مشروع.",
+      "التعديلات دي بتوصل لفريق مبيعات الشركة في AqarArena Sales على طول. الإيميل ده بيوصل مرة واحدة في الساعة بالكتير لكل مشروع.",
       "",
       `راجع الوحدات: /admin/projects/${project.id}#units`,
     ]),
@@ -61,7 +61,7 @@ export async function savePortalUnit(_: FormState, data: FormData): Promise<Form
   if (id) await db.unit.update({ where: { id }, data: { ...values, typologyId: type.id } });
   else await db.unit.create({ data: { ...values, typologyId: type.id } });
   await changed(me, project, id ? `تعديل الوحدة ${values.unitNumber}` : `إضافة الوحدة ${values.unitNumber}`);
-  return { ok: true, message: id ? "اتحفظ ✓ وظهر على الموقع" : "اتضافت ✓ وظهرت على الموقع" };
+  return { ok: true, message: id ? "اتحفظ ✓" : "اتضافت ✓" };
 }
 
 /** The quick status switch in the units table. */

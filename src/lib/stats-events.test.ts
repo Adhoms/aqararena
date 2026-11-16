@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BOT_PATTERN, changePct, parseTrackAttr, periodTotals, trackAttr, type DayCount } from "./stats-events";
+import { BOT_PATTERN, changePct, isRecordedEvent, parseTrackAttr, periodTotals, trackAttr, type DayCount } from "./stats-events";
 
 test("track attribute round trip, and junk is refused", () => {
   assert.deepEqual(parseTrackAttr(trackAttr("CALL", "project-a")), { event: "CALL", slug: "project-a" });
@@ -36,4 +36,11 @@ test("crawlers and link previews are recognised", () => {
   assert.ok(BOT_PATTERN.test("WhatsApp/2.23.20.0"));
   assert.ok(BOT_PATTERN.test("Mozilla/5.0 HeadlessChrome/130.0"));
   assert.ok(!BOT_PATTERN.test("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"));
+});
+
+test("retired events (offer sheet, WhatsApp share) are no longer accepted for recording", () => {
+  assert.equal(isRecordedEvent("VIEW"), true);
+  assert.equal(isRecordedEvent("OFFER"), false);
+  assert.equal(isRecordedEvent("SHARE"), false);
+  assert.equal(isRecordedEvent("HACK"), false);
 });

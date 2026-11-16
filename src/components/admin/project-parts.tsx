@@ -176,7 +176,7 @@ export function UnitList({
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
           <p>
-            اختياري: لو المطور بيشارك المخزون، كل وحدة هتظهر بحالتها في صفحة المشروع. للقوايم الطويلة استخدم شيت «الوحدات» في <Link href="/admin/import">استيراد Excel</Link>.
+            اختياري: حالة الوحدات بتظهر لفريق مبيعات المطور في AqarArena Sales، مش على الموقع. للقوايم الطويلة استخدم شيت «الوحدات» في <Link href="/admin/import">استيراد Excel</Link>.
             {total > items.length && ` معروض هنا أول ${items.length} وحدة من ${total}.`}
           </p>
           {total > 0 && <DeleteButton action={deleteProjectUnits} fields={{ id: projectId }} label="حذف كل الوحدات" confirmText={`حذف كل وحدات المشروع (${total})؟`} />}

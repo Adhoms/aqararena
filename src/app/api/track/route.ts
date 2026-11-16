@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { BOT_PATTERN, isStatEvent } from "@/lib/stats-events";
+import { BOT_PATTERN, isRecordedEvent } from "@/lib/stats-events";
 
 // Visitor actions on a project, sent by the browser once per session:
 //   POST /api/track  {"slug": "project-a", "event": "VIEW"}
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return done();
   }
   const { slug, event } = (body ?? {}) as { slug?: unknown; event?: unknown };
-  if (typeof slug !== "string" || !/^[a-z0-9-]{1,80}$/.test(slug) || !isStatEvent(event)) return done();
+  if (typeof slug !== "string" || !/^[a-z0-9-]{1,80}$/.test(slug) || !isRecordedEvent(event)) return done();
   try {
     const { countEvent } = await import("@/lib/stats");
     await countEvent(slug, event);

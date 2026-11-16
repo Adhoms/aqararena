@@ -10,6 +10,8 @@ export const RETIRED_STAT_EVENTS: StatEvent[] = ["OFFER", "SHARE"];
 export const SHOWN_STAT_EVENTS = STAT_EVENTS.filter((e) => !RETIRED_STAT_EVENTS.includes(e));
 
 export const isStatEvent = (v: unknown): v is StatEvent => typeof v === "string" && (STAT_EVENTS as readonly string[]).includes(v);
+/** An event the public site still records: what `/api/track` accepts. */
+export const isRecordedEvent = (v: unknown): v is StatEvent => isStatEvent(v) && !RETIRED_STAT_EVENTS.includes(v);
 
 /** Arabic names for the admin and the developer portal. */
 export const STAT_LABELS: Record<StatEvent, string> = {

@@ -111,7 +111,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                     <Link href={`${page}#units`} className="text-sm">
                       إغلاق
                     </Link>
-                    <DeleteButton action={deletePortalUnit} fields={{ id: editing.id, projectId: project.id }} confirmText="حذف الوحدة دي من الموقع؟" />
+                    <DeleteButton action={deletePortalUnit} fields={{ id: editing.id, projectId: project.id }} confirmText="حذف الوحدة دي؟" />
                   </div>
                 </details>
               )}

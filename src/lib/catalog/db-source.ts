@@ -23,7 +23,6 @@ const projectInclude = {
   zones: { orderBy: { sortOrder: "asc" } },
   distances: { orderBy: { sortOrder: "asc" } },
   media: { where: { kind: { in: ["IMAGE", "BROCHURE", "MASTER_PLAN", "FLOOR_PLAN_2D", "LAYOUT_SKETCH"] } }, orderBy: { sortOrder: "asc" } },
-  // Project-wide average only; the rows per unit type are kept for later.
 } satisfies Prisma.ProjectInclude;
 
 type ProjectRow = Prisma.ProjectGetPayload<{ include: typeof projectInclude }>;

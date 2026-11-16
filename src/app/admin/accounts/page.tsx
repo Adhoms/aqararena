@@ -4,8 +4,9 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { AdminForm, DeleteButton } from "@/components/admin/admin-form";
 import { Row, Select, TextField } from "@/components/admin/fields";
 import { approveAccount, createAccount, deleteAccount, resetPassword, setAccountStatus } from "../portal-actions";
+import { formatDateAr } from "@/lib/format";
 
-const when = (d: Date | null) => (d ? d.toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" }) : "—");
+const when = (d: Date | null) => (d ? formatDateAr(d) : "—");
 const STATUS = { PENDING: "مستني موافقة", ACTIVE: "فعّال", DISABLED: "موقوف" } as const;
 
 export default async function AccountsPage() {

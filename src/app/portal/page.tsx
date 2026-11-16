@@ -6,8 +6,9 @@ import { StatsTable } from "@/components/stats/stats-table";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { SubmissionStatusBadge } from "@/components/portal/status-badge";
 import { editProfile, editProject, newProject } from "./actions";
+import { formatDateAr } from "@/lib/format";
 
-const when = (d: Date) => d.toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" });
+const when = (d: Date) => formatDateAr(d, "long");
 
 export default async function PortalHome({ searchParams }: PageProps<"/portal">) {
   const me = await requireAccount();

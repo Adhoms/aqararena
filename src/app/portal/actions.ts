@@ -9,7 +9,7 @@ import { deleteIfUnused } from "@/lib/admin/blob";
 import { hashPassword, MIN_PASSWORD, normalizeUsername, UNMATCHABLE_HASH, verifyPassword } from "@/lib/portal/password";
 import { requireAccount, startPortalSession } from "@/lib/portal/session";
 import { emptyProjectDraft, type DraftErrors } from "@/lib/portal/draft-types";
-import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
+import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure, signInAddressKey } from "@/lib/throttle";
 import {
   checkProfileDraft,
   checkProjectDraft,
@@ -28,7 +28,7 @@ export async function portalLogin(_: FormState, data: FormData): Promise<FormSta
   const username = normalizeUsername(String(data.get("username") ?? ""));
   const password = String(data.get("password") ?? "");
   // Limit wrong tries both per address and per account.
-  const keys = [`portal-ip:${await clientIp()}`, ...(username ? [`portal-user:${username}`] : [])];
+  const keys = [signInAddressKey("portal", await clientIp()), ...(username ? [`portal-user:${username}`] : [])];
   const wait = await lockedMinutes(keys);
   if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = username ? await db.developerAccount.findUnique({ where: { username } }) : null;

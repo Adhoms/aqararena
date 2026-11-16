@@ -7,12 +7,17 @@ import { db } from "@/lib/db";
 // Kept in the database so it holds across server instances.
 
 const MAX_FAILURES = 5;
-// Portal and sales sign-in addresses are often a whole office behind one IP, and their counters
-// aren't cleared by a good sign-in, so a few typos across a team mustn't lock everyone out.
+// Sign-in addresses are often a whole office behind one IP, and their counters aren't cleared
+// by a good sign-in, so a few typos across a team mustn't lock everyone out.
 const SHARED_ADDRESS_FAILURES = 20;
 const WINDOW_MINUTES = 15;
 
-const limitFor = (key: string) => (key.startsWith("portal-ip:") || key.startsWith("sales-ip:") ? SHARED_ADDRESS_FAILURES : MAX_FAILURES);
+const SIGN_IN_ADDRESS = "signin-ip:";
+
+/** The address key for a sign-in area ("portal", "sales"): allows SHARED_ADDRESS_FAILURES instead of MAX_FAILURES. */
+export const signInAddressKey = (area: string, ip: string) => `${SIGN_IN_ADDRESS}${area}:${ip}`;
+
+const limitFor = (key: string) => (key.startsWith(SIGN_IN_ADDRESS) ? SHARED_ADDRESS_FAILURES : MAX_FAILURES);
 
 /** The visitor's IP address as Vercel reports it. */
 export async function clientIp(): Promise<string> {

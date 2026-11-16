@@ -4,8 +4,9 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { DeleteButton } from "@/components/admin/admin-form";
 import { deletePriceAlert } from "../portal-actions";
+import { formatDateAr } from "@/lib/format";
 
-const when = (d: Date) => d.toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" });
+const when = (d: Date) => formatDateAr(d);
 
 export default async function AlertsPage({ searchParams }: PageProps<"/admin/alerts">) {
   await requireAdmin();

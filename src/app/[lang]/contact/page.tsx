@@ -5,6 +5,7 @@ import { Envelope } from "@phosphor-icons/react/ssr";
 import { ContactForm } from "@/components/contact-form";
 import { Container } from "@/components/ui";
 import { SUPPORT_EMAIL } from "@/lib/email";
+import { isContactKind } from "@/lib/contact-kinds";
 import { pageAlternates } from "@/lib/site";
 import { getDictionary, getLocale, type Dictionary } from "../dictionaries";
 
@@ -12,8 +13,6 @@ export async function generateMetadata(): Promise<Metadata> {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
   return { title: dict.contactPage.title, description: dict.contactPage.intro, alternates: pageAlternates(locale, "/contact") };
 }
-
-const KINDS = ["HELP", "SUGGESTION", "COMPLAINT", "REQUEST", "OTHER"];
 
 export default async function ContactPage({ searchParams }: PageProps<"/[lang]/contact">) {
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
@@ -55,7 +54,7 @@ export default async function ContactPage({ searchParams }: PageProps<"/[lang]/c
 /** The form, opened on the kind named in ?kind=, so a link like "talk to us about Sales" lands on the right one. */
 async function KindedForm({ searchParams, locale, dict }: { searchParams: PageProps<"/[lang]/contact">["searchParams"]; locale: "ar" | "en"; dict: Dictionary }) {
   const { kind } = await searchParams;
-  return <ContactFormPane locale={locale} dict={dict} initialKind={typeof kind === "string" && KINDS.includes(kind) ? kind : undefined} />;
+  return <ContactFormPane locale={locale} dict={dict} initialKind={isContactKind(kind) ? kind : undefined} />;
 }
 
 function ContactFormPane({ locale, dict, initialKind }: { locale: "ar" | "en"; dict: Dictionary; initialKind?: string }) {

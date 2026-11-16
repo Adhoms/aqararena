@@ -4,10 +4,11 @@ import { after } from "next/server";
 import { db } from "@/lib/db";
 import { notifyAdmin } from "@/lib/email";
 import { clientIp, lockedMinutes, recordFailure } from "@/lib/throttle";
+import { CONTACT_KINDS } from "@/lib/contact-kinds";
 
 export type ContactState = { ok?: boolean; message?: string; errors?: Record<string, string> };
 
-const KINDS = ["SUGGESTION", "COMPLAINT", "HELP", "REQUEST", "OTHER"] as const;
+const KINDS = CONTACT_KINDS;
 const KIND_AR: Record<(typeof KINDS)[number], string> = { SUGGESTION: "اقتراح", COMPLAINT: "شكوى", HELP: "طلب مساعدة", REQUEST: "طلب", OTHER: "رسالة" };
 
 const TEXT = {

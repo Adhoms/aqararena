@@ -7,7 +7,7 @@ import { FormReader, type FormState } from "@/lib/admin/form";
 import { MIN_PASSWORD, UNMATCHABLE_HASH, hashPassword, normalizeUsername, verifyPassword } from "@/lib/portal/password";
 import { readSalesPerson } from "@/lib/sales/fields";
 import { requireSales, startSalesSession } from "@/lib/sales/session";
-import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
+import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure, signInAddressKey } from "@/lib/throttle";
 
 const slow = () => new Promise((r) => setTimeout(r, 800));
 
@@ -15,7 +15,7 @@ export async function salesLogin(_: FormState, data: FormData): Promise<FormStat
   const username = normalizeUsername(String(data.get("username") ?? ""));
   const password = String(data.get("password") ?? "");
   // Limit wrong tries both per address and per account.
-  const keys = [`sales-ip:${await clientIp()}`, ...(username ? [`sales-user:${username}`] : [])];
+  const keys = [signInAddressKey("sales", await clientIp()), ...(username ? [`sales-user:${username}`] : [])];
   const wait = await lockedMinutes(keys);
   if (wait) return { ok: false, message: lockedMessage(wait) };
   const account = username ? await db.salesAccount.findUnique({ where: { username } }) : null;

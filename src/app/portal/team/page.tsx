@@ -6,8 +6,9 @@ import { PortalShell } from "@/components/portal/portal-shell";
 import { AdminForm, ConfirmForm } from "@/components/admin/admin-form";
 import { Panel, Row, Select, TextField } from "@/components/admin/fields";
 import { createSalesAccount, resetSalesPassword, setSalesStatus, updateSalesAccount } from "../team-actions";
+import { formatDateAr } from "@/lib/format";
 
-const when = (d: Date | null) => (d ? d.toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" }) : "لسه ماخدش");
+const when = (d: Date | null) => (d ? formatDateAr(d) : "لسه ماخدش");
 const roleOptions = SALES_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }));
 
 type Member = { nameAr?: string | null; nameEn?: string | null; phone?: string | null; whatsapp?: string | null; email?: string | null; role?: string };

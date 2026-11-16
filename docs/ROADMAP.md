@@ -37,6 +37,11 @@ The goal of each phase is something real users can open.
 - [x] Units in the developer portal: statuses and prices go live at once within limits (approved unit types, price not under the type's starting price), Excel download / upload, admin emailed at most hourly. Renaming a unit type's code keeps its units; the review page warns when a removal would delete units.
 - [x] Visitor statistics per project (views, favorites, comparisons, contact clicks, brochure, price-alert subscribers) for developers in the portal and for the admin, daily totals only
 - [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
+- [x] `/dev` landing page presenting the portal and AqarArena Sales
+- [x] AqarArena Sales, step 1: sales accounts managed from the portal, `/sales` sign-in, projects overview and profile (spec: `docs/superpowers/specs/2026-11-15-aqararena-three-products-design.md`)
+- [ ] AqarArena Sales, step 2: inventory search and temporary holds (unit availability moves here from the public site)
+- [ ] AqarArena Sales, step 3: custom payment schedules, project currency, PDF offers shared by WhatsApp, Telegram and email (replacing the public offer sheet and WhatsApp share)
+- [ ] AqarArena Sales, step 4: comparisons, clients and follow-ups, team page
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings
 
 ## Phase 3: Later

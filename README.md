@@ -21,9 +21,11 @@ Live at **https://aqararena.com** (Vercel + Neon). The public site is built from
 | `/ar/projects/[slug]` | Project: gallery, overview, interactive master plan, unit types, price plans, photos, location, developer contacts |
 | `/ar/compare?p=a,b,c` | Project-vs-project comparison (up to 4), "differences only", share link (copy / system share), print / PDF |
 | `/ar/developers`, `/ar/developers/[slug]` | Developer directory and profile with portfolio by area |
-| `/ar/dev` | Landing page for developers: why list, how it works, request an account |
+| `/ar/dev` | Developers' landing page: the portal and AqarArena Sales (`/ar/for-developers` redirects here) |
 | `/portal` | Developer portal (Arabic): sign in, request an account, edit company and projects, send for review; per-project visitor statistics |
 | `/portal/projects/[id]/units` | Developer inventory: unit statuses and prices, live at once (no review) for the sales team (AqarArena Sales), with Excel download / upload; not shown on the public site |
+| `/portal/team` | Developer portal: the company's sales team (accounts, roles, temporary passwords) |
+| `/sales` | AqarArena Sales (Arabic): a developer's salespeople sign in with their own accounts; projects overview and profile so far. Unit availability, price history, offer sheets and WhatsApp sharing were taken off the public site and come back here |
 | `/admin/stats` | Visitor statistics for every published project (last 30 days against the 30 before) |
 | `/admin` | Admin: data entry, Excel import, review of developer changes, developer accounts |
 

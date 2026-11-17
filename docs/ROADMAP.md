@@ -39,7 +39,10 @@ The goal of each phase is something real users can open.
 - [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
 - [x] `/dev` landing page presenting the portal and AqarArena Sales
 - [x] AqarArena Sales, step 1: sales accounts managed from the portal, `/sales` sign-in, projects overview and profile (spec: `docs/superpowers/specs/2026-11-15-aqararena-three-products-design.md`)
-- [ ] AqarArena Sales, step 2: inventory search and temporary holds (unit availability moves here from the public site)
+- [x] AqarArena Sales, step 2: inventory search (filters in the URL, budget as total, down payment or monthly), unit pages with the payment calculator, temporary holds (one per unit, guaranteed by the database; hold length per developer and per project; portal and admin status changes, single or by Excel, release holds), my holds and the team's holds for leads
+- [ ] Before releasing step 2: run `scripts/hold-race.ts` once against a real PostgreSQL (a Neon branch). The local PGlite database runs one transaction at a time, so the local pass doesn't exercise the row lock or the unique index under real concurrency
+- [ ] Mark a unit's zone on the master plan and floor plans per unit type: needs a unit-to-zone link (doesn't exist yet; the unit page shows the master plan unmarked) and is needed for the step-3 PDF offers; uploads are per project today
+- [ ] Known: another company's unit id in `/sales/units/[id]` shows the Sales not-found page with HTTP 200 and `noindex` (a soft 404). Accepted for now because the area needs sign-in and `robots.txt` disallows it; return a real 404 when the page is next reworked
 - [ ] AqarArena Sales, step 3: custom payment schedules, project currency, PDF offers shared by WhatsApp, Telegram and email (replacing the public offer sheet and WhatsApp share)
 - [ ] AqarArena Sales, step 4: comparisons, clients and follow-ups, team page
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings

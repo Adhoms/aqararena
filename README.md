@@ -23,11 +23,14 @@ Live at **https://aqararena.com** (Vercel + Neon). The public site is built from
 | `/ar/developers`, `/ar/developers/[slug]` | Developer directory and profile with portfolio by area |
 | `/ar/dev` | Developers' landing page: the portal and AqarArena Sales (`/ar/for-developers` redirects here) |
 | `/portal` | Developer portal (Arabic): sign in, request an account, edit company and projects, send for review; per-project visitor statistics |
-| `/portal/projects/[id]/units` | Developer inventory: unit statuses and prices, live at once (no review) for the sales team (AqarArena Sales), with Excel download / upload; not shown on the public site |
-| `/portal/team` | Developer portal: the company's sales team (accounts, roles, temporary passwords) |
-| `/sales` | AqarArena Sales (Arabic): a developer's salespeople sign in with their own accounts; projects overview and profile so far. Unit availability, price history, offer sheets and WhatsApp sharing were taken off the public site and come back here |
+| `/portal/projects/[id]/units` | Developer inventory: unit statuses and prices, live at once (no review) for the sales team (AqarArena Sales), with Excel download / upload; not shown on the public site; shows who holds a unit in AqarArena Sales and sets the project's hold length. Changing a held unit's status (one by one or by Excel) asks first and releases the hold |
+| `/portal/team` | Developer portal: the company's sales team (accounts, roles, temporary passwords) and how long a temporary hold lasts (1 to 168 hours) |
+| `/sales` | AqarArena Sales (Arabic): a developer's salespeople sign in with their own accounts. Inventory search across the company's published projects (project, model, type, bedrooms, floor, view, status including temporarily held, and a budget as total price, down payment or monthly installment); filters live in the address so a search can be shared |
+| `/sales/units/[id]` | Sales: one unit with its details, floor plans, master plan (the unit's place isn't marked yet), payment calculator on every active plan, and the temporary hold (hold with a note, confirm to reserve, cancel) |
+| `/sales/holds` | Sales («حجوزاتي»): my live holds and the last 30 days; team leads also see and can cancel the team's holds |
+| `/sales/me` | Sales: profile and password |
 | `/admin/stats` | Visitor statistics for every published project (last 30 days against the 30 before) |
-| `/admin` | Admin: data entry, Excel import, review of developer changes, developer accounts |
+| `/admin` | Admin: data entry, Excel import, review of developer changes, developer accounts. The units list shows a Sales hold badge; an admin status change (form or Excel import) releases the hold |
 
 ## Getting started
 
@@ -70,6 +73,9 @@ Skip the three `db:` steps (and leave `DATABASE_URL` out of `.env`) to run on th
 - `src/lib/catalog/payment.ts` — what a buyer pays on a plan. The calculator (and the offer sheets Sales will make) read it, so they always agree.
 - `src/lib/stats.ts`, `src/lib/stats-events.ts`, `src/components/stats/tracker.tsx` — visitor statistics: an element with `data-track="EVENT:slug"` counts when clicked (once per browser session), `<TrackView>` counts a page view. Only daily totals per project are stored.
 - `src/app/portal/unit-actions.ts` — the one place a developer's change goes live without review (units), with its limits: approved unit types only, no unit priced under its type's starting price, the admin emailed at most hourly per project.
+- `src/lib/sales/holds.ts`, `src/lib/sales/hold-service.ts` — AqarArena Sales temporary holds. The rules are pure functions (tested); every write is one transaction that locks the unit row with a 3-second `lock_timeout` (a busy unit answers with a "try again" message instead of waiting). One active hold per unit is guaranteed by the partial unique index `UnitHold_unitId_active_key`, written by hand in the `sales_holds` migration, and hold lengths by the CHECK constraints (1 to 168 hours) in `hold_hours_range` (Prisma's schema can describe neither): never drop them. Any new code that changes a unit's status must call `releaseHoldsOfUnavailable` in the same transaction (the portal, the admin and both Excel imports already do).
+- `scripts/hold-race.ts` — fires two simultaneous holds on one unit and checks only one wins (`node --conditions=react-server --env-file=.env --import tsx scripts/hold-race.ts`). The local `prisma dev` database (PGlite) runs one transaction at a time, so a local pass doesn't prove the locking: run it once against a real PostgreSQL (a Neon branch) before release.
+- `src/lib/sales/budget.ts`, `src/lib/sales/search.ts`, `src/lib/sales/inventory.ts` — the Sales search: budget math on `catalog/payment.ts`, filters in the URL, and the developer-scoped queries (another developer's project id in the address is ignored).
 - `src/lib/price-history.ts` — records the price per m² whenever a price changes (admin forms, Excel import, approved developer edits). Call `recordPriceHistory` from any new code that writes prices.
 - `src/components/` — header, footer, project card, tabs, master plan, contact lists, comparison (`compare/`: saved list in localStorage, bottom bar, column pickers).
 - `src/app/globals.css` — design tokens (colors, fonts) from the approved design.

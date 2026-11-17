@@ -1812,7 +1812,7 @@ export type SalesUnitDetail = {
 };
 
 /** One unit of the developer's published, priced inventory, or null. Opening it releases an expired hold on it. */
-export async function loadSalesUnit(developerId: string, unitId: string, now = new Date()): Promise<SalesUnitDetail | null> {
+export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new Date()): Promise<SalesUnitDetail | null> {
   const scope: Prisma.UnitWhereInput = { id: unitId, typology: { ...priced, project: { developerId, published: true } } };
   await releaseExpired(db, { unit: scope }, now);
   const unit = await db.unit.findFirst({
@@ -2602,7 +2602,7 @@ const m2 = (v: number | null) => (v ? `${formatNumber(v, "ar")} م²` : null);
 export default async function SalesUnitPage({ params }: PageProps<"/sales/units/[id]">) {
   const me = await requireSales();
   const { id } = await params;
-  const unit = /^[a-z0-9]{10,40}$/i.test(id) ? await loadSalesUnit(me.developer.id, id) : null;
+  const unit = /^[a-z0-9]{10,40}$/i.test(id) ? await loadSalesUnit({ id: me.id, role: me.role, developerId: me.developer.id }, id) : null;
   if (!unit) notFound();
   const plans = plansForType((await salesPlans([unit.project.id])).get(unit.project.id) ?? [], unit.typologyId);
   const t = unit.type;

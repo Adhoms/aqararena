@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db } from "@/lib/db";
@@ -14,6 +14,7 @@ import { UNIT_AVAILABILITY } from "@/lib/property";
 import { shouldNotify, unitPriceProblem } from "@/lib/unit-rules";
 import { findTwinUnit } from "@/lib/units";
 import { releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
+import { readHoldHours } from "@/lib/sales/holds";
 
 // A developer's own inventory. Unlike everything else in the portal, these changes go live at
 // once (statuses change daily), within limits: only the project's approved unit types, and no
@@ -114,4 +115,17 @@ export async function importPortalUnits(_: UnitsImportResult | null, data: FormD
   const result = await importProjectUnits(await file.arrayBuffer(), project.id, data.get("mode") === "save");
   if (result.saved) await changed(me, project, `رفع ملف Excel: ${result.create} وحدة جديدة و${result.update} تحديث`);
   return result;
+}
+
+/** How long Sales holds last in this project (empty = the company's setting). Applies to new holds. */
+export async function saveProjectHoldHours(_: FormState, data: FormData): Promise<FormState> {
+  const me = await requireAccount();
+  const f = new FormReader(data);
+  const project = await ownProject(me, f.id("projectId"));
+  if (!project) return { ok: false, message: "المشروع ده مش من مشروعاتك" };
+  const holdHours = readHoldHours(f, "holdHours");
+  if (!f.ok) return f.result();
+  await db.project.update({ where: { id: project.id }, data: { holdHours } });
+  revalidatePath(`/portal/projects/${project.id}/units`);
+  return { ok: true, message: holdHours ? `اتحفظ ✓ الحجز في المشروع ده ${holdHours} ساعة` : "اتحفظ ✓ المشروع بياخد مدة الشركة" };
 }

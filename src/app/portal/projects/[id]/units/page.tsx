@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import type { Unit } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { options } from "@/lib/admin/labels";
+import { formatDateTimeAr } from "@/lib/format";
 import { requireAccount } from "@/lib/portal/session";
+import { liveHoldWhere, liveHoldsByUnit } from "@/lib/sales/hold-service";
+import { HOLD_HOURS_MAX, HOLD_HOURS_MIN } from "@/lib/sales/holds";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { UnitStatusSelect } from "@/components/portal/unit-status";
 import { UnitsImport } from "@/components/portal/units-import";
 import { AdminForm, DeleteButton } from "@/components/admin/admin-form";
 import { Panel, Row, Select, TextField } from "@/components/admin/fields";
-import { deletePortalUnit, savePortalUnit } from "../../../unit-actions";
+import { deletePortalUnit, saveProjectHoldHours, savePortalUnit } from "../../../unit-actions";
 
 const UNITS_SHOWN = 500;
 const egp = (v: { toString(): string } | null) => (v ? `${Number(v).toLocaleString("ar-EG")} ج.م` : "—");
@@ -27,17 +30,23 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
       nameAr: true,
       slug: true,
       published: true,
+      holdHours: true,
+      developer: { select: { holdHours: true } },
       typologies: { where: { priceFrom: { not: null } }, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, priceFrom: true } },
     },
   });
   if (!project) notFound();
   const unitId = typeof query.unit === "string" && /^[a-z0-9]{10,40}$/i.test(query.unit) ? query.unit : null;
-  const [units, total, counts, editing] = await Promise.all([
+  const [units, total, counts, editing, heldCount] = await Promise.all([
     db.unit.findMany({ where: { typology: { projectId: id } }, orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }], take: UNITS_SHOWN }),
     db.unit.count({ where: { typology: { projectId: id } } }),
     db.unit.groupBy({ by: ["availability"], where: { typology: { projectId: id } }, _count: { _all: true } }),
     unitId ? db.unit.findFirst({ where: { id: unitId, typology: { projectId: id } } }) : null,
+    db.unitHold.count({ where: { ...liveHoldWhere(), unit: { typology: { projectId: id } } } }),
   ]);
+  // Who holds which unit right now (AqarArena Sales), for the table and the edit form.
+  const holds = await liveHoldsByUnit([...units.map((u) => u.id), ...(editing ? [editing.id] : [])]);
+  const holdText = (unitId: string) => holds[unitId] && `${holds[unitId].name} لحد ${formatDateTimeAr(holds[unitId].expiresAt)}`;
   const count = (a: string) => counts.find((c) => c.availability === a)?._count._all ?? 0;
   const code = new Map(project.typologies.map((t) => [t.id, t.code]));
   const typeOptions = project.typologies.map((t) => ({ value: t.id, label: `${t.code}${t.nameAr ? ` · ${t.nameAr}` : ""} (يبدأ من ${egp(t.priceFrom)})` }));
@@ -70,9 +79,24 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
         </p>
         <p>
           متاحة <b>{count("AVAILABLE").toLocaleString("ar-EG")}</b> · محجوزة <b>{count("RESERVED").toLocaleString("ar-EG")}</b> · مباعة{" "}
-          <b>{count("SOLD").toLocaleString("ar-EG")}</b>
+          <b>{count("SOLD").toLocaleString("ar-EG")}</b> · محجوزة مؤقتًا لفريق المبيعات <b>{heldCount.toLocaleString("ar-EG")}</b>
         </p>
       </section>
+
+      <Panel title="مدة الحجز المؤقت في المشروع ده">
+        <AdminForm action={saveProjectHoldHours}>
+          <input type="hidden" name="projectId" value={project.id} />
+          <TextField
+            name="holdHours"
+            type="number"
+            inputMode="numeric"
+            autoComplete="off"
+            label="عدد الساعات"
+            defaultValue={project.holdHours}
+            hint={`فاضي = مدة الشركة (${project.developer.holdHours} ساعة، بتتغيّر من «فريق المبيعات»). من ${HOLD_HOURS_MIN} لـ ${HOLD_HOURS_MAX}. مثلًا قللها يوم الإطلاق عشان الوحدات ماتتركنش. بيسري على الحجوزات الجديدة بس.`}
+          />
+        </AdminForm>
+      </Panel>
 
       {project.typologies.length === 0 ? (
         <p className="admin-panel text-sm text-muted">المشروع لسه مالوش نماذج وحدات بسعر. ضيفها من «تعديل» المشروع، وبعد الموافقة تقدر تضيف الوحدات هنا.</p>
@@ -102,7 +126,11 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                       <span dir="ltr">{name(editing)}</span>
                     </span>
                   </summary>
-                  <AdminForm action={savePortalUnit}>
+                  {holdText(editing.id) && <p className="mb-3 text-sm text-brass-dark">محجوزة مؤقتًا لـ {holdText(editing.id)}</p>}
+                  <AdminForm
+                    action={savePortalUnit}
+                    confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)}. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟` : undefined}
+                  >
                     <input type="hidden" name="id" value={editing.id} />
                     <input type="hidden" name="projectId" value={project.id} />
                     {fields(editing)}
@@ -143,7 +171,10 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                           <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
                           <td>{egp(u.price)}</td>
                           <td>
-                            <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} />
+                            <span className="flex flex-col items-start gap-1">
+                              <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.id)} />
+                              {holds[u.id] && <span className="text-xs text-brass-dark">محجوزة مؤقتًا لـ {holdText(u.id)}</span>}
+                            </span>
                           </td>
                           <td>
                             <Link href={`${page}?unit=${u.id}#units`}>تعديل</Link>

@@ -9,6 +9,7 @@ import { generatePassword, hashPassword, normalizeUsername } from "@/lib/portal/
 import { requireAccount } from "@/lib/portal/session";
 import { SITE_URL } from "@/lib/site";
 import { readSalesPerson, readSalesRole } from "@/lib/sales/fields";
+import { readHoldHours } from "@/lib/sales/holds";
 
 // The developer's portal account manages its own sales team. Temporary passwords are shown once,
 // in the form's reply, to be handed to the salesperson, who must choose their own at first sign-in.
@@ -78,4 +79,15 @@ export async function setSalesStatus(data: FormData) {
   await db.salesAccount.update({ where: { id: member.id }, data: { status, sessionVersion: { increment: 1 } } });
   revalidatePath("/portal/team");
   redirect("/portal/team");
+}
+
+/** How long a salesperson's temporary hold lasts, for the whole company (a project can override it). Applies to new holds. */
+export async function saveHoldHours(_: FormState, data: FormData): Promise<FormState> {
+  const me = await requireAccount();
+  const f = new FormReader(data);
+  const holdHours = readHoldHours(f, "holdHours", { required: true });
+  if (!f.ok || holdHours === null) return f.result();
+  await db.developer.update({ where: { id: me.developerId }, data: { holdHours } });
+  revalidatePath("/portal/team");
+  return { ok: true, message: `اتحفظ ✓ الحجز المؤقت ${holdHours} ساعة` };
 }

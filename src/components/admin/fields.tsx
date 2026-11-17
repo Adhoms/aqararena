@@ -29,6 +29,7 @@ export function TextField({
   autoComplete,
   autoCapitalize,
   spellCheck,
+  inputMode,
   ...rest
 }: Common & {
   type?: "text" | "number" | "url" | "email" | "tel" | "date" | "password";
@@ -40,6 +41,8 @@ export function TextField({
   autoComplete?: string;
   autoCapitalize?: "none" | "off" | "sentences" | "words" | "characters";
   spellCheck?: boolean;
+  /** Overrides the keyboard a number field asks for ("numeric" for whole numbers). */
+  inputMode?: "numeric" | "decimal" | "text";
 }) {
   return (
     <Wrap {...rest}>
@@ -48,7 +51,7 @@ export function TextField({
         // Numbers use a text box with a numeric keyboard, so pasted values like "19,500,000"
         // reach the server (which strips the commas) instead of being dropped by the browser.
         type={type === "number" ? "text" : type}
-        inputMode={type === "number" ? "decimal" : undefined}
+        inputMode={inputMode ?? (type === "number" ? "decimal" : undefined)}
         defaultValue={str(defaultValue)}
         required={required}
         dir={dir ?? (["url", "email", "tel", "number", "date"].includes(type) ? "ltr" : undefined)}

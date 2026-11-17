@@ -27,6 +27,10 @@ type FormProps = {
   secret?: boolean;
   /** Ask before submitting (a window.confirm), for actions that can't be undone. */
   confirmText?: string;
+  /** The submit button's class (default "admin-btn"), e.g. "admin-btn-ghost" for a secondary action. */
+  submitClassName?: string;
+  /** Shown on the button while the action runs (default «جارٍ الحفظ…»). */
+  pendingLabel?: string;
 };
 
 function FormBody({
@@ -36,6 +40,8 @@ function FormBody({
   resetOnSuccess = false,
   className = "",
   confirmText,
+  submitClassName = "admin-btn",
+  pendingLabel = "جارٍ الحفظ…",
   onHide,
 }: Omit<FormProps, "secret"> & { onHide?: () => void }) {
   const [state, dispatch, pending] = useActionState(action, {});
@@ -91,8 +97,8 @@ function FormBody({
     >
       {children}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={pending} className="admin-btn">
-          {pending ? "جارٍ الحفظ…" : submitLabel}
+        <button type="submit" disabled={pending} className={submitClassName}>
+          {pending ? pendingLabel : submitLabel}
         </button>
         <p role="status" aria-live="polite" className={`text-sm ${state.ok ? "text-brand" : "text-red-700 dark:text-red-300"}`}>
           {!pending && state.message}

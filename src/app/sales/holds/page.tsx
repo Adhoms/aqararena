@@ -3,10 +3,11 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Panel } from "@/components/admin/fields";
 import { CancelHoldButton, ConvertHoldButton } from "@/components/sales/hold-buttons";
+import { HoldStatus } from "@/components/sales/hold-status";
 import { SalesShell } from "@/components/sales/sales-shell";
 import { formatDateAr, formatDateTimeAr } from "@/lib/format";
 import { holdOutcome, subTypeSingular, unitLabel } from "@/lib/sales/labels";
-import { myHolds, RECENT_DAYS, type HoldRow } from "@/lib/sales/my-holds";
+import { myHolds, RECENT_DAYS, RECENT_LIMIT, type HoldRow } from "@/lib/sales/my-holds";
 import { requireSales } from "@/lib/sales/session";
 
 export const metadata: Metadata = { title: "حجوزاتي" };
@@ -18,7 +19,7 @@ function HoldItem({ h, detail, tone, children }: { h: HoldRow; detail: ReactNode
   return (
     <li className="flex flex-col gap-3 border-b border-divider py-3.5 first:pt-0 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="flex min-w-0 flex-col gap-1">
-        <Link href={`/sales/units/${h.unitId}`} className="font-medium text-ink no-underline hover:underline">
+        <Link href={`/sales/units/${h.unitId}`} className="inline-flex min-h-11 flex-wrap items-center gap-x-1 font-medium text-ink no-underline hover:underline sm:min-h-0">
           <bdi dir="ltr" className="font-semibold">
             {unitLabel(h.unit)}
           </bdi>{" "}
@@ -28,7 +29,11 @@ function HoldItem({ h, detail, tone, children }: { h: HoldRow; detail: ReactNode
           <bdi dir="ltr">{t.code}</bdi> · {t.nameAr ?? subTypeSingular(t.subType)}
         </span>
         <span className={`text-sm ${tone === "good" ? "text-brand" : "text-body"}`}>{detail}</span>
-        {h.clientNote && <span className="text-sm break-words text-muted">الحجز لـ: {h.clientNote}</span>}
+        {h.clientNote && (
+          <span className="text-sm break-words text-muted">
+            الحجز لـ: <bdi>{h.clientNote}</bdi>
+          </span>
+        )}
       </div>
       {children && <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:flex-wrap sm:items-start">{children}</div>}
     </li>
@@ -47,55 +52,58 @@ export default async function SalesHoldsPage() {
 
   return (
     <SalesShell me={me} title="حجوزاتي">
-      <Panel title={`السارية (${num(mine.length)})`}>
-        {mine.length === 0 ? (
-          <Empty>
-            مفيش حجوزات سارية دلوقتي. احجز وحدة من صفحتها في <Link href="/sales">المخزون</Link>.
-          </Empty>
-        ) : (
-          <List>
-            {mine.map((h) => (
-              <HoldItem key={h.id} h={h} detail={`لحد ${formatDateTimeAr(h.expiresAt)}`}>
-                <ConvertHoldButton holdId={h.id} />
-                <CancelHoldButton holdId={h.id} />
-              </HoldItem>
-            ))}
-          </List>
-        )}
-      </Panel>
-
-      {isLead && (
-        <Panel title={`حجوزات الفريق (${num(team.length)})`}>
-          {team.length === 0 ? (
-            <Empty>مفيش حد من الفريق حاجز وحدات دلوقتي.</Empty>
+      {/* The result of confirming or cancelling, above the lists: the row that ran it leaves the page. */}
+      <HoldStatus top>
+        <Panel title={`السارية (${num(mine.length)})`}>
+          {mine.length === 0 ? (
+            <Empty>
+              مفيش حجوزات سارية دلوقتي. احجز وحدة من صفحتها في <Link href="/sales">المخزون</Link>.
+            </Empty>
           ) : (
             <List>
-              {team.map((h) => (
-                <HoldItem key={h.id} h={h} detail={`${h.salesAccount.nameAr} · لحد ${formatDateTimeAr(h.expiresAt)}`}>
-                  <CancelHoldButton holdId={h.id} holder={h.salesAccount.nameAr} />
+              {mine.map((h) => (
+                <HoldItem key={h.id} h={h} detail={`لحد ${formatDateTimeAr(h.expiresAt)}`}>
+                  <ConvertHoldButton holdId={h.id} />
+                  <CancelHoldButton holdId={h.id} />
                 </HoldItem>
               ))}
             </List>
           )}
         </Panel>
-      )}
 
-      <Panel title={`آخر ${num(RECENT_DAYS)} يوم`}>
-        {recent.length === 0 ? (
-          <Empty>مفيش حجوزات خلصت في آخر {num(RECENT_DAYS)} يوم.</Empty>
-        ) : (
-          <List>
-            {recent.map((h) => (
-              <HoldItem
-                key={h.id}
-                h={h}
-                tone={h.status === "CONVERTED" ? "good" : undefined}
-                detail={`${holdOutcome(h)}${h.releasedBy && h.releasedById !== h.salesAccountId ? ` بواسطة ${h.releasedBy.nameAr}` : ""} · اتعمل ${formatDateAr(h.createdAt)}`}
-              />
-            ))}
-          </List>
+        {isLead && (
+          <Panel title={`حجوزات الفريق (${num(team.length)})`}>
+            {team.length === 0 ? (
+              <Empty>مفيش حد من الفريق حاجز وحدات دلوقتي.</Empty>
+            ) : (
+              <List>
+                {team.map((h) => (
+                  <HoldItem key={h.id} h={h} detail={`${h.salesAccount.nameAr} · لحد ${formatDateTimeAr(h.expiresAt)}`}>
+                    <CancelHoldButton holdId={h.id} holder={h.salesAccount.nameAr} />
+                  </HoldItem>
+                ))}
+              </List>
+            )}
+          </Panel>
         )}
-      </Panel>
+
+        <Panel title={recent.length >= RECENT_LIMIT ? `آخر ${num(RECENT_LIMIT)} حجز` : `آخر ${num(RECENT_DAYS)} يوم`}>
+          {recent.length === 0 ? (
+            <Empty>مفيش حجوزات خلصت في آخر {num(RECENT_DAYS)} يوم.</Empty>
+          ) : (
+            <List>
+              {recent.map((h) => (
+                <HoldItem
+                  key={h.id}
+                  h={h}
+                  tone={h.status === "CONVERTED" ? "good" : undefined}
+                  detail={`${holdOutcome(h)}${h.releasedBy && h.releasedById !== h.salesAccountId ? ` بواسطة ${h.releasedBy.nameAr}` : ""} · اتعمل ${formatDateAr(h.createdAt)}`}
+                />
+              ))}
+            </List>
+          )}
+        </Panel>
+      </HoldStatus>
     </SalesShell>
   );
 }

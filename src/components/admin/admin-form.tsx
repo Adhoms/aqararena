@@ -1,9 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useLayoutEffect, useRef, useState, startTransition, type ReactNode } from "react";
+import { createContext, useActionState, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, startTransition, type ReactNode } from "react";
 import type { FormState } from "@/lib/admin/form";
 
 type Action = (prev: FormState, data: FormData) => Promise<FormState>;
+
+/**
+ * Set by a wrapper that shows the forms' results itself, for forms that the refreshed page removes
+ * (a hold's buttons go away once it is cancelled). Inside it, a form hands each result and itself to
+ * the wrapper instead of showing the message next to its button.
+ */
+export const FormResultContext = createContext<((state: FormState, form: HTMLFormElement | null) => void) | null>(null);
 
 /**
  * A form wired to a server action. Submits without React's automatic reset, so typed values
@@ -44,7 +51,17 @@ function FormBody({
   pendingLabel = "جارٍ الحفظ…",
   onHide,
 }: Omit<FormProps, "secret"> & { onHide?: () => void }) {
-  const [state, dispatch, pending] = useActionState(action, {});
+  const ref = useRef<HTMLFormElement>(null);
+  const report = useContext(FormResultContext);
+  const reported = useCallback(
+    async (prev: FormState, data: FormData) => {
+      const next = await action(prev, data);
+      report?.(next, ref.current);
+      return next;
+    },
+    [action, report],
+  );
+  const [state, dispatch, pending] = useActionState(report ? reported : action, {});
   const [copied, setCopied] = useState(false);
 
   // Once a secret has been shown, drop the form's state when Activity hides the page (or on unmount).
@@ -63,7 +80,6 @@ function FormBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-  const ref = useRef<HTMLFormElement>(null);
 
   // Mark invalid fields and show their messages.
   useEffect(() => {
@@ -100,9 +116,11 @@ function FormBody({
         <button type="submit" disabled={pending} className={submitClassName}>
           {pending ? pendingLabel : submitLabel}
         </button>
-        <p role="status" aria-live="polite" className={`text-sm ${state.ok ? "text-brand" : "text-red-700 dark:text-red-300"}`}>
-          {!pending && state.message}
-        </p>
+        {!report && (
+          <p role="status" aria-live="polite" className={`text-sm ${state.ok ? "text-brand" : "text-red-700 dark:text-red-300"}`}>
+            {!pending && state.message}
+          </p>
+        )}
       </div>
       {!pending && state.secret && (
         <div className="flex flex-wrap items-center gap-3">

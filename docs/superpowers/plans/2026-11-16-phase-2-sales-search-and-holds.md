@@ -2320,7 +2320,7 @@ import Link from "next/link";
 import { formatDateTimeAr, formatMoney } from "@/lib/format";
 import { BUDGET_LABELS, type BudgetBasis } from "@/lib/sales/budget";
 import type { SalesUnitRow } from "@/lib/sales/inventory";
-import { floorLabel, subTypeLabel, viewLabel } from "@/lib/sales/labels";
+import { floorLabel, subTypeSingular, viewLabel } from "@/lib/sales/labels";
 import { StateBadge } from "./state-badge";
 
 const COLS = "md:grid-cols-[1.1fr_1.3fr_1.4fr_0.5fr_0.6fr_1fr_1.3fr_minmax(7rem,auto)]";
@@ -2362,7 +2362,7 @@ export function UnitResults({ rows, basis }: { rows: SalesUnitRow[]; basis: Budg
             </span>
             <span className="text-body">{r.projectName}</span>
             <span>
-              <bdi dir="ltr">{r.typeCode}</bdi> · {r.typeName ?? subTypeLabel(r.subType)}
+              <bdi dir="ltr">{r.typeCode}</bdi> · {r.typeName ?? subTypeSingular(r.subType)}
             </span>
             <span className="flex flex-wrap gap-x-4 text-muted md:contents">
               <span>
@@ -2590,7 +2590,7 @@ import { StateBadge } from "@/components/sales/state-badge";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { planLabel, plansForType } from "@/lib/sales/budget";
 import { loadSalesUnit, salesPlans } from "@/lib/sales/inventory";
-import { finishingLabel, floorLabel, orientationLabel, subTypeLabel, viewLabel } from "@/lib/sales/labels";
+import { finishingLabel, floorLabel, orientationLabel, subTypeSingular, viewLabel } from "@/lib/sales/labels";
 import { requireSales } from "@/lib/sales/session";
 
 export const metadata: Metadata = { title: "وحدة" };
@@ -2608,7 +2608,7 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
   const t = unit.type;
   const facts: [string, string | null][] = [
     ["النموذج", `${t.code}${t.nameAr ? ` · ${t.nameAr}` : ""}`],
-    ["النوع", subTypeLabel(t.subType)],
+    ["النوع", subTypeSingular(t.subType)],
     ["المساحة", m2(t.buaM2)],
     ["الصافي", m2(t.netM2)],
     ["الحديقة", m2(t.gardenM2)],

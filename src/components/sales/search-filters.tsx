@@ -1,26 +1,28 @@
 import Link from "next/link";
 import ar from "@/app/[lang]/dictionaries/ar.json";
 import { UNIT_VIEWS, type SubType } from "@/lib/property";
-import { BUDGET_BASES, planLabel, type BudgetBasis, type SalesPlan } from "@/lib/sales/budget";
+import { BASIS_LABELS, BUDGET_BASES, planLabel, type SalesPlan } from "@/lib/sales/budget";
 import { SALES_STATES } from "@/lib/sales/holds";
 import type { SalesProject } from "@/lib/sales/inventory";
 import { STATE_LABELS, subTypeLabel } from "@/lib/sales/labels";
 import { searchHref, type SalesSearch } from "@/lib/sales/search";
-import { SalesSearchForm } from "./search-form";
+import { SalesSearchForm, SearchButton } from "./search-form";
 
-/** What the budget amount is. The monthly figure is the plan's installments spread over its months, so on a quarterly plan it is an average. */
-export const BASIS_LABELS: Record<BudgetBasis, string> = { total: "السعر الكلي", down: "المقدم", monthly: "القسط (متوسط شهري)" };
+/** Typed values the search couldn't read (e.g. «٥٠٠ ألف»), shown back in their fields with what to fix. */
+export type InvalidFilters = { budget?: string; floorMin?: string; floorMax?: string };
 
 const field = "flex min-w-0 flex-col gap-1.5 text-sm font-medium text-ink";
 const sub = "flex min-w-0 flex-col gap-1.5 text-sm text-body";
 // 16 px on a phone so iOS doesn't zoom into the field; 44 px tall to tap.
 const input = "admin-input min-h-11 text-base sm:min-h-10 sm:text-sm";
 const hint = "col-span-2 m-0 text-xs leading-relaxed text-muted";
+const error = "col-span-2 m-0 text-xs font-medium leading-relaxed text-red-700 dark:text-red-300";
 const str = (v: string | number | undefined) => (v === undefined ? "" : String(v));
 
 /**
  * The search filters as a GET form: they apply with «بحث», and the results show the new count.
- * Open while nothing is filtered; after a search it closes, so the results come first on a phone.
+ * Open while nothing is filtered or a typed value needs fixing; after a search it closes, so the results
+ * come first on a phone.
  */
 export function SearchFilters({
   search,
@@ -28,16 +30,21 @@ export function SearchFilters({
   subTypes,
   plans,
   count,
+  invalid,
 }: {
   search: SalesSearch;
   project?: SalesProject;
   subTypes: SubType[];
   plans: SalesPlan[];
   count: number;
+  invalid: InvalidFilters;
 }) {
+  const badFloor = invalid.floorMin !== undefined || invalid.floorMax !== undefined;
+  const badBudget = invalid.budget !== undefined;
+  const codeOf = new Map(project?.types.map((t) => [t.id, t.code]));
   return (
     // A new search remounts the box, so it opens or closes for that search whatever was toggled before.
-    <details key={searchHref(search, { page: 1 })} open={count === 0} className="admin-panel group">
+    <details key={searchHref(search, { page: 1 }) + JSON.stringify(invalid)} open={count === 0 || badFloor || badBudget} className="admin-panel group">
       <summary className="-m-2 flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-2 [&::-webkit-details-marker]:hidden">
         <span className="font-display text-lg">
           الفلاتر
@@ -114,14 +121,38 @@ export function SearchFilters({
           <legend className="mb-1.5 p-0 text-sm font-medium">الدور</legend>
           <label className={sub}>
             من
-            <input name="floorMin" type="text" inputMode="numeric" dir="ltr" autoComplete="off" defaultValue={str(search.floorMin)} aria-describedby="floor-hint" className={input} />
+            <input
+              name="floorMin"
+              type="text"
+              dir="ltr"
+              autoComplete="off"
+              defaultValue={invalid.floorMin ?? str(search.floorMin)}
+              aria-invalid={invalid.floorMin !== undefined || undefined}
+              aria-describedby={badFloor ? "floor-error floor-hint" : "floor-hint"}
+              className={input}
+            />
           </label>
           <label className={sub}>
             لحد
-            <input name="floorMax" type="text" inputMode="numeric" dir="ltr" autoComplete="off" defaultValue={str(search.floorMax)} aria-describedby="floor-hint" className={input} />
+            <input
+              name="floorMax"
+              type="text"
+              dir="ltr"
+              autoComplete="off"
+              defaultValue={invalid.floorMax ?? str(search.floorMax)}
+              aria-invalid={invalid.floorMax !== undefined || undefined}
+              aria-describedby={badFloor ? "floor-error floor-hint" : "floor-hint"}
+              className={input}
+            />
           </label>
+          {badFloor && (
+            <p id="floor-error" role="alert" className={error}>
+              الدور لازم يبقى رقم صحيح من <bdi dir="ltr">-5</bdi> لـ <bdi dir="ltr">200</bdi>، زي <bdi dir="ltr">3</bdi>.
+            </p>
+          )}
+          {/* A text keyboard, not a number pad: iOS's number pad has no minus sign for the basement. */}
           <p id="floor-hint" className={hint}>
-            اكتب صفر للأرضي، ورقم بالسالب للبدروم.
+            اكتب <bdi dir="ltr">0</bdi> (صفر) للأرضي، و<bdi dir="ltr">-1</bdi> للبدروم.
           </p>
         </fieldset>
 
@@ -135,8 +166,9 @@ export function SearchFilters({
               inputMode="numeric"
               dir="ltr"
               autoComplete="off"
-              defaultValue={str(search.budget)}
-              aria-describedby="budget-hint"
+              defaultValue={invalid.budget ?? str(search.budget)}
+              aria-invalid={badBudget || undefined}
+              aria-describedby={badBudget ? "budget-error budget-hint" : "budget-hint"}
               className={input}
             />
           </label>
@@ -153,17 +185,24 @@ export function SearchFilters({
           {project && plans.length > 0 && (
             <label className={`${sub} col-span-2 mt-2.5`}>
               خطة الدفع (للمقدم والقسط)
-              <select name="plan" defaultValue={str(search.plan)} className={input}>
+              <select name="plan" defaultValue={str(search.plan)} aria-describedby="budget-hint" className={input}>
                 <option value="">أي خطة (الأقل)</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
                     {planLabel(p)}
+                    {p.typologyId ? ` · ${codeOf.get(p.typologyId) ?? "نموذج واحد"} بس` : ""}
                   </option>
                 ))}
               </select>
             </label>
           )}
+          {badBudget && (
+            <p id="budget-error" role="alert" className={error}>
+              الميزانية لازم تبقى رقم بس، زي <bdi dir="ltr">5000000</bdi>.
+            </p>
+          )}
           <p id="budget-hint" className={hint}>
+            أرقام بس، من غير «ألف» أو «مليون».{" "}
             {project && plans.length > 0
               ? "المقدم والقسط بيتقارنوا بالخطة اللي تختارها، أو بأقل رقم في خطط كل وحدة."
               : "المقدم والقسط بيتقارنوا بأقل رقم في خطط كل وحدة. اختار مشروع عشان تحدد خطة."}{" "}
@@ -172,9 +211,7 @@ export function SearchFilters({
         </fieldset>
 
         <div className="col-span-full flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
-          <button type="submit" className="press admin-btn min-h-11 justify-center max-sm:flex-1">
-            بحث
-          </button>
+          <SearchButton className="press admin-btn min-h-11 justify-center max-sm:flex-1" />
           {count > 0 && (
             <Link href={searchHref({ by: "total", page: 1, project: search.project })} className="inline-flex min-h-11 items-center text-sm">
               مسح الفلاتر

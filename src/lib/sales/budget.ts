@@ -7,7 +7,8 @@ import type { PaymentPlan } from "@/lib/catalog/types";
 
 export const BUDGET_BASES = ["total", "down", "monthly"] as const;
 export type BudgetBasis = (typeof BUDGET_BASES)[number];
-export const BUDGET_LABELS: Record<BudgetBasis, string> = { total: "السعر الكلي", down: "المقدم", monthly: "القسط الشهري" };
+/** What the budget amount is. The monthly figure is the plan's installments spread over its months, so on a quarterly plan it is an average. */
+export const BASIS_LABELS: Record<BudgetBasis, string> = { total: "السعر الكلي", down: "المقدم", monthly: "القسط (متوسط شهري)" };
 
 /** An active payment plan as Sales reads it: the catalog's terms plus its id, the unit type it is limited to, and its maintenance. */
 export type SalesPlan = PaymentPlan & { id: string; typologyId: string | null; maintenancePct?: number };

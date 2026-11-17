@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { formatDateTimeAr, formatNumber } from "@/lib/format";
-import type { BudgetBasis } from "@/lib/sales/budget";
+import { BASIS_LABELS, type BudgetBasis } from "@/lib/sales/budget";
 import type { SalesUnitRow } from "@/lib/sales/inventory";
 import { floorLabel, subTypeSingular, viewLabel } from "@/lib/sales/labels";
-import { BASIS_LABELS } from "./search-filters";
 import { StateBadge } from "./state-badge";
 
 // Unit | project and type | bedrooms | floor | view | price | state.

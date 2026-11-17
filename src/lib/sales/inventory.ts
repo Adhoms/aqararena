@@ -65,12 +65,12 @@ export async function salesProjects(developerId: string, now = new Date()): Prom
   return projects.map((p) => ({ id: p.id, nameAr: p.nameAr, types: p.typologies, ...(totals.get(p.id) ?? { available: 0, total: 0 }) }));
 }
 
-/** Active plans that haven't passed their end date, by project, for the developer's published projects only. */
-export async function salesPlans(developerId: string, projectIds: string[]): Promise<Map<string, SalesPlan[]>> {
-  const rows = projectIds.length
+/** Active plans that haven't passed their end date, by project, for the developer's published projects (all of them, or `projectIds`). */
+export async function salesPlans(developerId: string, projectIds?: string[]): Promise<Map<string, SalesPlan[]>> {
+  const rows = !projectIds || projectIds.length
     ? await db.paymentPlan.findMany({
         where: {
-          projectId: { in: projectIds },
+          ...(projectIds ? { projectId: { in: projectIds } } : {}),
           project: { developerId, published: true },
           isActive: true,
           OR: [{ validUntil: null }, { validUntil: { gte: todayCairo() } }],
@@ -144,7 +144,9 @@ export async function searchUnits(
   };
   const units = await db.unit.findMany({
     where,
-    orderBy: [{ availability: "asc" }, { typology: { priceFrom: "asc" } }, { id: "asc" }],
+    // Cheapest first within each state, so a capped scan keeps the cheapest units: the unit's own price,
+    // then (for units without one) the type's starting price.
+    orderBy: [{ availability: "asc" }, { price: { sort: "asc", nulls: "last" } }, { typology: { priceFrom: "asc" } }, { id: "asc" }],
     take: SCAN_LIMIT + 1,
     select: {
       id: true,

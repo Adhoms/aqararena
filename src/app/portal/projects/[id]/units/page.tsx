@@ -11,6 +11,7 @@ import { PortalShell } from "@/components/portal/portal-shell";
 import { UnitStatusSelect } from "@/components/portal/unit-status";
 import { UnitsImport } from "@/components/portal/units-import";
 import { AdminForm, DeleteButton } from "@/components/admin/admin-form";
+import { HoldConfirm } from "@/components/admin/hold-confirm";
 import { Panel, Row, Select, TextField } from "@/components/admin/fields";
 import { deletePortalUnit, saveProjectHoldHours, savePortalUnit } from "../../../unit-actions";
 
@@ -78,25 +79,11 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
           حالة الوحدات (متاحة / محجوزة / مباعة) بتظهر لفريق مبيعاتك في AqarArena Sales، مش للزوار على الموقع. حدّث الحالة أول ما وحدة تتباع أو تتحجز. سعر الوحدة مايقدرش يقل عن سعر «يبدأ من» للنموذج، ولتغيير النماذج نفسها أو أسعارها افتح «تعديل» المشروع من الصفحة الرئيسية.
         </p>
         <p>
-          متاحة <b>{count("AVAILABLE").toLocaleString("ar-EG")}</b> · محجوزة <b>{count("RESERVED").toLocaleString("ar-EG")}</b> · مباعة{" "}
-          <b>{count("SOLD").toLocaleString("ar-EG")}</b> · محجوزة مؤقتًا لفريق المبيعات <b>{heldCount.toLocaleString("ar-EG")}</b>
+          متاحة <b>{count("AVAILABLE").toLocaleString("ar-EG")}</b>
+          {heldCount > 0 && ` (منها ${heldCount.toLocaleString("ar-EG")} محجوزة مؤقتًا لفريق المبيعات)`} · محجوزة <b>{count("RESERVED").toLocaleString("ar-EG")}</b> · مباعة{" "}
+          <b>{count("SOLD").toLocaleString("ar-EG")}</b>
         </p>
       </section>
-
-      <Panel title="مدة الحجز المؤقت في المشروع ده">
-        <AdminForm action={saveProjectHoldHours}>
-          <input type="hidden" name="projectId" value={project.id} />
-          <TextField
-            name="holdHours"
-            type="number"
-            inputMode="numeric"
-            autoComplete="off"
-            label="عدد الساعات"
-            defaultValue={project.holdHours}
-            hint={`فاضي = مدة الشركة (${project.developer.holdHours} ساعة، بتتغيّر من «فريق المبيعات»). من ${HOLD_HOURS_MIN} لـ ${HOLD_HOURS_MAX}. مثلًا قللها يوم الإطلاق عشان الوحدات ماتتركنش. بيسري على الحجوزات الجديدة بس.`}
-          />
-        </AdminForm>
-      </Panel>
 
       {project.typologies.length === 0 ? (
         <p className="admin-panel text-sm text-muted">المشروع لسه مالوش نماذج وحدات بسعر. ضيفها من «تعديل» المشروع، وبعد الموافقة تقدر تضيف الوحدات هنا.</p>
@@ -127,19 +114,18 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                     </span>
                   </summary>
                   {holdText(editing.id) && <p className="mb-3 text-sm text-brass-dark">محجوزة مؤقتًا لـ {holdText(editing.id)}</p>}
-                  <AdminForm
-                    action={savePortalUnit}
-                    confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)}. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟` : undefined}
-                  >
-                    <input type="hidden" name="id" value={editing.id} />
-                    <input type="hidden" name="projectId" value={project.id} />
-                    {fields(editing)}
-                  </AdminForm>
+                  <HoldConfirm message={holdText(editing.id) && `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)}. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟`}>
+                    <AdminForm action={savePortalUnit}>
+                      <input type="hidden" name="id" value={editing.id} />
+                      <input type="hidden" name="projectId" value={project.id} />
+                      {fields(editing)}
+                    </AdminForm>
+                  </HoldConfirm>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <Link href={`${page}#units`} className="text-sm">
                       إغلاق
                     </Link>
-                    <DeleteButton action={deletePortalUnit} fields={{ id: editing.id, projectId: project.id }} confirmText="حذف الوحدة دي؟" />
+                    <DeleteButton action={deletePortalUnit} fields={{ id: editing.id, projectId: project.id }} confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)}. لو اتحذفت الحجز هيتلغي. تحذفها؟` : "حذف الوحدة دي؟"} />
                   </div>
                 </details>
               )}
@@ -171,10 +157,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                           <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
                           <td>{egp(u.price)}</td>
                           <td>
-                            <span className="flex flex-col items-start gap-1">
-                              <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.id)} />
-                              {holds[u.id] && <span className="text-xs text-brass-dark">محجوزة مؤقتًا لـ {holdText(u.id)}</span>}
-                            </span>
+                            <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.id)} />
                           </td>
                           <td>
                             <Link href={`${page}?unit=${u.id}#units`}>تعديل</Link>
@@ -199,6 +182,21 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
           </Panel>
         </>
       )}
+
+      <Panel title="مدة الحجز المؤقت في المشروع ده">
+        <AdminForm action={saveProjectHoldHours}>
+          <input type="hidden" name="projectId" value={project.id} />
+          <TextField
+            name="holdHours"
+            type="number"
+            inputMode="numeric"
+            autoComplete="off"
+            label="عدد الساعات"
+            defaultValue={project.holdHours}
+            hint={`فاضي = مدة الشركة (${project.developer.holdHours} ساعة، بتتغيّر من «فريق المبيعات»). من ${HOLD_HOURS_MIN} لـ ${HOLD_HOURS_MAX}. مثلًا قللها يوم الإطلاق عشان الوحدات ماتتركنش. بيسري على الحجوزات الجديدة بس.`}
+          />
+        </AdminForm>
+      </Panel>
     </PortalShell>
   );
 }

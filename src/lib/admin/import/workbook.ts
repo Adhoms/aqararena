@@ -189,6 +189,8 @@ export type ImportResult = {
   message: string;
   problems: Problem[];
   counts: Record<SheetKey, { create: number; update: number }>;
+  /** Something to read before importing (shown apart from the success message). */
+  warning?: string;
 };
 
 export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promise<ImportResult> {
@@ -349,6 +351,8 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
 
   // Units
   const unitRows: { projSlug: string; code: string; values: ReturnType<typeof readUnit>; present: Set<string> }[] = [];
+  // Existing units the sheet takes off the market (they lose any Sales hold when it is saved).
+  const leavingIds: string[] = [];
   {
     const { def, rows, present } = sheets.units;
     const seen = new Set<string>();
@@ -369,7 +373,9 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       const key = unitKey(proj.slug, values.building, values.unitNumber);
       if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المشروع والمبنى والرقم)");
       seen.add(key);
-      const known = proj.existingId && unitIdByKey.has(unitKey(proj.existingId, values.building, values.unitNumber));
+      const knownId = proj.existingId ? unitIdByKey.get(unitKey(proj.existingId, values.building, values.unitNumber)) : undefined;
+      const known = Boolean(knownId);
+      if (knownId && values.availability !== "AVAILABLE") leavingIds.push(knownId);
       counts.units[known ? "update" : "create"]++;
       unitRows.push({ projSlug: proj.slug, code, values, present });
     }
@@ -387,7 +393,11 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   };
 
   if (problems.length) return fail(`فيه ${problems.length} مشكلة لازم تتصلّح قبل الاستيراد. ماحدش اتحفظ.`);
-  if (!save) return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts };
+  if (!save) {
+    const held = leavingIds.length ? await db.unitHold.count({ where: { unitId: { in: leavingIds }, ...liveHoldWhere() } }) : 0;
+    const warning = held ? `فيه ${held} وحدة محجوزة مؤقتًا لفريق المبيعات هتتغيّر حالتها، والحجز عليها هيتلغي.` : undefined;
+    return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts, warning };
+  }
 
   // Save everything in one transaction: all rows or none.
   const released = await db.$transaction(
@@ -703,7 +713,7 @@ const projectUnitsDef = (): SheetDef => {
   return { ...def, columns: def.columns.filter((c) => c.key !== "project") };
 };
 
-export type UnitsImportResult = { ok: boolean; saved: boolean; message: string; problems: Problem[]; create: number; update: number };
+export type UnitsImportResult = { ok: boolean; saved: boolean; message: string; problems: Problem[]; create: number; update: number; warning?: string };
 
 /**
  * Checks, and with `save` applies, a units sheet for one project. A unit with the same building
@@ -760,8 +770,8 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
   const leaving = out.flatMap((u) => (u.id && u.values.availability !== "AVAILABLE" ? [{ id: u.id, availability: u.values.availability }] : []));
   if (!save) {
     const held = leaving.length ? await db.unitHold.count({ where: { unitId: { in: leaving.map((u) => u.id) }, ...liveHoldWhere() } }) : 0;
-    const warning = held ? ` تنبيه: فيه ${held} وحدة محجوزة مؤقتًا لفريق المبيعات هتتغيّر حالتها، والحجز عليها هيتلغي.` : "";
-    return { ok: true, saved: false, message: `الملف سليم: ${create} وحدة جديدة و${update} تحديث.${warning}`, problems, create, update };
+    const warning = held ? `فيه ${held} وحدة محجوزة مؤقتًا لفريق المبيعات هتتغيّر حالتها، والحجز عليها هيتلغي.` : undefined;
+    return { ok: true, saved: false, message: `الملف سليم: ${create} وحدة جديدة و${update} تحديث.`, problems, create, update, warning };
   }
 
   const released = await db.$transaction(
@@ -774,8 +784,8 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
     },
     { timeout: 120_000, maxWait: 20_000 },
   );
-  const holds = released ? ` واتلغى ${released} حجز مؤقت.` : "";
-  return { ok: true, saved: true, message: `تم ✓ ${create} وحدة جديدة و${update} تحديث.${holds}`, problems, create, update };
+  const holds = released ? `، واتلغى ${released} حجز مؤقت` : "";
+  return { ok: true, saved: true, message: `تم ✓ ${create} وحدة جديدة و${update} تحديث${holds}.`, problems, create, update };
 }
 
 /** One project's units as a workbook the developer edits and uploads back. */

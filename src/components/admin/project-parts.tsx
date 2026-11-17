@@ -6,6 +6,7 @@ import type { FormState } from "@/lib/admin/form";
 import { options } from "@/lib/admin/labels";
 import { formatDateTimeAr } from "@/lib/format";
 import { AdminForm, DeleteButton } from "./admin-form";
+import { HoldConfirm } from "./hold-confirm";
 import { Checkbox, CheckboxGroup, Panel, Row, Select, TextArea, TextField } from "./fields";
 import { isoDate } from "./project-form";
 import { BulkMediaUpload, UploadField } from "./upload";
@@ -143,6 +144,7 @@ export function UnitList({
   typologies,
   editing,
   holds = {},
+  heldTotal = 0,
 }: {
   projectId: string;
   items: Unit[];
@@ -152,6 +154,8 @@ export function UnitList({
   editing?: Unit | null;
   /** Live AqarArena Sales holds by unit id. */
   holds?: Record<string, { name: string; expiresAt: Date }>;
+  /** How many live holds the project's units have in all (the list shows only the first units). */
+  heldTotal?: number;
 }) {
   if (typologies.length === 0) return null;
   const typologyOptions = typologies.map((t) => ({ value: t.id, label: t.code }));
@@ -184,7 +188,7 @@ export function UnitList({
             اختياري: حالة الوحدات بتظهر لفريق مبيعات المطور في AqarArena Sales، مش على الموقع. للقوايم الطويلة استخدم شيت «الوحدات» في <Link href="/admin/import">استيراد Excel</Link>.
             {total > items.length && ` معروض هنا أول ${items.length} وحدة من ${total}.`}
           </p>
-          {total > 0 && <DeleteButton action={deleteProjectUnits} fields={{ id: projectId }} label="حذف كل الوحدات" confirmText={`حذف كل وحدات المشروع (${total})؟`} />}
+          {total > 0 && <DeleteButton action={deleteProjectUnits} fields={{ id: projectId }} label="حذف كل الوحدات" confirmText={`حذف كل وحدات المشروع (${total})؟${heldTotal ? ` فيه ${heldTotal} وحدة محجوزة مؤقتًا في AqarArena Sales والحجوزات دي هتتلغي.` : ""}`} />}
         </div>
 
         {editing && (
@@ -196,19 +200,23 @@ export function UnitList({
                 <span dir="ltr">{name(editing)}</span>
               </span>
             </summary>
-            <AdminForm
-              action={saveUnit}
-              confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)} في AqarArena Sales. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟` : undefined}
-            >
-              <input type="hidden" name="id" value={editing.id} />
-              <input type="hidden" name="projectId" value={projectId} />
-              {fields(editing)}
-            </AdminForm>
+            {holdText(editing.id) && <p className="mb-3 text-sm text-brass-dark">محجوزة مؤقتًا لـ {holdText(editing.id)} في AqarArena Sales</p>}
+            <HoldConfirm message={holdText(editing.id) && `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)} في AqarArena Sales. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟`}>
+              <AdminForm action={saveUnit}>
+                <input type="hidden" name="id" value={editing.id} />
+                <input type="hidden" name="projectId" value={projectId} />
+                {fields(editing)}
+              </AdminForm>
+            </HoldConfirm>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <Link href={`${page}#units`} className="text-sm">
                 إغلاق
               </Link>
-              <DeleteButton action={deleteProjectPart} fields={{ id: editing.id, projectId, part: "unit" }} />
+              <DeleteButton
+                action={deleteProjectPart}
+                fields={{ id: editing.id, projectId, part: "unit" }}
+                confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)} في AqarArena Sales. لو اتحذفت الحجز هيتلغي. تحذفها؟` : undefined}
+              />
             </div>
           </details>
         )}
@@ -241,7 +249,9 @@ export function UnitList({
                     <td>{egp(u.price)}</td>
                     <td>
                       <span className={AVAILABILITY_BADGE[u.availability]}>{options.availability.find((o) => o.value === u.availability)?.label}</span>
-                      {holds[u.id] && <span className="admin-badge ms-1.5">حجز مؤقت: {holdText(u.id)}</span>}
+                      {holds[u.id] && (
+                        <span className="mt-1 flex w-fit items-center rounded-full border border-brass px-2.5 py-0.5 text-xs text-brass-dark">حجز مؤقت: {holdText(u.id)}</span>
+                      )}
                     </td>
                     <td>
                       <Link href={`${page}?unit=${u.id}#units`}>تعديل</Link>

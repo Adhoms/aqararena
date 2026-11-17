@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { deleteProject } from "@/app/admin/actions";
 import { sendProjectAlerts } from "@/app/admin/portal-actions";
 import { pendingAlert } from "@/lib/price-alerts";
-import { liveHoldsByUnit } from "@/lib/sales/hold-service";
+import { liveHoldWhere, liveHoldsByUnit } from "@/lib/sales/hold-service";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { DeleteButton } from "@/components/admin/admin-form";
 import { NewAreaForm, ProjectForm } from "@/components/admin/project-form";
@@ -51,7 +51,10 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
     unitId ? db.unit.findFirst({ where: { id: unitId, typology: { projectId: id } } }) : null,
   ]);
   if (!project) notFound();
-  const holds = await liveHoldsByUnit([...units.map((u) => u.id), ...(editingUnit ? [editingUnit.id] : [])]);
+  const [holds, heldTotal] = await Promise.all([
+    liveHoldsByUnit([...units.map((u) => u.id), ...(editingUnit ? [editingUnit.id] : [])]),
+    db.unitHold.count({ where: { ...liveHoldWhere(), unit: { typology: { projectId: id } } } }),
+  ]);
   const alert = await pendingAlert(project.id);
   const CHANGE_AR = { start: "أقل سعر", perM2: "سعر المتر", down: "أقل مقدم", years: "مدة التقسيط", monthly: "أقل قسط", cash: "خصم الكاش" } as const;
 
@@ -108,7 +111,7 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
       </div>
       <NewAreaForm />
       <TypologyList projectId={project.id} items={project.typologies} />
-      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} holds={holds} />
+      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} holds={holds} heldTotal={heldTotal} />
       <PaymentPlanList projectId={project.id} items={project.paymentPlans} typologies={project.typologies} />
       <ZoneList projectId={project.id} items={project.zones} />
       <MediaList projectId={project.id} items={project.media} />

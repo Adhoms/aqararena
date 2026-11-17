@@ -13,7 +13,7 @@
   @apply inline-flex cursor-pointer items-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-medium text-white no-underline transition-colors hover:bg-brand-2 hover:text-white disabled:cursor-wait disabled:opacity-60;
 }
 .admin-btn-ghost {
-  @apply inline-flex cursor-pointer items-center gap-2 rounded-full border border-line-strong px-4 py-1.5 text-sm text-ink no-underline transition-colors hover:border-brand hover:text-ink;
+  @apply inline-flex cursor-pointer items-center gap-2 rounded-full border border-line-strong px-4 py-1.5 text-sm text-ink no-underline transition-colors hover:border-brand hover:text-ink disabled:cursor-wait disabled:opacity-60;
 }
 .admin-btn-danger {
   @apply inline-flex cursor-pointer items-center rounded-full border border-red-600/40 px-4 py-1.5 text-sm text-red-700 transition-colors hover:bg-red-600 hover:text-white dark:text-red-300;

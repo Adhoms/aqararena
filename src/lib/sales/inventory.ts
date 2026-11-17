@@ -14,7 +14,7 @@ import type { SalesSearch } from "./search";
 
 /** Results per page, and how many units one search looks at (available ones first). */
 export const PAGE_SIZE = 40;
-const SCAN_LIMIT = 2000;
+export const SCAN_LIMIT = 2000;
 
 /** Only unit types with a starting price are shown and sold (the public catalog's rule too). */
 const priced = { priceFrom: { not: null } } satisfies Prisma.TypologyWhereInput;
@@ -26,21 +26,29 @@ export type SalesProject = {
   id: string;
   nameAr: string;
   types: { id: string; code: string; nameAr: string | null; subType: SubType; bedrooms: number | null }[];
+  /** Units free to hold: AVAILABLE and without a live hold (the search shows held units as their own state). */
   available: number;
   total: number;
 };
 
-/** The developer's published projects that have priced unit types, with available / total unit counts. */
-export async function salesProjects(developerId: string): Promise<SalesProject[]> {
+/** The developer's published projects that have priced unit types, with available (not held) / total unit counts. */
+export async function salesProjects(developerId: string, now = new Date()): Promise<SalesProject[]> {
   const projects = await db.project.findMany({
     where: { developerId, published: true, typologies: { some: priced } },
     orderBy: { nameAr: "asc" },
     select: { id: true, nameAr: true, typologies: { where: priced, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, subType: true, bedrooms: true } } },
   });
   const typeIds = projects.flatMap((p) => p.typologies.map((t) => t.id));
-  const counts = typeIds.length
-    ? await db.unit.groupBy({ by: ["typologyId", "availability"], where: { typologyId: { in: typeIds } }, _count: { _all: true } })
-    : [];
+  const [counts, held] = typeIds.length
+    ? await Promise.all([
+        db.unit.groupBy({ by: ["typologyId", "availability"], where: { typologyId: { in: typeIds } }, _count: { _all: true } }),
+        db.unit.groupBy({
+          by: ["typologyId"],
+          where: { typologyId: { in: typeIds }, availability: "AVAILABLE", holds: { some: liveHoldWhere(now) } },
+          _count: { _all: true },
+        }),
+      ])
+    : [[], []];
   const projectOf = new Map(projects.flatMap((p) => p.typologies.map((t) => [t.id, p.id] as const)));
   const totals = new Map<string, { available: number; total: number }>();
   for (const c of counts) {
@@ -50,14 +58,23 @@ export async function salesProjects(developerId: string): Promise<SalesProject[]
     if (c.availability === "AVAILABLE") t.available += c._count._all;
     totals.set(projectId, t);
   }
+  for (const h of held) {
+    const t = totals.get(projectOf.get(h.typologyId)!);
+    if (t) t.available -= h._count._all;
+  }
   return projects.map((p) => ({ id: p.id, nameAr: p.nameAr, types: p.typologies, ...(totals.get(p.id) ?? { available: 0, total: 0 }) }));
 }
 
-/** Active plans that haven't passed their end date, by project. */
-export async function salesPlans(projectIds: string[]): Promise<Map<string, SalesPlan[]>> {
+/** Active plans that haven't passed their end date, by project, for the developer's published projects only. */
+export async function salesPlans(developerId: string, projectIds: string[]): Promise<Map<string, SalesPlan[]>> {
   const rows = projectIds.length
     ? await db.paymentPlan.findMany({
-        where: { projectId: { in: projectIds }, isActive: true, OR: [{ validUntil: null }, { validUntil: { gte: todayCairo() } }] },
+        where: {
+          projectId: { in: projectIds },
+          project: { developerId, published: true },
+          isActive: true,
+          OR: [{ validUntil: null }, { validUntil: { gte: todayCairo() } }],
+        },
         orderBy: { createdAt: "asc" },
       })
     : [];
@@ -114,7 +131,14 @@ export async function searchUnits(
     typology,
     ...(s.floorMin !== undefined || s.floorMax !== undefined ? { floor: { gte: s.floorMin, lte: s.floorMax } } : {}),
     ...(s.view ? { view: s.view } : {}),
-    ...(s.state ? { availability: s.state === "HELD" ? "AVAILABLE" : s.state } : {}),
+    // Held and available are told apart by a live hold, in the database, so the scan limit never cuts them short.
+    ...(s.state === "HELD"
+      ? { availability: "AVAILABLE", holds: { some: liveHoldWhere(now) } }
+      : s.state === "AVAILABLE"
+        ? { availability: "AVAILABLE", holds: { none: liveHoldWhere(now) } }
+        : s.state
+          ? { availability: s.state }
+          : {}),
     // A total-price budget narrows the scan in the database too; the exact check is below.
     ...(s.budget && s.by === "total" ? { OR: [{ price: { lte: s.budget + 0.5 } }, { price: null, typology: { priceFrom: { lte: s.budget + 0.5 } } }] } : {}),
   };
@@ -139,6 +163,7 @@ export async function searchUnits(
   for (const u of units.slice(0, SCAN_LIMIT)) {
     const hold = u.holds[0];
     const state = salesState(u.availability, Boolean(hold));
+    // A safety net: the database filter above already matched the state.
     if (s.state && state !== s.state) continue;
     const price = Number(u.price ?? u.typology.priceFrom);
     let figure: number | null = null;

@@ -14,12 +14,13 @@ const LINKS = [
 export function SalesNav() {
   const pathname = usePathname();
   return LINKS.map((link) => {
-    const current = pathname === link.href || (link.also !== undefined && pathname.startsWith(link.also));
+    // The page itself is "page"; a page inside the section (a unit under «المخزون») is "location".
+    const current = pathname === link.href ? "page" : link.also !== undefined && pathname.startsWith(link.also) ? "location" : undefined;
     return (
       <Link
         key={link.href}
         href={link.href}
-        aria-current={current ? "page" : undefined}
+        aria-current={current}
         // The public site's menu pill (nav-links.tsx), 44 px tall on phones so it's easy to tap.
         className={`inline-flex min-h-11 items-center rounded-full px-3 no-underline sm:min-h-9 ${
           current ? "bg-brass-soft font-medium text-brass-dark hover:text-brass-dark" : "text-body hover:bg-ink/5 hover:text-ink"

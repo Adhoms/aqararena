@@ -4,6 +4,7 @@ import type { Media, MasterPlanZone, PaymentPlan, ProjectDistance, Typology, Uni
 import { deleteProjectPart, deleteProjectUnits, saveDistance, saveMedia, savePaymentPlan, saveTypology, saveUnit, saveZone } from "@/app/admin/actions";
 import type { FormState } from "@/lib/admin/form";
 import { options } from "@/lib/admin/labels";
+import { formatDateTimeAr } from "@/lib/format";
 import { AdminForm, DeleteButton } from "./admin-form";
 import { Checkbox, CheckboxGroup, Panel, Row, Select, TextArea, TextField } from "./fields";
 import { isoDate } from "./project-form";
@@ -141,6 +142,7 @@ export function UnitList({
   total,
   typologies,
   editing,
+  holds = {},
 }: {
   projectId: string;
   items: Unit[];
@@ -148,12 +150,15 @@ export function UnitList({
   typologies: Typology[];
   /** The unit picked with "تعديل" (?unit=…), if any. */
   editing?: Unit | null;
+  /** Live AqarArena Sales holds by unit id. */
+  holds?: Record<string, { name: string; expiresAt: Date }>;
 }) {
   if (typologies.length === 0) return null;
   const typologyOptions = typologies.map((t) => ({ value: t.id, label: t.code }));
   const code = new Map(typologies.map((t) => [t.id, t.code]));
   const page = `/admin/projects/${projectId}`;
   const name = (u: Unit) => [u.building, u.unitNumber].filter(Boolean).join(" · ");
+  const holdText = (unitId: string) => holds[unitId] && `${holds[unitId].name} لحد ${formatDateTimeAr(holds[unitId].expiresAt)}`;
   const fields = (u?: Unit) => (
     <>
       <Row cols={4}>
@@ -191,7 +196,10 @@ export function UnitList({
                 <span dir="ltr">{name(editing)}</span>
               </span>
             </summary>
-            <AdminForm action={saveUnit}>
+            <AdminForm
+              action={saveUnit}
+              confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)} في AqarArena Sales. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟` : undefined}
+            >
               <input type="hidden" name="id" value={editing.id} />
               <input type="hidden" name="projectId" value={projectId} />
               {fields(editing)}
@@ -233,6 +241,7 @@ export function UnitList({
                     <td>{egp(u.price)}</td>
                     <td>
                       <span className={AVAILABILITY_BADGE[u.availability]}>{options.availability.find((o) => o.value === u.availability)?.label}</span>
+                      {holds[u.id] && <span className="admin-badge ms-1.5">حجز مؤقت: {holdText(u.id)}</span>}
                     </td>
                     <td>
                       <Link href={`${page}?unit=${u.id}#units`}>تعديل</Link>

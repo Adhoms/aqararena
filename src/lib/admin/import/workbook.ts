@@ -6,6 +6,7 @@ import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FE
 import { recordPriceHistory } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
 import { liveHoldWhere, releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
+import type { AvailabilityValue } from "@/lib/sales/holds";
 import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./columns";
 
 // Builds the Excel template (optionally filled with what is already on the site) and imports
@@ -447,7 +448,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
       await recordPriceHistory([...touched], tx);
 
-      const leaving: { id: string; availability: string }[] = [];
+      const leaving: { id: string; availability: AvailabilityValue }[] = [];
       for (const u of unitRows) {
         const projectId = projId.get(u.projSlug)!;
         const typologyId = typId.get(`${projectId}/${u.code.toLowerCase()}`)!;

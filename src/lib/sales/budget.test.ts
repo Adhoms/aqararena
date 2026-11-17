@@ -1,4 +1,3 @@
-// src/lib/sales/budget.test.ts
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { budgetFigure, fitsBudget, planLabel, plansForType, type SalesPlan } from "./budget";

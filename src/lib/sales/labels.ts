@@ -1,4 +1,3 @@
-// src/lib/sales/labels.ts
 import ar from "@/app/[lang]/dictionaries/ar.json";
 import type { HoldReleaseReasonValue, HoldStatusValue, SalesState } from "./holds";
 

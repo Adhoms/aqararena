@@ -1,4 +1,3 @@
-// src/lib/sales/holds.ts
 import type { FormReader } from "@/lib/admin/form";
 
 // Rules for temporary holds (spec section 6) as pure functions, so they are unit-tested.

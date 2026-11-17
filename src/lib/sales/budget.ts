@@ -1,4 +1,3 @@
-// src/lib/sales/budget.ts
 import { paymentBreakdown } from "@/lib/catalog/payment";
 import type { PaymentPlan } from "@/lib/catalog/types";
 

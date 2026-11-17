@@ -1,4 +1,3 @@
-// src/lib/sales/search.ts
 import { isSubType, isUnitView, type SubType, type UnitView } from "@/lib/property";
 import { BUDGET_BASES, type BudgetBasis } from "./budget";
 import { SALES_STATES, type SalesState } from "./holds";

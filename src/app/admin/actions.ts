@@ -13,6 +13,7 @@ import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } 
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
 import { recordPriceHistory } from "@/lib/price-history";
 import { findTwinUnit } from "@/lib/units";
+import { releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
 import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
 // Every admin write goes through here. Each action checks the session first and refreshes
@@ -76,7 +77,13 @@ export async function saveDeveloper(_: FormState, data: FormData): Promise<FormS
 export async function deleteDeveloper(data: FormData) {
   await requireAdmin();
   const id = new FormReader(data).id("id");
-  if (id) await db.developer.delete({ where: { id } });
+  if (id) {
+    await db.$transaction([
+      // Holds point at sales accounts with ON DELETE RESTRICT; clear them before the cascade removes the accounts.
+      db.unitHold.deleteMany({ where: { salesAccount: { developerId: id } } }),
+      db.developer.delete({ where: { id } }),
+    ]);
+  }
   published();
   redirect("/admin");
 }
@@ -173,10 +180,17 @@ export async function saveUnit(_: FormState, data: FormData): Promise<FormState>
   const typology = await db.typology.findFirst({ where: { id: typologyId, projectId }, select: { id: true } });
   if (!typology) return { ok: false, message: "النموذج ده مش في المشروع", errors: { typologyId: "اختر النموذج" } };
   if (await findTwinUnit(projectId, values.building, values.unitNumber, id)) return { ok: false, message: "فيه وحدة بنفس الرقم في نفس المبنى", errors: { unitNumber: "الرقم ده مستخدم في نفس المبنى" } };
-  if (id) await db.unit.update({ where: { id, typology: { projectId } }, data: { ...values, typologyId } });
-  else await db.unit.create({ data: { ...values, typologyId } });
+  let released = 0;
+  if (id) {
+    released = await db.$transaction(async (tx) => {
+      await tx.unit.update({ where: { id, typology: { projectId } }, data: { ...values, typologyId } });
+      // A unit that stops being available loses its Sales hold (spec section 6).
+      return releaseHoldsOfUnavailable(tx, [{ id, availability: values.availability }], "ADMIN_STATUS_CHANGE");
+    });
+  } else await db.unit.create({ data: { ...values, typologyId } });
   published();
-  return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };
+  if (!id) return { ok: true, message: "تمت الإضافة ✓" };
+  return released ? { ok: true, message: "تم الحفظ ✓ والحجز المؤقت على الوحدة اتلغى" } : SAVED;
 }
 
 /** Removes every unit of a project, e.g. before importing a fresh list from Excel. */

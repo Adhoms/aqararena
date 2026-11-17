@@ -5,6 +5,7 @@ import { FormReader } from "@/lib/admin/form";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FEDDAN_M2 } from "@/lib/admin/readers";
 import { recordPriceHistory } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
+import { liveHoldWhere, releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
 import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./columns";
 
 // Builds the Excel template (optionally filled with what is already on the site) and imports
@@ -388,7 +389,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   if (!save) return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts };
 
   // Save everything in one transaction: all rows or none.
-  await db.$transaction(
+  const released = await db.$transaction(
     async (tx) => {
       const devId = new Map(developers.map((d) => [d.slug, d.id]));
       for (const d of devRows) {
@@ -446,18 +447,22 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
       await recordPriceHistory([...touched], tx);
 
+      const leaving: { id: string; availability: string }[] = [];
       for (const u of unitRows) {
         const projectId = projId.get(u.projSlug)!;
         const typologyId = typId.get(`${projectId}/${u.code.toLowerCase()}`)!;
         const existing = unitIdByKey.get(unitKey(projectId, u.values.building, u.values.unitNumber));
         if (existing) await tx.unit.update({ where: { id: existing }, data: { ...onlyPresent(u.values, u.present, ["unitNumber", "availability"]), typologyId } });
         else await tx.unit.create({ data: { ...u.values, typologyId } });
+        if (existing && u.values.availability !== "AVAILABLE") leaving.push({ id: existing, availability: u.values.availability });
       }
+      // Units taken off the market lose their Sales holds (spec section 6).
+      return releaseHoldsOfUnavailable(tx, leaving, "ADMIN_STATUS_CHANGE");
     },
     { timeout: 120_000, maxWait: 20_000 },
   );
 
-  return { ok: true, saved: true, message: summary("تم الاستيراد ✓ "), problems, counts };
+  return { ok: true, saved: true, message: summary("تم الاستيراد ✓ ") + (released ? ` · اتلغى ${released} حجز مؤقت` : ""), problems, counts };
 }
 
 // ─── Template ───────────────────────────────────────────────────────────
@@ -750,18 +755,26 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
   const create = out.filter((u) => !u.id).length;
   const update = out.length - create;
   if (problems.length) return fail(`فيه ${problems.length} مشكلة لازم تتصلّح. ماحدش اتحفظ.`);
-  if (!save) return { ok: true, saved: false, message: `الملف سليم: ${create} وحدة جديدة و${update} تحديث.`, problems, create, update };
+  // Units this sheet takes off the market lose their Sales holds when it is saved (spec section 6).
+  const leaving = out.flatMap((u) => (u.id && u.values.availability !== "AVAILABLE" ? [{ id: u.id, availability: u.values.availability }] : []));
+  if (!save) {
+    const held = leaving.length ? await db.unitHold.count({ where: { unitId: { in: leaving.map((u) => u.id) }, ...liveHoldWhere() } }) : 0;
+    const warning = held ? ` تنبيه: فيه ${held} وحدة محجوزة مؤقتًا لفريق المبيعات هتتغيّر حالتها، والحجز عليها هيتلغي.` : "";
+    return { ok: true, saved: false, message: `الملف سليم: ${create} وحدة جديدة و${update} تحديث.${warning}`, problems, create, update };
+  }
 
-  await db.$transaction(
+  const released = await db.$transaction(
     async (tx) => {
       for (const u of out) {
         if (u.id) await tx.unit.update({ where: { id: u.id }, data: { ...onlyPresent(u.values, present, ["unitNumber", "availability"]), typologyId: u.typologyId } });
         else await tx.unit.create({ data: { ...u.values, typologyId: u.typologyId } });
       }
+      return releaseHoldsOfUnavailable(tx, leaving, "PORTAL_STATUS_CHANGE");
     },
     { timeout: 120_000, maxWait: 20_000 },
   );
-  return { ok: true, saved: true, message: `تم ✓ ${create} وحدة جديدة و${update} تحديث.`, problems, create, update };
+  const holds = released ? ` واتلغى ${released} حجز مؤقت.` : "";
+  return { ok: true, saved: true, message: `تم ✓ ${create} وحدة جديدة و${update} تحديث.${holds}`, problems, create, update };
 }
 
 /** One project's units as a workbook the developer edits and uploads back. */

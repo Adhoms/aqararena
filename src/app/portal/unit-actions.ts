@@ -13,6 +13,7 @@ import { requireAccount, type PortalAccount } from "@/lib/portal/session";
 import { UNIT_AVAILABILITY } from "@/lib/property";
 import { shouldNotify, unitPriceProblem } from "@/lib/unit-rules";
 import { findTwinUnit } from "@/lib/units";
+import { releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
 
 // A developer's own inventory. Unlike everything else in the portal, these changes go live at
 // once (statuses change daily), within limits: only the project's approved unit types, and no
@@ -58,24 +59,34 @@ export async function savePortalUnit(_: FormState, data: FormData): Promise<Form
   if (await findTwinUnit(project.id, values.building, values.unitNumber, id)) {
     return { ok: false, message: "فيه وحدة بنفس الرقم في نفس المبنى", errors: { unitNumber: "الرقم ده مستخدم في نفس المبنى" } };
   }
-  if (id) await db.unit.update({ where: { id }, data: { ...values, typologyId: type.id } });
-  else await db.unit.create({ data: { ...values, typologyId: type.id } });
+  let released = 0;
+  if (id) {
+    released = await db.$transaction(async (tx) => {
+      await tx.unit.update({ where: { id }, data: { ...values, typologyId: type.id } });
+      // A unit that stops being available loses its Sales hold (spec section 6).
+      return releaseHoldsOfUnavailable(tx, [{ id, availability: values.availability }], "PORTAL_STATUS_CHANGE");
+    });
+  } else await db.unit.create({ data: { ...values, typologyId: type.id } });
   await changed(me, project, id ? `تعديل الوحدة ${values.unitNumber}` : `إضافة الوحدة ${values.unitNumber}`);
-  return { ok: true, message: id ? "اتحفظ ✓" : "اتضافت ✓" };
+  return { ok: true, message: id ? (released ? "اتحفظ ✓ والحجز المؤقت على الوحدة اتلغى" : "اتحفظ ✓") : "اتضافت ✓" };
 }
 
-/** The quick status switch in the units table. */
-export async function setPortalUnitStatus(unitId: string, status: string): Promise<{ ok: boolean }> {
+/** The quick status switch in the units table. A unit taken off the market loses its Sales hold. */
+export async function setPortalUnitStatus(unitId: string, status: string): Promise<{ ok: boolean; released?: boolean }> {
   const me = await requireAccount();
   if (!(UNIT_AVAILABILITY as readonly string[]).includes(status)) return { ok: false };
+  const next = status as (typeof UNIT_AVAILABILITY)[number];
   const unit = await db.unit.findFirst({
     where: { id: unitId, typology: { project: { developerId: me.developerId } } },
     select: { id: true, unitNumber: true, typology: { select: { project: { select: { id: true, nameAr: true, unitsNotifiedAt: true } } } } },
   });
   if (!unit) return { ok: false };
-  await db.unit.update({ where: { id: unit.id }, data: { availability: status as (typeof UNIT_AVAILABILITY)[number] } });
+  const released = await db.$transaction(async (tx) => {
+    await tx.unit.update({ where: { id: unit.id }, data: { availability: next } });
+    return releaseHoldsOfUnavailable(tx, [{ id: unit.id, availability: next }], "PORTAL_STATUS_CHANGE");
+  });
   await changed(me, unit.typology.project, `تغيير حالة الوحدة ${unit.unitNumber ?? ""}`);
-  return { ok: true };
+  return { ok: true, released: released > 0 };
 }
 
 export async function deletePortalUnit(data: FormData) {

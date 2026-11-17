@@ -89,7 +89,13 @@ export async function createHold(
       if (!found.length) return { ok: false, message: "الوحدة دي مش موجودة في مشروعات شركتك" };
       // 1. A hold whose time ran out no longer blocks the unit.
       await releaseExpired(tx, { unitId }, now);
-      // 2. A live hold (anyone's) blocks it: say whose, and until when.
+      // 2. Only an available unit can be held (checked first, so a sold unit never reads as "held by X").
+      const unit = await tx.unit.findUniqueOrThrow({
+        where: { id: unitId },
+        select: { availability: true, typology: { select: { project: { select: { holdHours: true, developer: { select: { holdHours: true } } } } } } },
+      });
+      if (unit.availability !== "AVAILABLE") return { ok: false, message: "الوحدة دي مش متاحة دلوقتي" };
+      // 3. A live hold (anyone's) blocks it: say whose, and until when.
       const live = await tx.unitHold.findFirst({
         where: { unitId, ...liveHoldWhere(now) },
         select: { salesAccountId: true, expiresAt: true, salesAccount: { select: { nameAr: true } } },
@@ -98,12 +104,6 @@ export async function createHold(
         if (live.salesAccountId === account.id) return OWN;
         return { ok: false, message: `محجوزة مؤقتًا لـ ${live.salesAccount.nameAr} لحد ${formatDateTimeAr(live.expiresAt)}` };
       }
-      // 3. Only an available unit can be held.
-      const unit = await tx.unit.findUniqueOrThrow({
-        where: { id: unitId },
-        select: { availability: true, typology: { select: { project: { select: { holdHours: true, developer: { select: { holdHours: true } } } } } } },
-      });
-      if (unit.availability !== "AVAILABLE") return { ok: false, message: "الوحدة دي مش متاحة دلوقتي" };
       const project = unit.typology.project;
       const expiresAt = holdExpiry(now, effectiveHoldHours(project.holdHours, project.developer.holdHours));
       // 4. Insert. The partial unique index refuses a second ACTIVE hold (P2002) if one slipped past the lock.

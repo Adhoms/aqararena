@@ -157,7 +157,8 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                           <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
                           <td>{egp(u.price)}</td>
                           <td>
-                            <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.id)} />
+                            {/* Keyed by status and hold, so a refresh resets the row when either changes on the server. */}
+                            <UnitStatusSelect key={`${u.id}:${u.availability}:${holdText(u.id) ?? ""}`} unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.id)} />
                           </td>
                           <td>
                             <Link href={`${page}?unit=${u.id}#units`}>تعديل</Link>

@@ -36,6 +36,12 @@ test("monthly: the lowest monthly equivalent; a cash plan has none", () => {
   assert.equal(budgetFigure(PRICE, [A, B], "monthly", "cash"), null, "a plan that isn't offered gives nothing");
 });
 
+test("a plan with no installments never wins a monthly budget", () => {
+  const NO_INSTALLMENTS = plan({ id: "N", downPaymentPct: 50, deliveryPaymentPct: 50, years: 2 });
+  assert.equal(budgetFigure(PRICE, [NO_INSTALLMENTS], "monthly"), null);
+  assert.deepEqual(budgetFigure(PRICE, [NO_INSTALLMENTS, A], "monthly"), { value: 37_500, planId: "A" });
+});
+
 test("without plans there is no down payment or installment to compare", () => {
   assert.equal(budgetFigure(PRICE, [], "down"), null);
   assert.equal(budgetFigure(PRICE, [], "monthly"), null);
@@ -60,6 +66,7 @@ test("plan labels: the name, else the terms", () => {
   assert.equal(planLabel(plan({ name: { ar: "", en: "Launch" } })), "Launch");
   assert.equal(planLabel(plan({ downPaymentPct: 10, years: 8 })), "10% مقدم · 8 سنين");
   assert.equal(planLabel(plan({ downPaymentPct: 50, years: 1 })), "50% مقدم · سنة");
+  assert.equal(planLabel(plan({ downPaymentPct: 30, years: 2 })), "30% مقدم · سنتين");
   assert.equal(planLabel(CASH), "كاش (خصم 25%)");
   assert.equal(planLabel(plan({ years: 0, downPaymentPct: 100 })), "كاش");
 });

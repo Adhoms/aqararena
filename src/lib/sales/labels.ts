@@ -20,6 +20,27 @@ const fromDict = (map: Record<string, string>, key: string | null | undefined) =
 export const viewLabel = (v: string | null | undefined) => fromDict(ar.unitViews, v);
 export const orientationLabel = (v: string | null | undefined) => fromDict(ar.orientations, v);
 export const subTypeLabel = (v: string | null | undefined) => fromDict(ar.subTypes, v);
+/** One unit's type, singular (the plural `subTypeLabel` names a category, for the filter). */
+const SUB_TYPE_SINGULAR: Record<string, string> = {
+  APARTMENT: "شقة",
+  STUDIO: "استوديو",
+  DUPLEX: "دوبلكس",
+  PENTHOUSE: "بنتهاوس",
+  TOWNHOUSE: "تاون هاوس",
+  TWIN_HOUSE: "توين هاوس",
+  VILLA: "فيلا",
+  MANSION: "قصر",
+  OFFICE: "مكتب",
+  CLINIC: "عيادة",
+  RETAIL: "محل",
+  FOOD_AND_BEVERAGE: "مطعم أو كافيه",
+  PHARMACY: "صيدلية",
+  BANK: "بنك",
+  CHALET: "شاليه",
+  CABIN: "كابينة",
+  SERVICED_APARTMENT: "شقة فندقية",
+};
+export const subTypeSingular = (v: string | null | undefined) => (v ? (SUB_TYPE_SINGULAR[v] ?? v) : "—");
 export const finishingLabel = (v: string | null | undefined) => fromDict(ar.finishing, v);
 
 const RELEASED: Record<HoldReleaseReasonValue, string> = {
@@ -33,5 +54,5 @@ const RELEASED: Record<HoldReleaseReasonValue, string> = {
 export function holdOutcome(h: { status: HoldStatusValue; releaseReason: HoldReleaseReasonValue | null }): string {
   if (h.status === "CONVERTED") return "اتأكد: الوحدة بقت محجوزة";
   if (h.status === "RELEASED") return h.releaseReason ? RELEASED[h.releaseReason] : "اتلغى";
-  return "سارية";
+  return "ساري";
 }

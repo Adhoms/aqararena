@@ -28,8 +28,8 @@ export function budgetFigure(price: number, plans: SalesPlan[], basis: BudgetBas
   for (const plan of plans) {
     if (planId && plan.id !== planId) continue;
     const b = paymentBreakdown(price, plan);
-    // A cash plan has no installments, so it can't meet a monthly budget.
-    if (basis === "monthly" && b.cash) continue;
+    // A cash plan, or one paid entirely at contract and handover, has no installments to compare.
+    if (basis === "monthly" && (b.cash || b.installmentsTotal <= 0)) continue;
     const value = basis === "down" ? b.down : b.monthly;
     if (!best || value < best.value) best = { value, planId: plan.id };
   }
@@ -46,6 +46,6 @@ export function planLabel(plan: Pick<SalesPlan, "name" | "downPaymentPct" | "yea
   const named = plan.name.ar.trim() || plan.name.en.trim();
   if (named) return named;
   if (plan.years === 0) return plan.cashDiscountPct ? `كاش (خصم ${plan.cashDiscountPct}%)` : "كاش";
-  const years = plan.years === 1 ? "سنة" : `${plan.years} ${plan.years <= 10 ? "سنين" : "سنة"}`;
+  const years = plan.years === 1 ? "سنة" : plan.years === 2 ? "سنتين" : `${plan.years} ${plan.years <= 10 ? "سنين" : "سنة"}`;
   return `${plan.downPaymentPct}% مقدم · ${years}`;
 }

@@ -50,3 +50,12 @@ test("active filters: everything but the project, the basis and the page", () =>
   assert.equal(activeFilterCount({ by: "total", page: 2, project: P }), 0);
   assert.equal(activeFilterCount({ by: "down", page: 1, budget: 500_000, beds: 2, floorMin: 1, floorMax: 4 }), 3);
 });
+
+test("Persian digits and decimals in the budget", () => {
+  assert.equal(readSalesSearch({ budget: "\u06F4\u06F5\u06F0\u06F0\u06F0\u06F0\u06F0" }).budget, 4_500_000);
+  assert.equal(readSalesSearch({ budget: "4500000.99" }).budget, 4_500_000);
+  assert.equal(readSalesSearch({ budget: "\u0664\u066B\u0665" }).budget, 4, "Arabic decimal separator, rounded down");
+  assert.equal(readSalesSearch({ budget: "0.5" }).budget, undefined, "below 1 after rounding down");
+  assert.equal(readSalesSearch({ budget: "4.5.1" }).budget, undefined);
+  assert.equal(readSalesSearch({ beds: "2.5" }).beds, undefined, "only the budget takes decimals");
+});

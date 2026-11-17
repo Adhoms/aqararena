@@ -32,13 +32,15 @@ const id = (v: string | string[] | undefined) => {
   const s = one(v);
   return s && /^[a-z0-9]{10,40}$/i.test(s) ? s : undefined;
 };
-/** A whole number typed with Western or Arabic-Indic digits, commas or spaces, within [min, max]. */
-const int = (v: string | string[] | undefined, min: number, max: number) => {
+/** A whole number typed with Western, Arabic-Indic or Persian digits, commas or spaces, within [min, max]. Decimals are accepted, and rounded down, only when `decimals` is set (the budget). */
+const int = (v: string | string[] | undefined, min: number, max: number, decimals = false) => {
   const s = one(v)
     ?.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/\u066B/g, ".")
     .replace(/[,\s\u066C]/g, "");
-  if (!s || !/^-?\d+$/.test(s)) return undefined;
-  const n = Number(s);
+  if (!s || !(decimals ? /^\d+(\.\d+)?$/ : /^-?\d+$/).test(s)) return undefined;
+  const n = decimals ? Math.floor(Number(s)) : Number(s);
   return n >= min && n <= max ? n : undefined;
 };
 const isState = (v: string | undefined): v is SalesState => (SALES_STATES as readonly string[]).includes(v ?? "");
@@ -64,7 +66,7 @@ export function readSalesSearch(params: Params): SalesSearch {
     floorMax,
     view: isUnitView(view) ? view : undefined,
     state: isState(state) ? state : undefined,
-    budget: int(params.budget, 1, 100_000_000_000),
+    budget: int(params.budget, 1, 100_000_000_000, true),
     by: isBasis(by) ? by : "total",
     plan: project ? id(params.plan) : undefined,
     page: int(params.page, 1, 10_000) ?? 1,

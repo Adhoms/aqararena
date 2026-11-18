@@ -3,10 +3,13 @@ import {
   AMENITIES,
   FINISHING_TYPES,
   INSTALLMENT_FREQUENCIES,
+  ORIENTATIONS,
   PHOTO_GROUPS,
   PROJECT_STATUSES,
   PROPERTY_CATEGORIES,
   SUB_TYPES,
+  UNIT_AVAILABILITY,
+  UNIT_VIEWS,
   ZONE_KINDS,
 } from "@/lib/property";
 
@@ -26,6 +29,9 @@ export const options = {
   frequency: opts(INSTALLMENT_FREQUENCIES, ar.frequency),
   amenities: AMENITIES.map((value) => ({ value, label: ar.amenities[value] ?? value })),
   photoGroups: opts(PHOTO_GROUPS, ar.photoGroups),
+  availability: UNIT_AVAILABILITY.map((value) => ({ value, label: ar.availability[value] })),
+  unitViews: UNIT_VIEWS.map((value) => ({ value, label: ar.unitViews[value] })),
+  orientations: ORIENTATIONS.map((value) => ({ value, label: ar.orientations[value] })),
   zoneKinds: opts(ZONE_KINDS, {
     RESIDENTIAL: "سكني",
     VILLAS: "فيلات",

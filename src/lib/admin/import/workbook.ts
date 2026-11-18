@@ -2,7 +2,9 @@ import "server-only";
 import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
-import { readDeveloper, readPaymentPlan, readProject, readTypology, FEDDAN_M2 } from "@/lib/admin/readers";
+import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FEDDAN_M2 } from "@/lib/admin/readers";
+import { recordPriceHistory } from "@/lib/price-history";
+import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
 import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./columns";
 
 // Builds the Excel template (optionally filled with what is already on the site) and imports
@@ -194,6 +196,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
     projects: { create: 0, update: 0 },
     typologies: { create: 0, update: 0 },
     plans: { create: 0, update: 0 },
+    units: { create: 0, update: 0 },
   };
   const fail = (message: string): ImportResult => ({ ok: false, saved: false, message, problems, counts });
 
@@ -204,16 +207,20 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
     return fail("الملف مش Excel صالح (لازم يكون ‎.xlsx). لو الملف ‎.xls أو ‎.csv افتحه في Excel واحفظه بصيغة ‎.xlsx.");
   }
   const sheets = Object.fromEntries(SHEETS.map((d) => [d.key, readSheet(wb, d, problems)])) as Record<SheetKey, SheetRows>;
-  if (SHEETS.every((d) => sheets[d.key].rows.length === 0)) return fail("الملف فاضي: مالقيناش صفوف في شيتات المطورين أو المشروعات أو النماذج أو أنظمة السداد.");
+  if (SHEETS.every((d) => sheets[d.key].rows.length === 0)) return fail("الملف فاضي: مالقيناش صفوف في شيتات المطورين أو المشروعات أو النماذج أو أنظمة السداد أو الوحدات.");
 
   // What is already on the site.
-  const [developers, areas, projects, typologies, plans] = await Promise.all([
+  const [developers, areas, projects, typologies, plans, units] = await Promise.all([
     db.developer.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.area.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.typology.findMany({ select: { id: true, code: true, projectId: true } }),
     db.paymentPlan.findMany({ select: { projectId: true, typologyId: true, downPaymentPct: true, years: true, frequency: true } }),
+    db.unit.findMany({ select: { id: true, building: true, unitNumber: true, typology: { select: { projectId: true } } } }),
   ]);
+  // How a unit is recognised: same project, building and unit number.
+  const unitKey = (project: string, building: string | null, number: string) => `${project}|${norm(building ?? "")}|${norm(number)}`;
+  const unitIdByKey = new Map(units.filter((u) => u.unitNumber).map((u) => [unitKey(u.typology.projectId, u.building, u.unitNumber!), u.id]));
   // How a plan is recognised: same project, unit type, down payment, years and frequency.
   const planKey = (projectId: string, typologyId: string | null, down: number, years: number, frequency: string) =>
     `${projectId}|${typologyId ?? ""}|${down}|${years}|${frequency}`;
@@ -338,6 +345,34 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
     }
   }
 
+  // Units
+  const unitRows: { projSlug: string; code: string; values: ReturnType<typeof readUnit>; present: Set<string> }[] = [];
+  {
+    const { def, rows, present } = sheets.units;
+    const seen = new Set<string>();
+    for (const { row, cells } of rows) {
+      const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
+      const { data, refs } = rowToForm(def, cells, say);
+      // A blank status means available; the ground floor may be written as a word.
+      if (!data.get("availability")) data.set("availability", "AVAILABLE");
+      if (["ارضي", "الارضي", "ground", "g"].includes(norm(String(data.get("floor") ?? "")))) data.set("floor", "0");
+      const values = check(def, row, data, readUnit);
+      const proj = refs.project ? projs.get(refs.project) : undefined;
+      if (!refs.project) say("المشروع", "هذا الحقل مطلوب");
+      else if (!proj) say("المشروع", `مالقيناش مشروع اسمه «${refs.project}». ضيفه في شيت المشروعات`);
+      const code = refs.typology;
+      if (!code) say("كود النموذج", "هذا الحقل مطلوب");
+      else if (proj && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
+      if (!proj || !code || !values.unitNumber) continue;
+      const key = unitKey(proj.slug, values.building, values.unitNumber);
+      if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المشروع والمبنى والرقم)");
+      seen.add(key);
+      const known = proj.existingId && unitIdByKey.has(unitKey(proj.existingId, values.building, values.unitNumber));
+      counts.units[known ? "update" : "create"]++;
+      unitRows.push({ projSlug: proj.slug, code, values, present });
+    }
+  }
+
   const summary = (lead: string) => {
     const parts: string[] = [];
     const add = (n: number, word: string) => n > 0 && parts.push(`${n} ${word}`);
@@ -345,6 +380,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
     add(counts.projects.create + counts.projects.update, "مشروع");
     add(counts.typologies.create + counts.typologies.update, "نموذج");
     add(counts.plans.create + counts.plans.update, "نظام سداد");
+    add(counts.units.create + counts.units.update, "وحدة");
     return lead + parts.join("، ");
   };
 
@@ -408,6 +444,15 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
 
       const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
       if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
+      await recordPriceHistory([...touched], tx);
+
+      for (const u of unitRows) {
+        const projectId = projId.get(u.projSlug)!;
+        const typologyId = typId.get(`${projectId}/${u.code.toLowerCase()}`)!;
+        const existing = unitIdByKey.get(unitKey(projectId, u.values.building, u.values.unitNumber));
+        if (existing) await tx.unit.update({ where: { id: existing }, data: { ...onlyPresent(u.values, u.present, ["unitNumber", "availability"]), typologyId } });
+        else await tx.unit.create({ data: { ...u.values, typologyId } });
+      }
     },
     { timeout: 120_000, maxWait: 20_000 },
   );
@@ -436,7 +481,7 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
   const lines: [string, string][] = [
     ["استيراد بيانات AqarArena", ""],
     ["", ""],
-    ["الخطوات", "1) املا الشيتات بالترتيب: المطورين ← المشروعات ← النماذج ← أنظمة السداد."],
+    ["الخطوات", "1) املا الشيتات بالترتيب: المطورين ← المشروعات ← النماذج ← أنظمة السداد ← الوحدات (اختياري)."],
     ["", "2) الأعمدة اللي فيها * لازم تتملي. الباقي اختياري."],
     ["", "3) الخانات اللي فيها قائمة اختار منها، أو اكتب نفس الكلمة بالظبط."],
     ["", "4) ارفع الملف من لوحة التحكم ← استيراد Excel، واضغط «افحص الملف» الأول."],
@@ -446,6 +491,7 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
     ["", "لو المطور أو المشروع موجود على الموقع بنفس الاسم أو الرابط المختصر، بياناته بتتحدّث بدل ما يتكرر."],
     ["", "العمود اللي تمسحه من الشيت مابيمسحش البيانات الموجودة."],
     ["", "نظام السداد بيتحدّث لو ليه نفس المقدم وعدد السنين ونوع الأقساط والنموذج."],
+    ["", "الوحدة بتتحدّث لو ليها نفس الرقم والمبنى في نفس المشروع. لتغيير حالة وحدات (متاحة / محجوزة / مباعة) عدّل العمود وارفع الملف تاني."],
     ["", ""],
     ["الصور", "الصور والبروشورات بترفعها من صفحة المشروع في لوحة التحكم (رفع عدة ملفات مرة واحدة)."],
     ["", ""],
@@ -472,6 +518,9 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
     { title: "المناطق", values: areas.map((a) => a.nameAr) },
     { title: "الخدمات", values: CHOICES.amenities.map((c) => c.label) },
     { title: "المطورين على الموقع", values: devNames.map((d) => d.nameEn) },
+    { title: "حالة الوحدة", values: CHOICES.availability.map((c) => c.label) },
+    { title: "الإطلالة", values: CHOICES.unitViews.map((c) => c.label) },
+    { title: "الاتجاه", values: CHOICES.orientations.map((c) => c.label) },
   ];
   const listRange = new Map<string, string>();
   listCols.forEach((l, i) => {
@@ -487,7 +536,16 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
     if (col.key === "area") return { range: listRange.get("المناطق")!, strict: true };
     if (col.key === "developer") return { range: listRange.get("المطورين على الموقع")!, strict: false };
     if (col.type !== "choice") return null;
-    const title = { status: "الحالة", subType: "النوع", category: "الفئة", finishing: "التشطيب", frequency: "الأقساط" }[col.key];
+    const title = {
+      status: "الحالة",
+      subType: "النوع",
+      category: "الفئة",
+      finishing: "التشطيب",
+      frequency: "الأقساط",
+      availability: "حالة الوحدة",
+      view: "الإطلالة",
+      orientation: "الاتجاه",
+    }[col.key];
     return title ? { range: listRange.get(title)!, strict: true } : null;
   };
 
@@ -538,7 +596,10 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
       include: {
         developer: { select: { nameEn: true } },
         area: { select: { nameAr: true } },
-        typologies: { orderBy: { code: "asc" } },
+        typologies: {
+          orderBy: { code: "asc" },
+          include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }] } },
+        },
         paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } } } },
       },
     }),
@@ -609,6 +670,162 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
         isActive: yesNo(pl.isActive),
       })),
     ),
+    units: projects.flatMap((p) =>
+      p.typologies.flatMap((t) =>
+        t.units.map((u) => ({
+          project: p.nameEn,
+          typology: t.code,
+          unitNumber: u.unitNumber,
+          building: u.building,
+          floor: u.floor,
+          availability: label(CHOICES.availability, u.availability),
+          price: num(u.price),
+          view: label(CHOICES.unitViews, u.view),
+          orientation: label(CHOICES.orientations, u.orientation),
+        })),
+      ),
+    ),
   };
 }
 
+
+// ─── One project's units (developer portal) ─────────────────────────────
+
+/** The units sheet without the project column: in the portal the project is already chosen. */
+const projectUnitsDef = (): SheetDef => {
+  const def = SHEETS.find((s) => s.key === "units")!;
+  return { ...def, columns: def.columns.filter((c) => c.key !== "project") };
+};
+
+export type UnitsImportResult = { ok: boolean; saved: boolean; message: string; problems: Problem[]; create: number; update: number };
+
+/**
+ * Checks, and with `save` applies, a units sheet for one project. A unit with the same building
+ * and number is updated. Unit type codes must be the project's own, and a unit's price can't be
+ * under its type's starting price. All rows or none.
+ */
+export async function importProjectUnits(buffer: ArrayBuffer, projectId: string, save: boolean): Promise<UnitsImportResult> {
+  const problems: Problem[] = [];
+  const fail = (message: string): UnitsImportResult => ({ ok: false, saved: false, message, problems, create: 0, update: 0 });
+  const wb = new ExcelJS.Workbook();
+  try {
+    await wb.xlsx.load(buffer);
+  } catch {
+    return fail("الملف مش Excel صالح (لازم يكون ‎.xlsx).");
+  }
+  const def = projectUnitsDef();
+  if (!wb.getWorksheet(def.name)) return fail(`مالقيناش شيت اسمه «${def.name}». نزّل الملف من الصفحة دي وعدّل عليه.`);
+  const { rows, present } = readSheet(wb, def, problems);
+  if (!rows.length && !problems.length) return fail("الشيت فاضي.");
+
+  const [types, existing] = await Promise.all([
+    db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { id: true, code: true, priceFrom: true } }),
+    db.unit.findMany({ where: { typology: { projectId } }, select: { id: true, building: true, unitNumber: true } }),
+  ]);
+  const typeByCode = new Map(types.map((t) => [t.code.toLowerCase(), t]));
+  const idByKey = new Map(existing.filter((u) => u.unitNumber).map((u) => [unitKey(u.building, u.unitNumber!), u.id]));
+
+  const seen = new Set<string>();
+  const out: { id?: string; typologyId: string; values: ReturnType<typeof readUnit> }[] = [];
+  for (const { row, cells } of rows) {
+    const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
+    const { data, refs } = rowToForm(def, cells, say);
+    if (!data.get("availability")) data.set("availability", "AVAILABLE");
+    if (["ارضي", "الارضي", "ground", "g"].includes(norm(String(data.get("floor") ?? "")))) data.set("floor", "0");
+    const f = new FormReader(data);
+    const values = readUnit(f);
+    for (const [key, message] of Object.entries(f.errors)) say(def.columns.find((c) => c.key === key)?.header ?? key, message);
+    const type = refs.typology ? typeByCode.get(refs.typology.toLowerCase()) : undefined;
+    if (!refs.typology) say("كود النموذج", "هذا الحقل مطلوب");
+    else if (!type) say("كود النموذج", `مالقيناش نموذج بالكود «${refs.typology}» في المشروع ده`);
+    const priceProblem = type ? unitPriceProblem(values.price, Number(type.priceFrom)) : null;
+    if (priceProblem) say("سعر الوحدة (جنيه)", priceProblem);
+    if (!type || !values.unitNumber) continue;
+    const key = unitKey(values.building, values.unitNumber);
+    if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المبنى والرقم)");
+    seen.add(key);
+    out.push({ id: idByKey.get(key), typologyId: type.id, values });
+  }
+
+  const create = out.filter((u) => !u.id).length;
+  const update = out.length - create;
+  if (problems.length) return fail(`فيه ${problems.length} مشكلة لازم تتصلّح. ماحدش اتحفظ.`);
+  if (!save) return { ok: true, saved: false, message: `الملف سليم: ${create} وحدة جديدة و${update} تحديث.`, problems, create, update };
+
+  await db.$transaction(
+    async (tx) => {
+      for (const u of out) {
+        if (u.id) await tx.unit.update({ where: { id: u.id }, data: { ...onlyPresent(u.values, present, ["unitNumber", "availability"]), typologyId: u.typologyId } });
+        else await tx.unit.create({ data: { ...u.values, typologyId: u.typologyId } });
+      }
+    },
+    { timeout: 120_000, maxWait: 20_000 },
+  );
+  return { ok: true, saved: true, message: `تم ✓ ${create} وحدة جديدة و${update} تحديث.`, problems, create, update };
+}
+
+/** One project's units as a workbook the developer edits and uploads back. */
+export async function buildProjectUnitsWorkbook(projectId: string): Promise<ArrayBuffer> {
+  const def = projectUnitsDef();
+  const [types, units] = await Promise.all([
+    db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { code: true }, orderBy: { code: "asc" } }),
+    db.unit.findMany({
+      where: { typology: { projectId } },
+      include: { typology: { select: { code: true } } },
+      orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }],
+    }),
+  ]);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "AqarArena";
+  const ws = wb.addWorksheet(def.name, { views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }] });
+  const lists = wb.addWorksheet("القوائم", { views: [{ rightToLeft: true }] });
+  const listCols: [string, string[]][] = [
+    ["كود النموذج", types.map((t) => t.code)],
+    ["حالة الوحدة", CHOICES.availability.map((c) => c.label)],
+    ["الإطلالة", CHOICES.unitViews.map((c) => c.label)],
+    ["الاتجاه", CHOICES.orientations.map((c) => c.label)],
+  ];
+  const range = new Map<string, string>();
+  listCols.forEach(([title, values], i) => {
+    const letter = String.fromCharCode(65 + i);
+    lists.getCell(`${letter}1`).value = title;
+    lists.getCell(`${letter}1`).font = { bold: true };
+    values.forEach((v, j) => (lists.getCell(`${letter}${j + 2}`).value = v));
+    lists.getColumn(i + 1).width = 24;
+    range.set(title, `'القوائم'!$${letter}$2:$${letter}$${Math.max(2, values.length + 1)}`);
+  });
+
+  ws.columns = def.columns.map((c) => ({ header: c.header + (c.required ? " *" : ""), key: c.key, width: c.width ?? 16 }));
+  ws.getRow(1).font = { bold: true };
+  const listOf: Record<string, string> = { typology: "كود النموذج", availability: "حالة الوحدة", view: "الإطلالة", orientation: "الاتجاه" };
+  def.columns.forEach((c, i) => {
+    if (c.help) ws.getRow(1).getCell(i + 1).note = c.help;
+    if (c.key === "price") ws.getColumn(i + 1).numFmt = "#,##0";
+    const title = listOf[c.key];
+    if (!title) return;
+    const letter = ws.getColumn(i + 1).letter;
+    // exceljs supports range validations at runtime; its types only describe per-cell ones.
+    (ws as unknown as { dataValidations: { add(range: string, v: ExcelJS.DataValidation): void } }).dataValidations.add(`${letter}2:${letter}${MAX_ROWS + 1}`, {
+      type: "list",
+      allowBlank: true,
+      formulae: [range.get(title)!],
+      showErrorMessage: true,
+      errorStyle: "stop",
+      errorTitle: "قيمة غير معروفة",
+      error: "اختار من القائمة",
+    });
+  });
+  for (const u of units) {
+    ws.addRow({
+      typology: u.typology.code,
+      unitNumber: u.unitNumber,
+      building: u.building,
+      floor: u.floor,
+      availability: label(CHOICES.availability, u.availability),
+      price: num(u.price),
+      view: label(CHOICES.unitViews, u.view),
+      orientation: label(CHOICES.orientations, u.orientation),
+    });
+  }
+  return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+}

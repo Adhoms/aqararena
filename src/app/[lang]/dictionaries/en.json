@@ -20,7 +20,8 @@
     "map": "Map",
     "skip": "Skip to content",
     "favorites": "Favorites",
-    "newLaunches": "New launches"
+    "newLaunches": "New launches",
+    "forDevelopers": "List your project"
   },
   "language": {
     "switchTo": "العربية",
@@ -655,8 +656,8 @@
     "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest."
   },
   "forDevelopersPage": {
-    "metaTitle": "For developers: list your projects for free",
-    "metaDescription": "Add your projects, prices, payment plans and photos to AqarArena yourself. Buyers contact you directly on your official numbers, with no broker in between.",
+    "metaTitle": "For developers: the portal and AqarArena Sales",
+    "metaDescription": "Show your projects, prices and units on AqarArena for free, and give your sales team their own AqarArena Sales accounts on the same data.",
     "eyebrow": "For real-estate developers",
     "title": "Put your projects in front of serious buyers, with your own numbers",
     "sub": "AqarArena is a neutral guide to every project in Egypt. Add your projects, prices, payment plans and photos from your company's own portal, and buyers reach you directly, with no broker.",
@@ -707,7 +708,56 @@
     ],
     "closingTitle": "Ready to start?",
     "closingText": "Accounts are free. All you need is your company's details; add your projects at your own pace.",
-    "portalNote": "The developer portal is in Arabic."
+    "portalNote": "The developer portal and AqarArena Sales are in Arabic.",
+    "productsTitle": "Two services for your company",
+    "portalCard": {
+      "title": "Developer portal",
+      "badge": "Free",
+      "text": "Show your projects on AqarArena: details, prices, payment plans, photos and master plan. And see each project's visitors.",
+      "cta": "Request an account"
+    },
+    "salesCard": {
+      "title": "AqarArena Sales",
+      "badge": "For sales teams",
+      "text": "A tool for your sales team: every salesperson has their own account, opens your projects and sees how many units are available in each project. Coming soon: inventory search, temporary holds and PDF offers.",
+      "cta": "Talk to us about AqarArena Sales",
+      "login": "Sales sign-in"
+    },
+    "salesTitle": "Your team sells from the same data",
+    "salesSub": "The same projects and units as the site, in your sales team's hands. Unit status you change in the inventory reaches them at once.",
+    "soonBadge": "Coming soon",
+    "salesFeatures": [
+      {
+        "title": "An account per salesperson",
+        "text": "Each person has their own username and password; you add and disable them from the portal.",
+        "soon": false
+      },
+      {
+        "title": "Your projects and their available units",
+        "text": "Each salesperson opens your projects and sees how many units are available in each, from the same data as the portal.",
+        "soon": false
+      },
+      {
+        "title": "Inventory search",
+        "text": "By budget, bedrooms, floor and view, with only available units shown.",
+        "soon": true
+      },
+      {
+        "title": "Temporary holds",
+        "text": "A unit is held for one salesperson for a set time, and is released automatically if not confirmed.",
+        "soon": true
+      },
+      {
+        "title": "PDF offers",
+        "text": "With the payment schedule installment by installment and the salesperson's name and numbers, sent by WhatsApp, Telegram or email.",
+        "soon": true
+      },
+      {
+        "title": "Clients and follow-ups",
+        "text": "Every client with their offers, holds and follow-up dates, and the team lead sees them all.",
+        "soon": true
+      }
+    ]
   },
   "info": {
     "updated": "Last updated: {date}",
@@ -754,5 +804,63 @@
     "project": "Project page",
     "browse": "Browse projects",
     "stop": "Stop alerts"
+  },
+  "availability": {
+    "AVAILABLE": "Available",
+    "RESERVED": "Reserved",
+    "SOLD": "Sold"
+  },
+  "orientations": {
+    "north": "North",
+    "north-east": "North-east",
+    "east": "East",
+    "south-east": "South-east",
+    "south": "South",
+    "south-west": "South-west",
+    "west": "West",
+    "north-west": "North-west"
+  },
+  "unitViews": {
+    "landscape": "Landscape",
+    "garden": "Garden",
+    "park": "Central park",
+    "pool": "Pool",
+    "lagoon": "Lagoon",
+    "sea": "Sea",
+    "club": "Clubhouse",
+    "main_street": "Main street",
+    "internal": "Internal"
+  },
+  "inventory": {
+    "title": "Unit by unit",
+    "sub": "Every unit with its status as the developer last reported it. Confirm with the developer that it is still available before you decide.",
+    "updated": "Inventory last updated: {date}",
+    "availableOf": "{a} of {n} available",
+    "show": "See the units",
+    "model": "Unit type",
+    "allModels": "All unit types",
+    "all": "All",
+    "unit": "Unit",
+    "building": "Building {b}",
+    "floor": "Floor",
+    "ground": "Ground",
+    "view": "View",
+    "orientation": "Facing",
+    "price": "Price",
+    "status": "Status",
+    "more": "Show {n} more units",
+    "none": "No units match this choice."
+  },
+  "priceHistory": {
+    "title": "Price per m² over time",
+    "sub": "The project's average price per m² at each change to the developer's prices.",
+    "up": "Up {pct}% since {date}",
+    "down": "Down {pct}% since {date}",
+    "same": "Unchanged since {date}",
+    "perM2": "{amount} per m²",
+    "chart": "Chart of the average price per m² from {from} to {to}"
+  },
+  "whatsappShare": {
+    "send": "Send on WhatsApp"
   }
 }

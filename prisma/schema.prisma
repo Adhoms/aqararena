@@ -148,29 +148,30 @@ model Area {
 // ─── Developers & projects ──────────────────────────────────────────────
 
 model Developer {
-  id          String             @id @default(cuid())
-  slug        String             @unique
-  nameAr      String
-  nameEn      String
-  logoUrl     String?
-  coverUrl    String?
-  foundedYear Int?
-  aboutAr     String?
-  aboutEn     String?
-  website     String?
-  hotline     String?
-  salesPhone  String?
-  whatsapp    String?
-  email       String?
-  hqAddressAr String?
-  hqAddressEn String?
-  verified    Boolean            @default(false)
-  plan        DeveloperPlan      @default(BASIC)
-  projects    Project[]
-  accounts    DeveloperAccount[]
-  submissions Submission[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id            String             @id @default(cuid())
+  slug          String             @unique
+  nameAr        String
+  nameEn        String
+  logoUrl       String?
+  coverUrl      String?
+  foundedYear   Int?
+  aboutAr       String?
+  aboutEn       String?
+  website       String?
+  hotline       String?
+  salesPhone    String?
+  whatsapp      String?
+  email         String?
+  hqAddressAr   String?
+  hqAddressEn   String?
+  verified      Boolean            @default(false)
+  plan          DeveloperPlan      @default(BASIC)
+  projects      Project[]
+  accounts      DeveloperAccount[]
+  submissions   Submission[]
+  salesAccounts SalesAccount[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 }
 
 model Project {
@@ -222,8 +223,11 @@ model Project {
   priceHistory        PriceHistory[]
   submissions         Submission[]
   priceAlerts         PriceAlert[]
+  stats               ProjectStat[]
   /// Prices and plans as of the last alert sent to subscribers (or when the first one signed up).
   alertSnapshot       Json?
+  /// When the admin was last emailed about the developer changing this project's units (at most hourly).
+  unitsNotifiedAt     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -552,4 +556,68 @@ model PriceAlert {
 
   @@unique([projectId, email])
   @@index([projectId, confirmedAt])
+}
+
+// ─── Visitor statistics ─────────────────────────────────────────────────
+
+/// What visitors did on a project. Counted once per browser session (see src/lib/stats.ts).
+enum StatEvent {
+  VIEW
+  FAVORITE
+  COMPARE
+  OFFER
+  CALL
+  WHATSAPP
+  WEBSITE
+  EMAIL
+  BROCHURE
+  SHARE
+}
+
+/// One counter per project, day and kind of action. No visitor details are stored: no IP
+/// address, cookie or identifier, only the daily total.
+model ProjectStat {
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  day       DateTime  @db.Date
+  event     StatEvent
+  count     Int       @default(0)
+
+  @@id([projectId, day, event])
+  @@index([day])
+}
+
+// ─── AqarArena Sales ────────────────────────────────────────────────────
+
+/// AGENT: sees their own clients and work. LEAD: also sees the whole team's.
+enum SalesRole {
+  AGENT
+  LEAD
+}
+
+/// A member of a developer's sales team, created from the developer portal. Signs in at /sales.
+/// The name and numbers here are the ones printed on that person's offers.
+model SalesAccount {
+  id                 String        @id @default(cuid())
+  developerId        String
+  developer          Developer     @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  username           String        @unique
+  /// scrypt hash, see src/lib/portal/password.ts
+  passwordHash       String
+  role               SalesRole     @default(AGENT)
+  /// ACTIVE or DISABLED (PENDING is not used for sales accounts).
+  status             AccountStatus @default(ACTIVE)
+  nameAr             String
+  nameEn             String?
+  phone              String
+  whatsapp           String?
+  email              String?
+  mustChangePassword Boolean       @default(true)
+  /// Raised to sign the account out everywhere (password change, disable).
+  sessionVersion     Int           @default(0)
+  lastLoginAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([developerId, status])
 }

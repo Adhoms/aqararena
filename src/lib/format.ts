@@ -24,6 +24,11 @@ export function formatMillions(value: number, locale: Locale) {
   return locale === "ar" ? `${m} مليون` : `EGP ${m}M`;
 }
 
+/** A date for the Arabic admin, portal and Sales screens, on Cairo's calendar (servers run on UTC). */
+export function formatDateAr(date: Date, month: "short" | "long" = "short") {
+  return date.toLocaleDateString("ar-EG", { day: "numeric", month, year: "numeric", timeZone: "Africa/Cairo" });
+}
+
 /** A link target for a phone number, or undefined while the number is still a placeholder like "[19XXX]". */
 export function telHref(phone: string | undefined) {
   if (!phone || !/^\+?[\d\s-]+$/.test(phone)) return undefined;

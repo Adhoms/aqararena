@@ -13,7 +13,7 @@ export function NavLinks({ links }: { links: { href: string; label: string; mobi
     currentRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [pathname]);
   return links.map((link) => {
-    const current = !link.href.includes("#") && pathname.startsWith(link.href);
+    const current = !link.href.includes("#") && (pathname === link.href || pathname.startsWith(link.href + "/"));
     return (
       <Link
         key={link.href}

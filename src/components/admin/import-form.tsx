@@ -8,6 +8,7 @@ const SHEET_NAMES = [
   ["projects", "مشروعات"],
   ["typologies", "نماذج"],
   ["plans", "أنظمة سداد"],
+  ["units", "وحدات"],
 ] as const;
 
 /** Upload a filled workbook, check it, then import it. Problems are listed by sheet, row and column. */
@@ -61,7 +62,7 @@ export function ImportForm() {
         <div role="status" aria-live="polite" className="flex flex-col gap-3">
           <p className={`font-medium ${result.ok ? "text-brand" : "text-red-700 dark:text-red-300"}`}>{result.message}</p>
           {result.ok && (
-            <ul className="grid gap-2 text-sm sm:grid-cols-4">
+            <ul className="grid gap-2 text-sm sm:grid-cols-5">
               {SHEET_NAMES.map(([key, name]) => (
                 <li key={key} className="rounded-lg border border-line p-3">
                   <div className="text-muted">{name}</div>

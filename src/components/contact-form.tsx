@@ -2,10 +2,11 @@
 
 import { useActionState, useRef, useEffect } from "react";
 import { sendContactMessage, type ContactState } from "@/app/[lang]/contact/actions";
+import type { ContactKind } from "@/lib/contact-kinds";
 
 type Labels = {
   kind: string;
-  kinds: Record<"SUGGESTION" | "COMPLAINT" | "HELP" | "REQUEST" | "OTHER", string>;
+  kinds: Record<ContactKind, string>;
   name: string;
   email: string;
   phone: string;

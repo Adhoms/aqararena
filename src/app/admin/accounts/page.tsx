@@ -4,8 +4,9 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { AdminForm, DeleteButton } from "@/components/admin/admin-form";
 import { Row, Select, TextField } from "@/components/admin/fields";
 import { approveAccount, createAccount, deleteAccount, resetPassword, setAccountStatus } from "../portal-actions";
+import { formatDateAr } from "@/lib/format";
 
-const when = (d: Date | null) => (d ? d.toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" }) : "—");
+const when = (d: Date | null) => (d ? formatDateAr(d) : "—");
 const STATUS = { PENDING: "مستني موافقة", ACTIVE: "فعّال", DISABLED: "موقوف" } as const;
 
 export default async function AccountsPage() {
@@ -65,7 +66,7 @@ export default async function AccountsPage() {
 
       <section className="admin-panel">
         <h2 className="mb-3 font-display text-xl">عمل حساب لمطور</h2>
-        <AdminForm action={createAccount} submitLabel="عمل الحساب" resetOnSuccess>
+        <AdminForm action={createAccount} submitLabel="عمل الحساب" resetOnSuccess secret>
           <Row cols={3}>
             <Select name="developerId" label="المطور" emptyLabel="— اختر —" options={devOptions} />
             <TextField name="username" label="اسم المستخدم" dir="ltr" placeholder="sodic" hint="حروف إنجليزية صغيرة وأرقام" />
@@ -108,7 +109,7 @@ export default async function AccountsPage() {
                     <details>
                       <summary className="admin-btn-ghost cursor-pointer list-none">كلمة مرور جديدة</summary>
                       <div className="mt-2 w-72">
-                        <AdminForm action={resetPassword} submitLabel="إنشاء كلمة مرور مؤقتة">
+                        <AdminForm action={resetPassword} submitLabel="إنشاء كلمة مرور مؤقتة" secret>
                           <input type="hidden" name="id" value={a.id} />
                         </AdminForm>
                       </div>

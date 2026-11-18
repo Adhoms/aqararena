@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { CATALOG_TAG } from "@/lib/catalog";
-import { endSession, passwordMatches, requireAdmin, startSession } from "@/lib/admin/auth";
+import { passwordMatches, requireAdmin, startSession } from "@/lib/admin/auth";
 import { FormReader, type FormState } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { deleteIfUnused } from "@/lib/admin/blob";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
-import { readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
+import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
+import { recordPriceHistory } from "@/lib/price-history";
+import { findTwinUnit } from "@/lib/units";
 import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
 // Every admin write goes through here. Each action checks the session first and refreshes
@@ -48,11 +50,6 @@ export async function login(_: FormState, data: FormData): Promise<FormState> {
   await clearFailures(keys);
   await startSession();
   redirect("/admin");
-}
-
-export async function logout() {
-  await endSession();
-  redirect("/admin/login");
 }
 
 // ─── Developers ─────────────────────────────────────────────────────────
@@ -135,9 +132,10 @@ export async function deleteProject(data: FormData) {
   redirect("/admin");
 }
 
-/** Marks the project's prices as confirmed today (called when unit types or plans change). */
+/** Marks the project's prices as confirmed today and records any change (called when unit types or plans change). */
 async function touchPrices(projectId: string) {
   await db.project.update({ where: { id: projectId }, data: { pricesUpdatedAt: today() } });
+  await recordPriceHistory([projectId]);
 }
 
 // ─── Unit types ─────────────────────────────────────────────────────────
@@ -158,6 +156,36 @@ export async function saveTypology(_: FormState, data: FormData): Promise<FormSt
   await touchPrices(projectId);
   published();
   return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };
+}
+
+// ─── Units ──────────────────────────────────────────────────────────────
+
+export async function saveUnit(_: FormState, data: FormData): Promise<FormState> {
+  await requireAdmin();
+  const f = new FormReader(data);
+  const id = f.id("id");
+  const projectId = f.id("projectId");
+  const typologyId = f.id("typologyId");
+  const values = readUnit(f);
+  if (!typologyId) f.errors.typologyId = "اختر النموذج";
+  if (!f.ok || !projectId || !typologyId) return f.result();
+  // The unit type must be one of this project's.
+  const typology = await db.typology.findFirst({ where: { id: typologyId, projectId }, select: { id: true } });
+  if (!typology) return { ok: false, message: "النموذج ده مش في المشروع", errors: { typologyId: "اختر النموذج" } };
+  if (await findTwinUnit(projectId, values.building, values.unitNumber, id)) return { ok: false, message: "فيه وحدة بنفس الرقم في نفس المبنى", errors: { unitNumber: "الرقم ده مستخدم في نفس المبنى" } };
+  if (id) await db.unit.update({ where: { id, typology: { projectId } }, data: { ...values, typologyId } });
+  else await db.unit.create({ data: { ...values, typologyId } });
+  published();
+  return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };
+}
+
+/** Removes every unit of a project, e.g. before importing a fresh list from Excel. */
+export async function deleteProjectUnits(data: FormData) {
+  await requireAdmin();
+  const projectId = new FormReader(data).id("id");
+  if (!projectId) return;
+  await db.unit.deleteMany({ where: { typology: { projectId } } });
+  published();
 }
 
 // ─── Payment plans ──────────────────────────────────────────────────────
@@ -294,6 +322,7 @@ export async function saveDistance(_: FormState, data: FormData): Promise<FormSt
 
 const PARTS = {
   typology: (id: string, projectId: string) => db.typology.delete({ where: { id, projectId } }),
+  unit: (id: string, projectId: string) => db.unit.delete({ where: { id, typology: { projectId } } }),
   plan: (id: string, projectId: string) => db.paymentPlan.delete({ where: { id, projectId } }),
   zone: (id: string, projectId: string) => db.masterPlanZone.delete({ where: { id, projectId } }),
   media: (id: string, projectId: string) => db.media.delete({ where: { id, projectId } }),

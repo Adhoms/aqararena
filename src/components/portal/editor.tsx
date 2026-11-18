@@ -230,7 +230,7 @@ function Rows({
             ))}
           </Grid>
           <div className="mt-3 flex justify-end gap-2">
-            <button type="button" className="admin-btn-ghost" onClick={() => onChange([...items.slice(0, i + 1), { ...item, code: "" }, ...items.slice(i + 1)])}>
+            <button type="button" className="admin-btn-ghost" onClick={() => onChange([...items.slice(0, i + 1), { ...item, code: "", liveId: "" }, ...items.slice(i + 1)])}>
               نسخ
             </button>
             <button type="button" className="admin-btn-danger" onClick={() => onChange(items.filter((_, j) => j !== i))}>

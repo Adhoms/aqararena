@@ -59,6 +59,17 @@ export type ZoneKind = (typeof ZONE_KINDS)[number];
 export const INSTALLMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL"] as const;
 export type InstallmentFrequency = (typeof INSTALLMENT_FREQUENCIES)[number];
 
+export const UNIT_AVAILABILITY = ["AVAILABLE", "RESERVED", "SOLD"] as const;
+export type UnitAvailability = (typeof UNIT_AVAILABILITY)[number];
+
+/** Which way a unit faces. "north" is what the market calls بحري. */
+export const ORIENTATIONS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"] as const;
+export type Orientation = (typeof ORIENTATIONS)[number];
+
+/** What a unit looks out on. */
+export const UNIT_VIEWS = ["landscape", "garden", "park", "pool", "lagoon", "sea", "club", "main_street", "internal"] as const;
+export type UnitView = (typeof UNIT_VIEWS)[number];
+
 export const PHOTO_GROUPS = ["EXTERIOR", "INTERIOR", "CONSTRUCTION"] as const;
 export type PhotoGroup = (typeof PHOTO_GROUPS)[number];
 
@@ -110,4 +121,6 @@ export const INSTALLMENTS_PER_YEAR: Record<InstallmentFrequency, number> = {
 
 export const isSubType = (v: unknown): v is SubType => isOneOf(SUB_TYPES, v);
 export const isFinishGroup = (v: unknown): v is FinishGroup => isOneOf(FINISH_GROUP_KEYS, v);
+export const isOrientation = (v: unknown): v is Orientation => isOneOf(ORIENTATIONS, v);
+export const isUnitView = (v: unknown): v is UnitView => isOneOf(UNIT_VIEWS, v);
 export const isAmenity = (v: unknown): v is Amenity => isOneOf(AMENITIES, v);

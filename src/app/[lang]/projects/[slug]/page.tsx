@@ -11,6 +11,8 @@ import { MasterPlan } from "@/components/project/master-plan";
 import { PaymentCalculator } from "@/components/project/payment-calculator";
 import { PriceAlertForm } from "@/components/price-alert-form";
 import { ShareButton } from "@/components/share-button";
+import { TrackView } from "@/components/stats/tracker";
+import { trackAttr } from "@/lib/stats-events";
 import { Tabs, type Tab } from "@/components/tabs";
 import { ProjectVsMarket, ValueRing, valueText } from "@/components/insights";
 import { artKindFor, ProjectArt } from "@/components/project-art";
@@ -184,6 +186,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
   const url = `${SITE_URL}/${locale}/projects/${project.slug}`;
   return (
     <>
+      <TrackView slug={project.slug} />
       {/* What search engines read: a real-estate listing with its price range, place and developer. */}
       <JsonLd
         data={{
@@ -281,6 +284,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                 {project.brochureUrl && (
                   <a
                     href={project.brochureUrl}
+                    data-track={trackAttr("BROCHURE", project.slug)}
                     target="_blank"
                     rel="noopener"
                     className="press inline-flex min-h-12 items-center rounded-full border border-white/30 bg-white/10 px-5 text-[15px] text-white no-underline backdrop-blur hover:bg-white/20 hover:text-white"
@@ -314,7 +318,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
       </section>
 
       {/* ─── Sections bar, stays at the top while scrolling ─── */}
-      <nav aria-label={p.sections.overview} className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur-md print:hidden">
+      <nav data-section-bar aria-label={p.sections.overview} className="sticky top-(--header-h) z-20 border-b border-line bg-ground/90 backdrop-blur-md print:hidden">
         <Container className="flex gap-x-6.5 overflow-x-auto text-[15px] whitespace-nowrap">
           {sections.map(([id, label]) => (
             <a key={id} href={`#${id}`} className="py-3.5 text-body no-underline hover:text-ink">
@@ -363,7 +367,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             <div className="flex flex-col gap-2.5 border-t border-divider pt-4">
               <span className="font-semibold">{p.officialNumbers}</span>
               {hasContacts ? (
-                <ContactStack developer={developer} dict={dict} locale={locale} limit={4} />
+                <ContactStack developer={developer} dict={dict} locale={locale} limit={4} trackSlug={project.slug} />
               ) : (
                 <p className="text-sm text-muted">{fill(p.contactsPending, { dev: developer.name[locale] })}</p>
               )}
@@ -405,7 +409,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
         )}
 
         {/* Unit types */}
-        <section id="units" aria-labelledby="units-title">
+        <section id="units" aria-labelledby="units-title" className="flex flex-col gap-8">
           <Tabs
             label={p.sections.units}
             header={
@@ -650,7 +654,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
             </Link>
           </div>
           {hasContacts ? (
-            <ContactGrid developer={developer} dict={dict} locale={locale} />
+            <ContactGrid developer={developer} dict={dict} locale={locale} trackSlug={project.slug} />
           ) : (
             <p className="flex-[1_1_420px] rounded-2xl bg-brand-2 px-5 py-4 text-on-dark">{fill(p.contactsPending, { dev: developer.name[locale] })}</p>
           )}
@@ -718,7 +722,15 @@ function ZonePanel({ zone, locale, dict }: { zone: MasterPlanZone; locale: Local
   );
 }
 
-function UnitCard({ typology: t, locale, dict }: { typology: Typology; locale: Locale; dict: Dictionary }) {
+function UnitCard({
+  typology: t,
+  locale,
+  dict,
+}: {
+  typology: Typology;
+  locale: Locale;
+  dict: Dictionary;
+}) {
   const p = dict.projectPage;
   const extra = [t.gardenM2 && fill(p.garden, { n: t.gardenM2 }), t.roofM2 && fill(p.roof, { n: t.roofM2 })].filter(Boolean).join(" · ");
   const rows: [string, string][] = [

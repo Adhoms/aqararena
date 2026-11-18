@@ -1,7 +1,8 @@
 // Reads and checks form fields for the admin server actions. Each reader records a
 // message (in Arabic) when the value is missing or invalid, then returns undefined/null.
 
-export type FormState = { ok?: boolean; message?: string; errors?: Record<string, string> };
+/** `secret` is a value shown once with a copy button (a temporary password); it is never stored. */
+export type FormState = { ok?: boolean; message?: string; errors?: Record<string, string>; secret?: string };
 
 type Opts = { required?: boolean; label?: string };
 

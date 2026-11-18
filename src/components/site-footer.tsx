@@ -28,7 +28,7 @@ export async function SiteFooter() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-ink">{dict.footer.forDevelopers}</span>
-            <Link href={`/${locale}/for-developers`} className={link}>{dict.footer.listProject}</Link>
+            <Link href={`/${locale}/dev`} className={link}>{dict.footer.listProject}</Link>
             <Link href="/portal/login" className={link}>{dict.footer.developerLogin}</Link>
           </div>
           <div className="flex flex-col">

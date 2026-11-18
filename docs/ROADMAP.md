@@ -22,6 +22,8 @@ The goal of each phase is something real users can open.
 - [x] Project page: gallery, overview, interactive master plan (zones), unit types with floor plans, price plans, photos by tab, location, official developer contacts
 - [x] Developer page: profile, official contacts, portfolio filtered by area
 - [x] Project-vs-project comparison (up to 4), shareable link, "differences only", print / PDF
+- [x] Unit-by-unit availability (entered in the admin or the portal, or imported from the Excel "units" sheet). Moved off the public site; it will show in AqarArena Sales
+- [x] Printable offer sheet and WhatsApp sharing: built, then taken off the public site; they move to AqarArena Sales (PDF offers sent by WhatsApp, Telegram or email)
 - [x] Pages read from the database through `src/lib/catalog` (cached, demo-data fallback without a database)
 - [x] Photo, floor plan, master plan and brochure uploads from the admin to Vercel Blob (photos resized to WebP in the browser)
 - [ ] Tiled deep-zoom master plans
@@ -29,17 +31,24 @@ The goal of each phase is something real users can open.
 
 ## Phase 2: Developer portal and revenue
 
-- [x] Developer accounts: request from `/for-developers` or created by the admin, username + password, temporary passwords
+- [x] Developer accounts: request from `/dev` or created by the admin, username + password, temporary passwords
 - [x] Developer portal (`/portal`): developers edit their company profile and projects (unit types, payment plans, photos, distances); every change waits for admin approval with a before/after review
 - [ ] Master-plan zones in the developer portal (admin only for now)
+- [x] Units in the developer portal: statuses and prices go live at once within limits (approved unit types, price not under the type's starting price), Excel download / upload, admin emailed at most hourly. Renaming a unit type's code keeps its units; the review page warns when a removal would delete units.
+- [x] Visitor statistics per project (views, favorites, comparisons, contact clicks, brochure, price-alert subscribers) for developers in the portal and for the admin, daily totals only
 - [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
+- [x] `/dev` landing page presenting the portal and AqarArena Sales
+- [x] AqarArena Sales, step 1: sales accounts managed from the portal, `/sales` sign-in, projects overview and profile (spec: `docs/superpowers/specs/2026-11-15-aqararena-three-products-design.md`)
+- [ ] AqarArena Sales, step 2: inventory search and temporary holds (unit availability moves here from the public site)
+- [ ] AqarArena Sales, step 3: custom payment schedules, project currency, PDF offers shared by WhatsApp, Telegram and email (replacing the public offer sheet and WhatsApp share)
+- [ ] AqarArena Sales, step 4: comparisons, clients and follow-ups, team page
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings
 
 ## Phase 3: Later
 
 - [ ] Map search (add the PostGIS extension and a location column in its own migration)
 - [ ] Polygon master-plan zones and deep zoom
-- [ ] Price history per project
+- [x] Price history per project (average price per m² at each change). Still recorded; the chart is off the public site and comes back in Sales
 - [ ] Mobile apps (Expo), same API
 
 ## Out of scope (by decision)

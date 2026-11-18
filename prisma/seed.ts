@@ -9,7 +9,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import ar from "../src/app/[lang]/dictionaries/ar.json";
 import en from "../src/app/[lang]/dictionaries/en.json";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { developers, projects } from "../src/lib/catalog/sample-data";
+import { developers, projects, units } from "../src/lib/catalog/sample-data";
 
 const FEDDAN_M2 = 4200.83;
 
@@ -61,7 +61,8 @@ async function main() {
   }
 
   for (const p of projects) {
-    await db.project.create({
+    const created = await db.project.create({
+      select: { id: true, typologies: { select: { id: true, code: true } } },
       data: {
         slug: p.slug,
         developerId: developerIds.get(p.developerSlug)!,
@@ -145,7 +146,24 @@ async function main() {
           // No files yet: an empty URL means "show the placeholder".
           create: p.photos.map((ph, i) => ({ kind: "IMAGE", group: ph.group, url: "", captionAr: ph.caption.ar, captionEn: ph.caption.en, sortOrder: i })),
         },
+        priceHistory: {
+          create: (p.priceHistory ?? []).map((h) => ({ recordedAt: new Date(h.date), pricePerM2: h.perM2 })),
+        },
       },
+    });
+
+    const typologyId = new Map(created.typologies.map((t) => [t.code, t.id]));
+    await db.unit.createMany({
+      data: (units[p.slug]?.units ?? []).map((u) => ({
+        typologyId: typologyId.get(u.typologyCode)!,
+        building: u.building,
+        floor: u.floor,
+        unitNumber: u.number,
+        orientation: u.orientation,
+        view: u.view,
+        price: u.price,
+        availability: u.availability,
+      })),
     });
   }
 

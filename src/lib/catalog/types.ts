@@ -7,6 +7,7 @@ import type {
   ProjectStatus,
   PropertyCategory,
   SubType,
+  UnitAvailability,
   ZoneKind,
 } from "@/lib/property";
 
@@ -60,6 +61,30 @@ export type Typology = {
   priceFrom: number;
 };
 
+/** One home (or shop, or office) of a unit type, as the developer last reported it. */
+export type Unit = {
+  id: string;
+  /** The unit type it belongs to (`Typology.code`). */
+  typologyCode: string;
+  building?: string;
+  /** 0 is the ground floor. */
+  floor?: number;
+  number?: string;
+  /** A key from ORIENTATIONS, or the developer's own wording. */
+  orientation?: string;
+  /** A key from UNIT_VIEWS, or the developer's own wording. */
+  view?: string;
+  /** The unit's own price; empty when the developer only publishes the type's starting price. */
+  price?: number;
+  availability: UnitAvailability;
+};
+
+/** A project's unit-by-unit inventory. `updated` is the ISO date of the newest change. */
+export type ProjectUnits = { units: Unit[]; updated?: string };
+
+/** The project's average price per m² on a day it changed. */
+export type PricePoint = { date: string; perM2: number };
+
 export type PaymentPlan = {
   name: Text;
   downPaymentPct: number;
@@ -110,6 +135,9 @@ export type Project = {
   distances: { place: Text; minutes: number }[];
   isFeatured: boolean;
   pricesUpdated?: string;
+  /** Average price per m² at each change, oldest first. Empty until prices have been recorded. */
+  /** Demo data for the database seed only; the public site no longer shows or loads it. */
+  priceHistory?: PricePoint[];
 };
 
 /** Figures derived from a project's unit types and plans, used on cards and in comparison. */

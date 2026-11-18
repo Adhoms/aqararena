@@ -146,9 +146,26 @@
     outline-offset: 2px;
   }
 
+  /* The sticky header's real height (first-paint values: two rows below xl, one row from xl, the same
+     breakpoint the header switches at; HeaderHeight then writes the measured value). Anchors, sticky bars and full-height pages build on it. */
+  :root {
+    --header-h: 8.08rem;
+    --section-bar-h: 3.4rem;
+  }
+  @media (min-width: 80rem) {
+    :root {
+      --header-h: 4.3rem;
+    }
+  }
+
   /* Leaves room for the sticky header when jumping to an anchor. */
   [id] {
-    scroll-margin-top: 6.5rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+
+  /* Pages with the sticky sections bar (project pages) also clear the bar. */
+  body:has([data-section-bar]) [id] {
+    scroll-margin-top: calc(var(--header-h) + var(--section-bar-h) + 1rem);
   }
 }
 
@@ -275,6 +292,25 @@
   body {
     background: white;
   }
+}
+
+/* A sheet of paper (the offer sheet): white with the light theme's ink whatever the site's
+   theme, so it reads the same on screen, in a PDF and on a printer. */
+.paper {
+  color-scheme: light;
+  --color-surface: #ffffff;
+  --color-line: rgb(16 38 33 / 0.1);
+  --color-line-strong: rgb(16 38 33 / 0.22);
+  --color-divider: rgb(16 38 33 / 0.07);
+  --color-ink: #10231e;
+  --color-body: #34463f;
+  --color-muted: #586a63;
+  --color-link: #8c5a0e;
+  --color-brass: #8c5a0e;
+  --color-brass-dark: #74490a;
+  --color-brass-soft: rgb(201 138 30 / 0.14);
+  background: var(--color-surface);
+  color: var(--color-ink);
 }
 
 /* Egypt blueprint: the border and the Nile draw themselves once, cities fade in. */

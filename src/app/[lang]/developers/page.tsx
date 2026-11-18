@@ -22,7 +22,7 @@ export default async function DevelopersPage() {
         <p className="text-muted">{dict.developersPage.subtitle}</p>
       </div>
       <Link
-        href={`/${locale}/for-developers`}
+        href={`/${locale}/dev`}
         className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-brass/40 bg-brass-soft px-6 py-4 text-ink no-underline hover:border-brass hover:text-ink"
       >
         <span className="font-medium">{dict.forDevelopersPage.title}</span>

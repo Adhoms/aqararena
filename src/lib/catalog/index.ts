@@ -15,7 +15,8 @@ import type { Developer, Project } from "./types";
 // Results are cached for an hour under the "catalog" tag. After changing data, call
 // updateTag("catalog") (the admin actions in src/app/admin/actions.ts do) or wait for the hour to pass.
 
-export type { Developer, MasterPlanZone, PaymentPlan, Photo, Project, ProjectSummary, Text, Typology } from "./types";
+export type { Developer, MasterPlanZone, PaymentPlan, Photo, PricePoint, Project, ProjectSummary, Text, Typology } from "./types";
+export { paymentBreakdown, paymentSchedule, type PaymentBreakdown } from "./payment";
 export { isCashPlan, monthlyFor, summarize } from "./summary";
 export { unitName } from "./unit-name";
 export { SORTS, type ProjectFilters, type Sort } from "./filters";

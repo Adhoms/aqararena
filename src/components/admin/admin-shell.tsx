@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { logout } from "@/app/admin/actions";
 
 /** Header and page frame for every signed-in admin page. */
 export function AdminShell({ title, children, actions, back }: { title: ReactNode; children: ReactNode; actions?: ReactNode; back?: { href: string; label: string } }) {
@@ -23,11 +22,12 @@ export function AdminShell({ title, children, actions, back }: { title: ReactNod
             <Link href="/admin/accounts">الحسابات</Link>
             <Link href="/admin/messages">الرسائل</Link>
             <Link href="/admin/alerts">المشتركين</Link>
+            <Link href="/admin/stats">الإحصائيات</Link>
             <a href="/ar" target="_blank" rel="noreferrer">
               عرض الموقع ↗
             </a>
           </nav>
-          <form action={logout} className="ms-auto">
+          <form action="/admin/logout" method="post" className="ms-auto">
             <button type="submit" className="admin-btn-ghost">
               خروج
             </button>

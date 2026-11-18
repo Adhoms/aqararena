@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Fields, ProfileDraft, ProjectDraft } from "./draft-types";
 import { draftFromDeveloper, draftFromProject, projectInclude } from "./drafts";
+import { matchTypologies } from "./match-typologies";
 import { ALL_PROFILE_FIELDS, ALL_PROJECT_FIELDS, DISTANCE_FIELDS, PLAN_FIELDS, PORTAL_MEDIA_KINDS, PORTAL_PHOTO_GROUPS, TYPOLOGY_FIELDS, type FieldDef } from "./fields";
 
 // What the admin sees before approving: the live version next to the proposed one, field by field.
@@ -79,7 +80,8 @@ export async function projectReview(projectId: string | null, draft: ProjectDraf
   ]);
   const areas = new Map(areasList.map((a) => [a.id, a.nameAr]));
   const before = live ? draftFromProject(live) : null;
-  const code = (f: Fields) => String(f.code ?? "").trim().toLowerCase();
+  // A renamed unit type keeps its live id, so it shows as a change rather than removed + added.
+  const code = (f: Fields) => (typeof f.liveId === "string" && f.liveId) || String(f.code ?? "").trim().toLowerCase();
 
   const sections: DiffSection[] = [
     { title: "بيانات المشروع", rows: fieldRows(ALL_PROJECT_FIELDS.filter((d) => d.type !== "image"), before?.project ?? null, draft.project, areas) },
@@ -98,7 +100,24 @@ export async function projectReview(projectId: string | null, draft: ProjectDraf
   const labels = new Map(draft.media.map((m) => [m.url, [PORTAL_MEDIA_KINDS.find((k) => k.value === m.kind)?.label, PORTAL_PHOTO_GROUPS.find((g) => g.value === m.group)?.label].filter(Boolean).join(" · ")]));
   if (draft.project.masterPlanUrl) labels.set(String(draft.project.masterPlanUrl), "الماستر بلان");
 
-  return { sections, media, mediaLabels: Object.fromEntries(labels), live: live ? { slug: live.slug, published: live.published } : null };
+  // Live unit types the draft drops, with how many units go with them.
+  let unitsLost: { code: string; units: number }[] = [];
+  if (live) {
+    const matches = matchTypologies(
+      live.typologies.map((t) => ({ id: t.id, code: t.code })),
+      draft.typologies.map((t) => ({ code: String(t.code ?? "").trim(), liveId: typeof t.liveId === "string" && t.liveId ? t.liveId : null })),
+    );
+    const kept = new Set(matches.values());
+    const dropped = live.typologies.filter((t) => !kept.has(t.id));
+    if (dropped.length) {
+      const counts = await db.unit.groupBy({ by: ["typologyId"], where: { typologyId: { in: dropped.map((t) => t.id) } }, _count: { _all: true } });
+      unitsLost = dropped
+        .map((t) => ({ code: t.code, units: counts.find((c) => c.typologyId === t.id)?._count._all ?? 0 }))
+        .filter((t) => t.units > 0);
+    }
+  }
+
+  return { sections, media, mediaLabels: Object.fromEntries(labels), live: live ? { slug: live.slug, published: live.published } : null, unitsLost };
 }
 
 export async function profileReview(developerId: string, draft: ProfileDraft) {

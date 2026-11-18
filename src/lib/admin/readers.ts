@@ -3,9 +3,12 @@ import {
   AMENITIES,
   FINISHING_TYPES,
   INSTALLMENT_FREQUENCIES,
+  ORIENTATIONS,
   PROJECT_STATUSES,
   PROPERTY_CATEGORIES,
   SUB_TYPES,
+  UNIT_AVAILABILITY,
+  UNIT_VIEWS,
 } from "@/lib/property";
 
 // The fields of each record, read and checked from a form. Shared by the admin forms
@@ -106,5 +109,18 @@ export function readPaymentPlan(f: FormReader) {
     clubFee: f.number("clubFee", { min: 0 }),
     validUntil: f.date("validUntil"),
     isActive: f.bool("isActive"),
+  };
+}
+
+/** One unit of a unit type. The type itself (and its project) is resolved by the caller. */
+export function readUnit(f: FormReader) {
+  return {
+    unitNumber: f.requiredText("unitNumber", 40),
+    building: f.text("building", { max: 40 }),
+    floor: f.int("floor", { min: -5, max: 200 }),
+    view: f.oneOf("view", UNIT_VIEWS),
+    orientation: f.oneOf("orientation", ORIENTATIONS),
+    price: f.number("price", { min: 0 }),
+    availability: f.oneOf("availability", UNIT_AVAILABILITY, { required: true }) ?? "AVAILABLE",
   };
 }

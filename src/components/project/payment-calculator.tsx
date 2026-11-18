@@ -2,9 +2,10 @@
 
 import { useId, useState } from "react";
 import type { Locale } from "@/i18n/config";
+import { paymentBreakdown } from "@/lib/catalog/payment";
 import type { PaymentPlan } from "@/lib/catalog/types";
 import { fill, formatMoney } from "@/lib/format";
-import { INSTALLMENTS_PER_YEAR, type InstallmentFrequency } from "@/lib/property";
+import type { InstallmentFrequency } from "@/lib/property";
 
 type Unit = { code: string; name: string; price: number };
 
@@ -31,7 +32,13 @@ type Labels = {
   planNames: string[];
 };
 
-type Props = { units: Unit[]; plans: PaymentPlan[]; maintenancePct?: number; locale: Locale; labels: Labels };
+type Props = {
+  units: Unit[];
+  plans: PaymentPlan[];
+  maintenancePct?: number;
+  locale: Locale;
+  labels: Labels;
+};
 
 /** The four parts of what a buyer pays, in the order they are paid. */
 const PART_STYLES = {
@@ -51,19 +58,11 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, labels
   if (!unit || !plan) return null;
 
   const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale);
-  const price = unit.price;
-  const cash = plan.years === 0;
-  const maintenance = maintenancePct ? (price * maintenancePct) / 100 : 0;
-
-  const down = cash ? price * (1 - (plan.cashDiscountPct ?? 0) / 100) : (price * plan.downPaymentPct) / 100;
-  const delivery = cash ? 0 : (price * plan.deliveryPaymentPct) / 100;
-  const installmentsTotal = cash ? 0 : price - down - delivery;
-  const perYear = INSTALLMENTS_PER_YEAR[plan.frequency];
-  const count = cash ? 0 : plan.years * perYear;
-  const installment = count ? installmentsTotal / count : 0;
-  const monthly = cash ? 0 : installmentsTotal / (plan.years * 12);
-  const firstYear = down + installment * Math.min(perYear, count);
-  const total = down + installmentsTotal + delivery + maintenance;
+  const { price, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
+    unit.price,
+    plan,
+    maintenancePct,
+  );
 
   const parts = (
     [

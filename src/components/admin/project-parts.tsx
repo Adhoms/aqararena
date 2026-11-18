@@ -1,6 +1,7 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
-import type { Media, MasterPlanZone, PaymentPlan, ProjectDistance, Typology } from "@/generated/prisma/client";
-import { deleteProjectPart, saveDistance, saveMedia, savePaymentPlan, saveTypology, saveZone } from "@/app/admin/actions";
+import type { Media, MasterPlanZone, PaymentPlan, ProjectDistance, Typology, Unit } from "@/generated/prisma/client";
+import { deleteProjectPart, deleteProjectUnits, saveDistance, saveMedia, savePaymentPlan, saveTypology, saveUnit, saveZone } from "@/app/admin/actions";
 import type { FormState } from "@/lib/admin/form";
 import { options } from "@/lib/admin/labels";
 import { AdminForm, DeleteButton } from "./admin-form";
@@ -122,6 +123,138 @@ export function TypologyList({ projectId, items }: { projectId: string; items: T
         </>
       )}
     />
+  );
+}
+
+// ─── Units ──────────────────────────────────────────────────────────────
+
+const AVAILABILITY_BADGE = { AVAILABLE: "admin-badge", RESERVED: "admin-badge-off", SOLD: "admin-badge-off" } as const;
+
+/**
+ * The project's units as a plain table with one form open at a time. (A form for every unit made
+ * the page slow to open once a project had a few dozen.) "تعديل" reopens the page with that
+ * unit's form; long lists come from the Excel import.
+ */
+export function UnitList({
+  projectId,
+  items,
+  total,
+  typologies,
+  editing,
+}: {
+  projectId: string;
+  items: Unit[];
+  total: number;
+  typologies: Typology[];
+  /** The unit picked with "تعديل" (?unit=…), if any. */
+  editing?: Unit | null;
+}) {
+  if (typologies.length === 0) return null;
+  const typologyOptions = typologies.map((t) => ({ value: t.id, label: t.code }));
+  const code = new Map(typologies.map((t) => [t.id, t.code]));
+  const page = `/admin/projects/${projectId}`;
+  const name = (u: Unit) => [u.building, u.unitNumber].filter(Boolean).join(" · ");
+  const fields = (u?: Unit) => (
+    <>
+      <Row cols={4}>
+        <Select name="typologyId" label="النموذج *" defaultValue={u?.typologyId ?? typologyOptions[0]?.value} options={typologyOptions} />
+        <TextField name="unitNumber" label="رقم الوحدة *" defaultValue={u?.unitNumber} dir="ltr" placeholder="301" />
+        <TextField name="building" label="المبنى" defaultValue={u?.building} dir="ltr" placeholder="B1" />
+        <TextField name="floor" type="number" label="الدور" defaultValue={u?.floor} hint="0 = أرضي" />
+      </Row>
+      <Row cols={4}>
+        <Select name="availability" label="الحالة *" defaultValue={u?.availability ?? "AVAILABLE"} options={options.availability} />
+        <TextField name="price" type="number" label="سعر الوحدة (جنيه)" defaultValue={dec(u?.price)} hint="فاضي = سعر النموذج بس" />
+        <Select name="view" label="الإطلالة" emptyLabel="—" defaultValue={u?.view} options={options.unitViews} />
+        <Select name="orientation" label="الاتجاه" emptyLabel="—" defaultValue={u?.orientation} options={options.orientations} />
+      </Row>
+    </>
+  );
+
+  return (
+    <Panel title={`الوحدات (${total})`} id="units">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+          <p>
+            اختياري: حالة الوحدات بتظهر لفريق مبيعات المطور في AqarArena Sales، مش على الموقع. للقوايم الطويلة استخدم شيت «الوحدات» في <Link href="/admin/import">استيراد Excel</Link>.
+            {total > items.length && ` معروض هنا أول ${items.length} وحدة من ${total}.`}
+          </p>
+          {total > 0 && <DeleteButton action={deleteProjectUnits} fields={{ id: projectId }} label="حذف كل الوحدات" confirmText={`حذف كل وحدات المشروع (${total})؟`} />}
+        </div>
+
+        {editing && (
+          // Keyed by unit, so picking another one starts from its own values.
+          <details key={editing.id} className="admin-item" open>
+            <summary>
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <strong>تعديل الوحدة</strong>
+                <span dir="ltr">{name(editing)}</span>
+              </span>
+            </summary>
+            <AdminForm action={saveUnit}>
+              <input type="hidden" name="id" value={editing.id} />
+              <input type="hidden" name="projectId" value={projectId} />
+              {fields(editing)}
+            </AdminForm>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <Link href={`${page}#units`} className="text-sm">
+                إغلاق
+              </Link>
+              <DeleteButton action={deleteProjectPart} fields={{ id: editing.id, projectId, part: "unit" }} />
+            </div>
+          </details>
+        )}
+
+        {items.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>الوحدة</th>
+                  <th>النموذج</th>
+                  <th>الدور</th>
+                  <th>السعر</th>
+                  <th>الحالة</th>
+                  <th>
+                    <span className="sr-only">تعديل</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((u) => (
+                  <tr key={u.id}>
+                    <td className="font-medium">
+                      <span dir="ltr">{name(u)}</span>
+                    </td>
+                    <td>
+                      <span dir="ltr">{code.get(u.typologyId)}</span>
+                    </td>
+                    <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
+                    <td>{egp(u.price)}</td>
+                    <td>
+                      <span className={AVAILABILITY_BADGE[u.availability]}>{options.availability.find((o) => o.value === u.availability)?.label}</span>
+                    </td>
+                    <td>
+                      <Link href={`${page}?unit=${u.id}#units`}>تعديل</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <details className="admin-item border-dashed" open={total === 0}>
+          <summary>
+            <span className="font-medium text-link">+ إضافة وحدة</span>
+          </summary>
+          <AdminForm action={saveUnit} submitLabel="إضافة" resetOnSuccess>
+            <input type="hidden" name="projectId" value={projectId} />
+            {fields()}
+          </AdminForm>
+        </details>
+      </div>
+    </Panel>
   );
 }
 

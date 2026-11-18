@@ -6,6 +6,7 @@ import { AmbientBackground } from "@/components/ambient-background";
 import { CompareTray } from "@/components/compare/compare-tray";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { ClickTracker } from "@/components/stats/tracker";
 import { Spotlight } from "@/components/spotlight";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { MAX_COMPARE } from "@/lib/compare";
@@ -68,7 +69,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       <body className="flex min-h-full flex-col font-sans leading-relaxed">
         <a
           href="#main"
-          className="press fixed top-3 start-3 z-50 -translate-y-24 rounded-full bg-brass-light px-5 py-2.5 font-medium text-deep no-underline transition-transform focus:translate-y-0 hover:text-deep"
+          className="press fixed top-3 start-3 z-50 -translate-y-24 rounded-full bg-brass-light px-5 py-2.5 font-medium text-deep no-underline transition-transform focus:translate-y-0 hover:text-deep print:hidden"
         >
           {dict.nav.skip}
         </a>
@@ -78,6 +79,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
         <SiteHeader />
         <main id="main" tabIndex={-1} className="flex-1 outline-none">{children}</main>
         <SiteFooter />
+        <ClickTracker />
         <CompareTray
           locale={locale}
           labels={{

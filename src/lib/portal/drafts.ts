@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { FEDDAN_M2, readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
+import { recordPriceHistory } from "@/lib/price-history";
+import { matchTypologies } from "./match-typologies";
 import { PHOTO_GROUPS } from "@/lib/property";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "./draft-types";
 import { ALL_PROFILE_FIELDS, ALL_PROJECT_FIELDS, DISTANCE_FIELDS, PLAN_FIELDS, TYPOLOGY_FIELDS } from "./fields";
@@ -50,6 +52,7 @@ export function draftFromProject(p: LiveProject): ProjectDraft {
       amenities: p.amenities,
     },
     typologies: p.typologies.map((t) => ({
+      liveId: t.id,
       code: t.code,
       subType: t.subType,
       category: t.category,
@@ -135,7 +138,7 @@ export function parseProjectDraft(input: unknown): ProjectDraft {
   const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   return {
     project: cleanFields(o.project, keys(ALL_PROJECT_FIELDS)),
-    typologies: list(o.typologies, LIMITS.typologies).map((t) => cleanFields(t, keys(TYPOLOGY_FIELDS))),
+    typologies: list(o.typologies, LIMITS.typologies).map((t) => cleanFields(t, [...keys(TYPOLOGY_FIELDS), "liveId"])),
     plans: list(o.plans, LIMITS.plans).map((p) => cleanFields(p, keys(PLAN_FIELDS))),
     media: list(o.media, LIMITS.media).map((m) => {
       const f = cleanFields(m, ["kind", "group", "url", "captionAr", "captionEn"]);
@@ -189,7 +192,8 @@ function run<T>(fields: Fields, read: (f: FormReader) => T, prefix: string, erro
 export type CheckedProject = {
   project: ReturnType<typeof readProject>;
   areaId: string | null;
-  typologies: ReturnType<typeof readTypology>[];
+  /** `liveId`: the live unit type the row was opened from (null for a new one). */
+  typologies: (ReturnType<typeof readTypology> & { liveId: string | null })[];
   plans: (ReturnType<typeof readPaymentPlan> & { typologyCode: string | null })[];
   media: { kind: (typeof MEDIA_KINDS)[number]; group: (typeof PHOTO_GROUPS)[number] | null; url: string; captionAr: string | null; captionEn: string | null; width: number | null; height: number | null }[];
   distances: { placeAr: string; placeEn: string; minutes: number }[];
@@ -208,7 +212,7 @@ export async function checkProjectDraft(draft: ProjectDraft): Promise<{ errors: 
     const code = v.code.toLowerCase();
     if (code && codes.has(code)) errors[`typologies.${i}.code`] = "الكود ده متكرر";
     codes.add(code);
-    return v;
+    return { ...v, liveId: typeof t.liveId === "string" && t.liveId ? t.liveId : null };
   });
   if (typologies.length === 0) errors["typologies"] = "أضف نموذج وحدة واحد على الأقل بسعر";
 
@@ -294,19 +298,29 @@ export async function applyProjectDraft(
     id = created.id;
   }
 
-  // Unit types by code.
+  // Unit types: the row's live unit type first (so a renamed code keeps its units), else the same code.
   const existing = await tx.typology.findMany({ where: { projectId: id }, select: { id: true, code: true } });
-  const keep = new Set(values.typologies.map((t) => t.code.toLowerCase()));
-  const gone = existing.filter((t) => !keep.has(t.code.toLowerCase()));
+  const matches = matchTypologies(existing, values.typologies);
+  const gone = existing.filter((e) => ![...matches.values()].includes(e.id));
   if (gone.length) await tx.typology.deleteMany({ where: { id: { in: gone.map((t) => t.id) } } });
+  // Free the codes being renamed first, so two unit types can swap codes.
+  for (const [i, matchId] of matches) {
+    const was = existing.find((e) => e.id === matchId)!;
+    if (was.code.toLowerCase() !== values.typologies[i].code.toLowerCase()) {
+      await tx.typology.update({ where: { id: matchId }, data: { code: `~${matchId}` } });
+    }
+  }
   const typId = new Map<string, string>();
-  for (const t of values.typologies) {
-    const match = existing.find((e) => e.code.toLowerCase() === t.code.toLowerCase());
-    const saved = match
-      ? await tx.typology.update({ where: { id: match.id }, data: t, select: { id: true } })
+  for (const [i, { liveId: _live, ...t }] of values.typologies.entries()) {
+    void _live;
+    const matchId = matches.get(i);
+    const saved = matchId
+      ? await tx.typology.update({ where: { id: matchId }, data: t, select: { id: true } })
       : await tx.typology.create({ data: { ...t, projectId: id }, select: { id: true } });
     typId.set(t.code.toLowerCase(), saved.id);
   }
+
+  await recordPriceHistory([id], tx);
 
   // Plans: replaced as a whole.
   await tx.paymentPlan.deleteMany({ where: { projectId: id } });

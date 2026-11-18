@@ -6,7 +6,9 @@ import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FE
 import { recordPriceHistory } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
-import { liveHoldCount, releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
+import type { Prisma } from "@/generated/prisma/client";
+import { liveHoldCount, lockUnits, releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
+import { isBusy } from "@/lib/sales/hold-errors";
 import type { AvailabilityValue } from "@/lib/sales/holds";
 import { holdsLeavingWarning } from "@/lib/sales/labels";
 import { leavingSales, nothingLeaves, type Leaving } from "./leaving";
@@ -17,6 +19,19 @@ import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./co
 // while any row has a problem.
 
 const MAX_ROWS = 2000;
+
+/** When a save meets another change to the same units (a deadlock, or a transaction that timed out). */
+const BUSY = "فيه تعديل تاني على نفس المشروع دلوقتي، ماحدش اتحفظ. جرّب تاني بعد شوية.";
+
+/**
+ * The units a save may take out of Sales: the units it updates (one may move to a type without a
+ * price), and every unit of the projects and types `leaving` names. The save locks them (in id order)
+ * before writing any unit, and releases their holds that no longer belong in Sales after.
+ */
+const scopeOfSave = (updateIds: string[], leaving: Leaving): Prisma.UnitWhereInput | null =>
+  updateIds.length || leaving.projectIds.length || leaving.typeIds.length
+    ? { OR: [{ id: { in: updateIds } }, { typology: { projectId: { in: leaving.projectIds } } }, { typologyId: { in: leaving.typeIds } }] }
+    : null;
 
 // ─── Matching names typed by people ─────────────────────────────────────
 
@@ -396,101 +411,106 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   };
 
   if (problems.length) return fail(`فيه ${problems.length} مشكلة لازم تتصلّح قبل الاستيراد. ماحدش اتحفظ.`);
+  // What saving takes out of Sales: projects moved to another developer or unpublished, unit types
+  // left without a price, units taken off the market. Their live holds are released.
+  const before = new Map(projects.map((p) => [p.slug, { id: p.id, developer: p.developer.slug, published: p.published }]));
+  const leaving = leavingSales({
+    projects: projRows.map((p) => ({ before: before.get(p.slug), developer: p.devSlug, published: p.present.has("published") ? p.values.published : undefined })),
+    types: typRows.map((t) => {
+      const projectId = projBySlug.get(t.projSlug)?.existingId;
+      return { existingId: projectId && typIdByCode.get(`${projectId}/${t.values.code.toLowerCase()}`), priceFrom: t.values.priceFrom };
+    }),
+    units: unitStatuses,
+  });
   if (!save) {
-    // What saving takes out of Sales: projects moved to another developer or unpublished, unit types
-    // left without a price, units taken off the market. Their live holds will be released.
-    const before = new Map(projects.map((p) => [p.slug, { id: p.id, developer: p.developer.slug, published: p.published }]));
-    const leaving = leavingSales({
-      projects: projRows.map((p) => ({ before: before.get(p.slug), developer: p.devSlug, published: p.present.has("published") ? p.values.published : undefined })),
-      types: typRows.map((t) => {
-        const projectId = projBySlug.get(t.projSlug)?.existingId;
-        return { existingId: projectId && typIdByCode.get(`${projectId}/${t.values.code.toLowerCase()}`), priceFrom: t.values.priceFrom };
-      }),
-      units: unitStatuses,
-    });
     const warning = holdsLeavingWarning(await heldLeaving(leaving));
     return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts, warning };
   }
+  const scope = scopeOfSave(unitStatuses.flatMap((u) => (u.existingId ? [u.existingId] : [])), leaving);
 
   // Save everything in one transaction: all rows or none.
-  const released = await db.$transaction(
-    async (tx) => {
-      const devId = new Map(developers.map((d) => [d.slug, d.id]));
-      for (const d of devRows) {
-        const data = onlyPresent(d.values, d.present, ["nameAr", "nameEn", "slug"]);
-        const saved = await tx.developer.upsert({ where: { slug: d.slug }, create: d.values, update: data, select: { id: true } });
-        devId.set(d.slug, saved.id);
-      }
+  let released: number;
+  try {
+    released = await db.$transaction(
+      async (tx) => {
+        const devId = new Map(developers.map((d) => [d.slug, d.id]));
+        for (const d of devRows) {
+          const data = onlyPresent(d.values, d.present, ["nameAr", "nameEn", "slug"]);
+          const saved = await tx.developer.upsert({ where: { slug: d.slug }, create: d.values, update: data, select: { id: true } });
+          devId.set(d.slug, saved.id);
+        }
 
-      const projId = new Map(projects.map((p) => [p.slug, p.id]));
-      for (const p of projRows) {
-        // The price date is set below from the unit types and plans, never from the sheet.
-        const values: Omit<typeof p.values, "pricesUpdatedAt"> & { pricesUpdatedAt?: Date | null } = { ...p.values };
-        delete values.pricesUpdatedAt;
-        const relations = { developer: { connect: { id: devId.get(p.devSlug)! } }, area: { connect: { id: p.areaId } } };
-        const update = onlyPresent(values, p.present, ["nameAr", "nameEn", "slug", "status", "deliveryDate"]);
-        const saved = await tx.project.upsert({
-          where: { slug: p.slug },
-          create: { ...values, ...relations },
-          update: { ...update, ...relations },
-          select: { id: true },
-        });
-        projId.set(p.slug, saved.id);
-      }
+        const projId = new Map(projects.map((p) => [p.slug, p.id]));
+        for (const p of projRows) {
+          // The price date is set below from the unit types and plans, never from the sheet.
+          const values: Omit<typeof p.values, "pricesUpdatedAt"> & { pricesUpdatedAt?: Date | null } = { ...p.values };
+          delete values.pricesUpdatedAt;
+          const relations = { developer: { connect: { id: devId.get(p.devSlug)! } }, area: { connect: { id: p.areaId } } };
+          const update = onlyPresent(values, p.present, ["nameAr", "nameEn", "slug", "status", "deliveryDate"]);
+          const saved = await tx.project.upsert({
+            where: { slug: p.slug },
+            create: { ...values, ...relations },
+            update: { ...update, ...relations },
+            select: { id: true },
+          });
+          projId.set(p.slug, saved.id);
+        }
 
-      const typId = new Map(typIdByCode);
-      const touched = new Set<string>();
-      for (const t of typRows) {
-        const projectId = projId.get(t.projSlug)!;
-        const update = onlyPresent(t.values, t.present, ["code", "category", "subType", "finishing", "buaM2", "priceFrom", "pricePerM2From"]);
-        const saved = await tx.typology.upsert({
-          where: { projectId_code: { projectId, code: t.values.code } },
-          create: { ...t.values, projectId },
-          update,
-          select: { id: true },
-        });
-        typId.set(`${projectId}/${t.values.code.toLowerCase()}`, saved.id);
-        touched.add(projectId);
-      }
+        const typId = new Map(typIdByCode);
+        const touched = new Set<string>();
+        for (const t of typRows) {
+          const projectId = projId.get(t.projSlug)!;
+          const update = onlyPresent(t.values, t.present, ["code", "category", "subType", "finishing", "buaM2", "priceFrom", "pricePerM2From"]);
+          const saved = await tx.typology.upsert({
+            where: { projectId_code: { projectId, code: t.values.code } },
+            create: { ...t.values, projectId },
+            update,
+            select: { id: true },
+          });
+          typId.set(`${projectId}/${t.values.code.toLowerCase()}`, saved.id);
+          touched.add(projectId);
+        }
 
-      for (const p of planRows) {
-        const projectId = projId.get(p.projSlug)!;
-        const typologyId = p.code ? typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null : null;
-        const values = { ...p.values, typologyId };
-        // The same plan (down payment, years, frequency, unit type) is updated rather than duplicated.
-        const same = await tx.paymentPlan.findFirst({
-          where: { projectId, typologyId, downPaymentPct: values.downPaymentPct, years: values.years, frequency: values.frequency },
-          select: { id: true },
-        });
-        if (same) await tx.paymentPlan.update({ where: { id: same.id }, data: values });
-        else await tx.paymentPlan.create({ data: { ...values, projectId } });
-        touched.add(projectId);
-      }
+        for (const p of planRows) {
+          const projectId = projId.get(p.projSlug)!;
+          const typologyId = p.code ? typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null : null;
+          const values = { ...p.values, typologyId };
+          // The same plan (down payment, years, frequency, unit type) is updated rather than duplicated.
+          const same = await tx.paymentPlan.findFirst({
+            where: { projectId, typologyId, downPaymentPct: values.downPaymentPct, years: values.years, frequency: values.frequency },
+            select: { id: true },
+          });
+          if (same) await tx.paymentPlan.update({ where: { id: same.id }, data: values });
+          else await tx.paymentPlan.create({ data: { ...values, projectId } });
+          touched.add(projectId);
+        }
 
-      const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
-      if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
-      await recordPriceHistory([...touched], tx);
+        const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+        if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
+        await recordPriceHistory([...touched], tx);
 
-      const leaving: { id: string; availability: AvailabilityValue }[] = [];
-      // Projects whose units may have left Sales: moved, unpublished, a type without a price.
-      const scoped = new Set([...projRows.map((p) => projId.get(p.slug)!), ...typRows.map((t) => projId.get(t.projSlug)!)]);
-      for (const u of unitRows) {
-        const projectId = projId.get(u.projSlug)!;
-        const typologyId = typId.get(`${projectId}/${u.code.toLowerCase()}`)!;
-        const existing = unitIdByKey.get(unitKey(projectId, u.values.building, u.values.unitNumber));
-        if (existing) await tx.unit.update({ where: { id: existing }, data: { ...onlyPresent(u.values, u.present, ["unitNumber", "availability"]), typologyId } });
-        else await tx.unit.create({ data: { ...u.values, typologyId } });
-        if (existing && u.values.availability !== "AVAILABLE") leaving.push({ id: existing, availability: u.values.availability });
-      }
-      // Units taken off the market lose their Sales holds (spec section 6), and so do units that left
-      // their developer's Sales inventory.
-      return (
-        (await releaseHoldsOfUnavailable(tx, leaving, "ADMIN_STATUS_CHANGE")) +
-        (scoped.size ? await releaseHoldsOutOfSales(tx, { typology: { projectId: { in: [...scoped] } } }) : 0)
-      );
-    },
-    { timeout: 120_000, maxWait: 20_000 },
-  );
+        // Lock the units this save may take out of Sales before writing any unit, in id order, as every
+        // other write that changes many units does (after the project and type rows, as they do too).
+        if (scope) await lockUnits(tx, scope);
+        const offMarket: { id: string; availability: AvailabilityValue }[] = [];
+        for (const u of unitRows) {
+          const projectId = projId.get(u.projSlug)!;
+          const typologyId = typId.get(`${projectId}/${u.code.toLowerCase()}`)!;
+          const existing = unitIdByKey.get(unitKey(projectId, u.values.building, u.values.unitNumber));
+          if (existing) await tx.unit.update({ where: { id: existing }, data: { ...onlyPresent(u.values, u.present, ["unitNumber", "availability"]), typologyId } });
+          else await tx.unit.create({ data: { ...u.values, typologyId } });
+          if (existing && u.values.availability !== "AVAILABLE") offMarket.push({ id: existing, availability: u.values.availability });
+        }
+        // Units taken off the market lose their Sales holds (spec section 6), and so do units that left
+        // their developer's Sales inventory (all of them already locked above).
+        return (await releaseHoldsOfUnavailable(tx, offMarket, "ADMIN_STATUS_CHANGE")) + (scope ? await releaseHoldsOutOfSales(tx, scope) : 0);
+      },
+      { timeout: 120_000, maxWait: 20_000 },
+    );
+  } catch (e) {
+    if (isBusy(e)) return fail(BUSY);
+    throw e;
+  }
 
   return { ok: true, saved: true, message: summary("تم الاستيراد ✓ ") + (released ? ` · اتلغى ${countAr(released, HOLDS_NOUN)} في AqarArena Sales` : ""), problems, counts };
 }
@@ -798,16 +818,26 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
     return { ok: true, saved: false, message: `الملف سليم: ${create} وحدة جديدة و${update} تحديث.`, problems, create, update, warning };
   }
 
-  const released = await db.$transaction(
-    async (tx) => {
-      for (const u of out) {
-        if (u.id) await tx.unit.update({ where: { id: u.id }, data: { ...onlyPresent(u.values, present, ["unitNumber", "availability"]), typologyId: u.typologyId } });
-        else await tx.unit.create({ data: { ...u.values, typologyId: u.typologyId } });
-      }
-      return releaseHoldsOfUnavailable(tx, leaving, "PORTAL_STATUS_CHANGE");
-    },
-    { timeout: 120_000, maxWait: 20_000 },
-  );
+  const updateIds = out.flatMap((u) => (u.id ? [u.id] : []));
+  let released: number;
+  try {
+    released = await db.$transaction(
+      async (tx) => {
+        // The units being updated are locked first, in id order, like every write that changes many
+        // units, so this never deadlocks with an admin save or import of the same project.
+        if (updateIds.length) await lockUnits(tx, { id: { in: updateIds } });
+        for (const u of out) {
+          if (u.id) await tx.unit.update({ where: { id: u.id }, data: { ...onlyPresent(u.values, present, ["unitNumber", "availability"]), typologyId: u.typologyId } });
+          else await tx.unit.create({ data: { ...u.values, typologyId: u.typologyId } });
+        }
+        return releaseHoldsOfUnavailable(tx, leaving, "PORTAL_STATUS_CHANGE");
+      },
+      { timeout: 120_000, maxWait: 20_000 },
+    );
+  } catch (e) {
+    if (isBusy(e)) return fail(BUSY);
+    throw e;
+  }
   const holds = released ? `، واتلغى ${countAr(released, HOLDS_NOUN)} لفريق المبيعات` : "";
   return { ok: true, saved: true, message: `تم ✓ ${create} وحدة جديدة و${update} تحديث${holds}.`, problems, create, update };
 }

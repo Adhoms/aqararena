@@ -74,8 +74,11 @@ export function releaseExpired(client: Client | Tx, where: Prisma.UnitHoldWhereI
 /** Takes a row lock on the unit for the rest of the transaction. */
 const lockUnit = (tx: Tx, unitId: string) => tx.$queryRaw`SELECT "id" FROM "Unit" WHERE "id" = ${unitId} FOR UPDATE`;
 
-/** Locks every unit matching `where`, in id order (so two of these never deadlock), and returns their ids. */
-async function lockUnits(tx: Tx, where: Prisma.UnitWhereInput): Promise<string[]> {
+/**
+ * Locks every unit matching `where`, in id order, and returns their ids. Every write that changes
+ * many units takes their locks this way first, before writing any unit, so two of them never deadlock.
+ */
+export async function lockUnits(tx: Tx, where: Prisma.UnitWhereInput): Promise<string[]> {
   const ids = (await tx.unit.findMany({ where, orderBy: { id: "asc" }, select: { id: true } })).map((u) => u.id);
   if (ids.length) await tx.$queryRaw`SELECT "id" FROM "Unit" WHERE "id" = ANY(${ids}) ORDER BY "id" FOR UPDATE`;
   return ids;

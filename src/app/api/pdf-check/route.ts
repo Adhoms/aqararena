@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { connection } from "next/server";
 import { renderPdf } from "@/lib/sales/pdf";
 
 // Feasibility check for server-made PDFs on Vercel (phase 3, task 1). Off in production, and off
@@ -25,6 +26,9 @@ function keyOf(request: Request, url: URL) {
 }
 
 export async function GET(request: Request) {
+  // Always at request time: otherwise, with Cache Components, a build without the secret would
+  // prerender the 404 below and serve it even after the secret is set.
+  await connection();
   const secret = process.env.OFFER_PDF_CHECK;
   if (process.env.VERCEL_ENV === "production" || !secret || secret.length < MIN_SECRET_LENGTH) return notFound();
   const url = new URL(request.url);

@@ -278,16 +278,3 @@ export async function releaseHoldsOfUnavailable(
   const { count } = await tx.unitHold.updateMany({ where: { unitId: { in: ids }, status: "ACTIVE" }, data: { status: "RELEASED", releaseReason: reason } });
   return count;
 }
-
-/**
- * Live holds on these units, by unit id: who holds each one and until when.
- * It trusts the caller: every id must be a unit the caller has already scoped to one developer.
- */
-export async function liveHoldsByUnit(unitIds: string[], now = new Date()): Promise<Record<string, { name: string; expiresAt: Date }>> {
-  if (!unitIds.length) return {};
-  const rows = await db.unitHold.findMany({
-    where: { unitId: { in: unitIds }, ...liveHoldWhere(now) },
-    select: { unitId: true, expiresAt: true, salesAccount: { select: { nameAr: true } } },
-  });
-  return Object.fromEntries(rows.map((r) => [r.unitId, { name: r.salesAccount.nameAr, expiresAt: r.expiresAt }]));
-}

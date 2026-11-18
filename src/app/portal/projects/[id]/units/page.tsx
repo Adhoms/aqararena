@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import type { Unit } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { options } from "@/lib/admin/labels";
-import { formatDateTimeAr } from "@/lib/format";
+import { HOURS_NOUN, UNITS_NOUN, countAr, formatCountAr as num } from "@/lib/format";
 import { requireAccount } from "@/lib/portal/session";
-import { liveHoldWhere, liveHoldsByUnit } from "@/lib/sales/hold-service";
+import { projectLiveHoldCount, projectUnitHolds } from "@/lib/sales/hold-service";
 import { HOLD_HOURS_MAX, HOLD_HOURS_MIN } from "@/lib/sales/holds";
+import { holdText } from "@/lib/sales/labels";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { UnitStatusSelect } from "@/components/portal/unit-status";
 import { UnitsImport } from "@/components/portal/units-import";
@@ -38,16 +39,16 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
   });
   if (!project) notFound();
   const unitId = typeof query.unit === "string" && /^[a-z0-9]{10,40}$/i.test(query.unit) ? query.unit : null;
+  // Who holds which unit right now (AqarArena Sales), for the table and the edit form.
+  const holds = projectUnitHolds(id);
   const [units, total, counts, editing, heldCount] = await Promise.all([
-    db.unit.findMany({ where: { typology: { projectId: id } }, orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }], take: UNITS_SHOWN }),
+    db.unit.findMany({ where: { typology: { projectId: id } }, orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }], take: UNITS_SHOWN, include: { holds } }),
     db.unit.count({ where: { typology: { projectId: id } } }),
     db.unit.groupBy({ by: ["availability"], where: { typology: { projectId: id } }, _count: { _all: true } }),
-    unitId ? db.unit.findFirst({ where: { id: unitId, typology: { projectId: id } } }) : null,
-    db.unitHold.count({ where: { ...liveHoldWhere(), unit: { typology: { projectId: id } } } }),
+    unitId ? db.unit.findFirst({ where: { id: unitId, typology: { projectId: id } }, include: { holds } }) : null,
+    projectLiveHoldCount(id),
   ]);
-  // Who holds which unit right now (AqarArena Sales), for the table and the edit form.
-  const holds = await liveHoldsByUnit([...units.map((u) => u.id), ...(editing ? [editing.id] : [])]);
-  const holdText = (unitId: string) => holds[unitId] && `${holds[unitId].name} لحد ${formatDateTimeAr(holds[unitId].expiresAt)}`;
+  const editingHold = editing ? holdText(editing.holds[0]) : undefined;
   const count = (a: string) => counts.find((c) => c.availability === a)?._count._all ?? 0;
   const code = new Map(project.typologies.map((t) => [t.id, t.code]));
   const typeOptions = project.typologies.map((t) => ({ value: t.id, label: `${t.code}${t.nameAr ? ` · ${t.nameAr}` : ""} (يبدأ من ${egp(t.priceFrom)})` }));
@@ -79,9 +80,9 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
           حالة الوحدات (متاحة / محجوزة / مباعة) بتظهر لفريق مبيعاتك في AqarArena Sales، مش للزوار على الموقع. حدّث الحالة أول ما وحدة تتباع أو تتحجز. سعر الوحدة مايقدرش يقل عن سعر «يبدأ من» للنموذج، ولتغيير النماذج نفسها أو أسعارها افتح «تعديل» المشروع من الصفحة الرئيسية.
         </p>
         <p>
-          متاحة <b>{count("AVAILABLE").toLocaleString("ar-EG")}</b>
-          {heldCount > 0 && ` (منها ${heldCount.toLocaleString("ar-EG")} محجوزة مؤقتًا لفريق المبيعات)`} · محجوزة <b>{count("RESERVED").toLocaleString("ar-EG")}</b> · مباعة{" "}
-          <b>{count("SOLD").toLocaleString("ar-EG")}</b>
+          متاحة <b>{num(count("AVAILABLE"))}</b>
+          {heldCount > 0 && ` (منها ${countAr(heldCount, UNITS_NOUN)} عليها حجز مؤقت لفريق المبيعات)`} · محجوزة <b>{num(count("RESERVED"))}</b> · مباعة{" "}
+          <b>{num(count("SOLD"))}</b>
         </p>
       </section>
 
@@ -113,8 +114,8 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                       <span dir="ltr">{name(editing)}</span>
                     </span>
                   </summary>
-                  {holdText(editing.id) && <p className="mb-3 text-sm text-brass-dark">محجوزة مؤقتًا لـ {holdText(editing.id)}</p>}
-                  <HoldConfirm message={holdText(editing.id) && `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)}. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟`}>
+                  {editingHold && <p className="mb-3 text-sm text-brass-dark">محجوزة مؤقتًا لـ {editingHold}</p>}
+                  <HoldConfirm message={editingHold && `الوحدة دي محجوزة مؤقتًا لـ ${editingHold}. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟`}>
                     <AdminForm action={savePortalUnit}>
                       <input type="hidden" name="id" value={editing.id} />
                       <input type="hidden" name="projectId" value={project.id} />
@@ -125,7 +126,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                     <Link href={`${page}#units`} className="text-sm">
                       إغلاق
                     </Link>
-                    <DeleteButton action={deletePortalUnit} fields={{ id: editing.id, projectId: project.id }} confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)}. لو اتحذفت الحجز هيتلغي. تحذفها؟` : "حذف الوحدة دي؟"} />
+                    <DeleteButton action={deletePortalUnit} fields={{ id: editing.id, projectId: project.id }} confirmText={editingHold ? `الوحدة دي محجوزة مؤقتًا لـ ${editingHold}. لو اتحذفت، الحجز اللي عليها هيتشال معاها. تحذفها؟` : "حذف الوحدة دي؟"} />
                   </div>
                 </details>
               )}
@@ -157,7 +158,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                           <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
                           <td>{egp(u.price)}</td>
                           <td>
-                            <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.id)} />
+                            <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.holds[0])} />
                           </td>
                           <td>
                             <Link href={`${page}?unit=${u.id}#units`}>تعديل</Link>
@@ -193,7 +194,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
             autoComplete="off"
             label="عدد الساعات"
             defaultValue={project.holdHours}
-            hint={`فاضي = مدة الشركة (${project.developer.holdHours} ساعة، بتتغيّر من «فريق المبيعات»). من ${HOLD_HOURS_MIN} لـ ${HOLD_HOURS_MAX}. مثلًا قللها يوم الإطلاق عشان الوحدات ماتتركنش. بيسري على الحجوزات الجديدة بس.`}
+            hint={`فاضي = مدة الشركة (${countAr(project.developer.holdHours, HOURS_NOUN)}، بتتغيّر من «فريق المبيعات»). من ${num(HOLD_HOURS_MIN)} لـ ${num(HOLD_HOURS_MAX)}. مثلًا قللها يوم الإطلاق عشان الوحدات ماتتركنش. بيسري على الحجوزات الجديدة بس.`}
           />
         </AdminForm>
       </Panel>

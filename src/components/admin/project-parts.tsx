@@ -4,7 +4,8 @@ import type { Media, MasterPlanZone, PaymentPlan, ProjectDistance, Typology, Uni
 import { deleteProjectPart, deleteProjectUnits, saveDistance, saveMedia, savePaymentPlan, saveTypology, saveUnit, saveZone } from "@/app/admin/actions";
 import type { FormState } from "@/lib/admin/form";
 import { options } from "@/lib/admin/labels";
-import { formatDateTimeAr } from "@/lib/format";
+import { UNITS_NOUN, countAr } from "@/lib/format";
+import { holdText, type HoldBadge } from "@/lib/sales/labels";
 import { AdminForm, DeleteButton } from "./admin-form";
 import { HoldConfirm } from "./hold-confirm";
 import { Checkbox, CheckboxGroup, Panel, Row, Select, TextArea, TextField } from "./fields";
@@ -130,6 +131,9 @@ export function TypologyList({ projectId, items }: { projectId: string; items: T
 
 // ─── Units ──────────────────────────────────────────────────────────────
 
+/** A unit with its live AqarArena Sales hold, if any. */
+type HeldUnit = Unit & { holds: HoldBadge[] };
+
 const AVAILABILITY_BADGE = { AVAILABLE: "admin-badge", RESERVED: "admin-badge-off", SOLD: "admin-badge-off" } as const;
 
 /**
@@ -143,17 +147,15 @@ export function UnitList({
   total,
   typologies,
   editing,
-  holds = {},
   heldTotal = 0,
 }: {
   projectId: string;
-  items: Unit[];
+  /** With each unit's live AqarArena Sales hold, if any (hold-service.ts projectUnitHolds). */
+  items: HeldUnit[];
   total: number;
   typologies: Typology[];
   /** The unit picked with "تعديل" (?unit=…), if any. */
-  editing?: Unit | null;
-  /** Live AqarArena Sales holds by unit id. */
-  holds?: Record<string, { name: string; expiresAt: Date }>;
+  editing?: HeldUnit | null;
   /** How many live holds the project's units have in all (the list shows only the first units). */
   heldTotal?: number;
 }) {
@@ -162,7 +164,7 @@ export function UnitList({
   const code = new Map(typologies.map((t) => [t.id, t.code]));
   const page = `/admin/projects/${projectId}`;
   const name = (u: Unit) => [u.building, u.unitNumber].filter(Boolean).join(" · ");
-  const holdText = (unitId: string) => holds[unitId] && `${holds[unitId].name} لحد ${formatDateTimeAr(holds[unitId].expiresAt)}`;
+  const editingHold = editing ? holdText(editing.holds[0]) : undefined;
   const fields = (u?: Unit) => (
     <>
       <Row cols={4}>
@@ -188,7 +190,14 @@ export function UnitList({
             اختياري: حالة الوحدات بتظهر لفريق مبيعات المطور في AqarArena Sales، مش على الموقع. للقوايم الطويلة استخدم شيت «الوحدات» في <Link href="/admin/import">استيراد Excel</Link>.
             {total > items.length && ` معروض هنا أول ${items.length} وحدة من ${total}.`}
           </p>
-          {total > 0 && <DeleteButton action={deleteProjectUnits} fields={{ id: projectId }} label="حذف كل الوحدات" confirmText={`حذف كل وحدات المشروع (${total})؟${heldTotal ? ` فيه ${heldTotal} وحدة محجوزة مؤقتًا في AqarArena Sales والحجوزات دي هتتلغي.` : ""}`} />}
+          {total > 0 && (
+            <DeleteButton
+              action={deleteProjectUnits}
+              fields={{ id: projectId }}
+              label="حذف كل الوحدات"
+              confirmText={`حذف كل وحدات المشروع (${total})؟${heldTotal ? ` فيه ${countAr(heldTotal, UNITS_NOUN)} عليها حجز مؤقت في AqarArena Sales، والحجوزات دي هتتشال مع الوحدات.` : ""}`}
+            />
+          )}
         </div>
 
         {editing && (
@@ -200,8 +209,8 @@ export function UnitList({
                 <span dir="ltr">{name(editing)}</span>
               </span>
             </summary>
-            {holdText(editing.id) && <p className="mb-3 text-sm text-brass-dark">محجوزة مؤقتًا لـ {holdText(editing.id)} في AqarArena Sales</p>}
-            <HoldConfirm message={holdText(editing.id) && `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)} في AqarArena Sales. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟`}>
+            {editingHold && <p className="mb-3 text-sm text-brass-dark">محجوزة مؤقتًا لـ {editingHold} في AqarArena Sales</p>}
+            <HoldConfirm message={editingHold && `الوحدة دي محجوزة مؤقتًا لـ ${editingHold} في AqarArena Sales. لو غيّرت حالتها لغير «متاحة» الحجز هيتلغي. تحفظ؟`}>
               <AdminForm action={saveUnit}>
                 <input type="hidden" name="id" value={editing.id} />
                 <input type="hidden" name="projectId" value={projectId} />
@@ -215,7 +224,7 @@ export function UnitList({
               <DeleteButton
                 action={deleteProjectPart}
                 fields={{ id: editing.id, projectId, part: "unit" }}
-                confirmText={holdText(editing.id) ? `الوحدة دي محجوزة مؤقتًا لـ ${holdText(editing.id)} في AqarArena Sales. لو اتحذفت الحجز هيتلغي. تحذفها؟` : undefined}
+                confirmText={editingHold ? `الوحدة دي محجوزة مؤقتًا لـ ${editingHold} في AqarArena Sales. لو اتحذفت، الحجز اللي عليها هيتشال معاها. تحذفها؟` : undefined}
               />
             </div>
           </details>
@@ -249,8 +258,8 @@ export function UnitList({
                     <td>{egp(u.price)}</td>
                     <td>
                       <span className={AVAILABILITY_BADGE[u.availability]}>{options.availability.find((o) => o.value === u.availability)?.label}</span>
-                      {holds[u.id] && (
-                        <span className="mt-1 flex w-fit items-center rounded-full border border-brass px-2.5 py-0.5 text-xs text-brass-dark">حجز مؤقت: {holdText(u.id)}</span>
+                      {u.holds[0] && (
+                        <span className="mt-1 flex w-fit items-center rounded-full border border-brass px-2.5 py-0.5 text-xs text-brass-dark">حجز مؤقت: {holdText(u.holds[0])}</span>
                       )}
                     </td>
                     <td>

@@ -29,6 +29,7 @@ export function SearchFilters({
   project,
   subTypes,
   plans,
+  dollars,
   count,
   invalid,
 }: {
@@ -36,6 +37,8 @@ export function SearchFilters({
   project?: SalesProject;
   subTypes: SubType[];
   plans: SalesPlan[];
+  /** Some of the company's projects are priced in dollars: the budget gets a currency. */
+  dollars: boolean;
   count: number;
   invalid: InvalidFilters;
 }) {
@@ -158,21 +161,46 @@ export function SearchFilters({
 
         <fieldset className="col-span-2 m-0 grid min-w-0 grid-cols-2 gap-x-3 gap-y-1.5 border-0 p-0 sm:col-span-3 lg:col-span-2">
           <legend className="mb-1.5 p-0 text-sm font-medium">الميزانية</legend>
-          <label className={sub}>
-            المبلغ بالجنيه
-            <input
-              name="budget"
-              type="text"
-              inputMode="numeric"
-              dir="ltr"
-              autoComplete="off"
-              defaultValue={invalid.budget ?? str(search.budget)}
-              aria-invalid={badBudget || undefined}
-              aria-describedby={badBudget ? "budget-error budget-hint" : "budget-hint"}
-              className={input}
-            />
-          </label>
-          <label className={sub}>
+          {dollars ? (
+            // The amount and its currency side by side, a full row on a phone.
+            <div className={`${sub} col-span-2 sm:col-span-1`}>
+              <label htmlFor="budget-amount">المبلغ</label>
+              <div className="flex min-w-0 gap-2">
+                <input
+                  id="budget-amount"
+                  name="budget"
+                  type="text"
+                  inputMode="numeric"
+                  dir="ltr"
+                  autoComplete="off"
+                  defaultValue={invalid.budget ?? str(search.budget)}
+                  aria-invalid={badBudget || undefined}
+                  aria-describedby={badBudget ? "budget-error budget-hint" : "budget-hint"}
+                  className={`${input} min-w-0 flex-1`}
+                />
+                <select name="cur" aria-label="عملة المبلغ" defaultValue={search.cur ?? project?.currency ?? "EGP"} className={`${input} w-auto flex-none`}>
+                  <option value="EGP">بالجنيه</option>
+                  <option value="USD">بالدولار</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <label className={sub}>
+              المبلغ بالجنيه
+              <input
+                name="budget"
+                type="text"
+                inputMode="numeric"
+                dir="ltr"
+                autoComplete="off"
+                defaultValue={invalid.budget ?? str(search.budget)}
+                aria-invalid={badBudget || undefined}
+                aria-describedby={badBudget ? "budget-error budget-hint" : "budget-hint"}
+                className={input}
+              />
+            </label>
+          )}
+          <label className={`${sub} ${dollars ? "col-span-2 sm:col-span-1" : ""}`}>
             المبلغ ده
             <select name="by" defaultValue={search.by} aria-describedby="budget-hint" className={input}>
               {BUDGET_BASES.map((b) => (
@@ -207,6 +235,7 @@ export function SearchFilters({
               ? "المقدم والقسط بيتقارنوا بالخطة اللي تختارها، أو بأقل رقم في خطط كل وحدة."
               : "المقدم والقسط بيتقارنوا بأقل رقم في خطط كل وحدة. اختار مشروع عشان تحدد خطة."}{" "}
             القسط متوسط في الشهر، حتى لو الخطة ربع سنوية.
+            {dollars && " الميزانية بعملة واحدة: بتطلع وحدات المشروعات اللي بالعملة دي بس."}
           </p>
         </fieldset>
 

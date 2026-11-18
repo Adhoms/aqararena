@@ -4,7 +4,8 @@ import type { Media, MasterPlanZone, PaymentPlan, ProjectDistance, Typology, Uni
 import { deleteProjectPart, deleteProjectUnits, saveDistance, saveMedia, savePaymentPlan, saveTypology, saveUnit, saveZone } from "@/app/admin/actions";
 import type { FormState } from "@/lib/admin/form";
 import { options } from "@/lib/admin/labels";
-import { UNITS_NOUN, countAr } from "@/lib/format";
+import { CURRENCY_NAMES_AR, UNITS_NOUN, countAr, moneyAr } from "@/lib/format";
+import type { Currency } from "@/lib/property";
 import { holdText, type HoldBadge } from "@/lib/sales/labels";
 import { AdminForm, DeleteButton } from "./admin-form";
 import { HoldConfirm } from "./hold-confirm";
@@ -18,7 +19,8 @@ import { BulkMediaUpload, UploadField } from "./upload";
 type Part = "typology" | "plan" | "zone" | "media" | "distance";
 type Action = (prev: FormState, data: FormData) => Promise<FormState>;
 const dec = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? undefined : v.toString());
-const egp = (v: { toString(): string } | null | undefined) => (v ? `${Number(v).toLocaleString("ar-EG")} ج.م` : "—");
+/** An amount in the project's currency, or a dash. */
+const money = (v: { toString(): string } | null | undefined, currency: Currency) => (v ? moneyAr(Number(v), currency) : "—");
 
 function PartList<T extends { id: string }>({
   projectId,
@@ -83,7 +85,7 @@ function PartList<T extends { id: string }>({
 
 // ─── Unit types ─────────────────────────────────────────────────────────
 
-export function TypologyList({ projectId, items }: { projectId: string; items: Typology[] }) {
+export function TypologyList({ projectId, items, currency }: { projectId: string; items: Typology[]; currency: Currency }) {
   return (
     <PartList
       id="typologies"
@@ -100,7 +102,7 @@ export function TypologyList({ projectId, items }: { projectId: string; items: T
           <span>{options.subTypes.find((o) => o.value === t.subType)?.label.split(" (")[0]}</span>
           <span className="text-muted">{Number(t.buaM2)} م²</span>
           {t.bedrooms !== null && <span className="text-muted">{t.bedrooms} غرف</span>}
-          <span>{egp(t.priceFrom)}</span>
+          <span>{money(t.priceFrom, currency)}</span>
         </>
       )}
       fields={(t) => (
@@ -113,7 +115,7 @@ export function TypologyList({ projectId, items }: { projectId: string; items: T
           </Row>
           <Row cols={4}>
             <TextField name="buaM2" type="number" label="المساحة BUA (م²) *" defaultValue={dec(t?.buaM2)} />
-            <TextField name="priceFrom" type="number" label="السعر يبدأ من (جنيه) *" defaultValue={dec(t?.priceFrom)} />
+            <TextField name="priceFrom" type="number" label={`السعر يبدأ من (${CURRENCY_NAMES_AR[currency]}) *`} defaultValue={dec(t?.priceFrom)} />
             <TextField name="bedrooms" type="number" label="غرف النوم" defaultValue={t?.bedrooms} />
             <TextField name="bathrooms" type="number" label="الحمامات" defaultValue={t?.bathrooms} />
           </Row>
@@ -148,6 +150,7 @@ export function UnitList({
   typologies,
   editing,
   heldTotal = 0,
+  currency,
 }: {
   projectId: string;
   /** With each unit's live AqarArena Sales hold, if any (hold-service.ts projectUnitHolds). */
@@ -158,6 +161,7 @@ export function UnitList({
   editing?: HeldUnit | null;
   /** How many live holds the project's units have in all (the list shows only the first units). */
   heldTotal?: number;
+  currency: Currency;
 }) {
   if (typologies.length === 0) return null;
   const typologyOptions = typologies.map((t) => ({ value: t.id, label: t.code }));
@@ -175,7 +179,7 @@ export function UnitList({
       </Row>
       <Row cols={4}>
         <Select name="availability" label="الحالة *" defaultValue={u?.availability ?? "AVAILABLE"} options={options.availability} />
-        <TextField name="price" type="number" label="سعر الوحدة (جنيه)" defaultValue={dec(u?.price)} hint="فاضي = سعر النموذج بس" />
+        <TextField name="price" type="number" label={`سعر الوحدة (${CURRENCY_NAMES_AR[currency]})`} defaultValue={dec(u?.price)} hint="فاضي = سعر النموذج بس" />
         <Select name="view" label="الإطلالة" emptyLabel="—" defaultValue={u?.view} options={options.unitViews} />
         <Select name="orientation" label="الاتجاه" emptyLabel="—" defaultValue={u?.orientation} options={options.orientations} />
       </Row>
@@ -255,7 +259,7 @@ export function UnitList({
                       <span dir="ltr">{code.get(u.typologyId)}</span>
                     </td>
                     <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
-                    <td>{egp(u.price)}</td>
+                    <td>{money(u.price, currency)}</td>
                     <td>
                       <span className={AVAILABILITY_BADGE[u.availability]}>{options.availability.find((o) => o.value === u.availability)?.label}</span>
                       {u.holds[0] && (
@@ -288,7 +292,17 @@ export function UnitList({
 
 // ─── Payment plans ──────────────────────────────────────────────────────
 
-export function PaymentPlanList({ projectId, items, typologies }: { projectId: string; items: PaymentPlan[]; typologies: Typology[] }) {
+export function PaymentPlanList({
+  projectId,
+  items,
+  typologies,
+  currency,
+}: {
+  projectId: string;
+  items: PaymentPlan[];
+  typologies: Typology[];
+  currency: Currency;
+}) {
   const typologyOptions = typologies.map((t) => ({ value: t.id, label: t.code }));
   return (
     <PartList
@@ -319,8 +333,8 @@ export function PaymentPlanList({ projectId, items, typologies }: { projectId: s
           <Row cols={4}>
             <TextField name="cashDiscountPct" type="number" label="خصم الكاش %" defaultValue={dec(p?.cashDiscountPct)} />
             <TextField name="maintenancePct" type="number" label="وديعة الصيانة %" defaultValue={dec(p?.maintenancePct)} />
-            <TextField name="garageFee" type="number" label="الجراج (جنيه)" defaultValue={dec(p?.garageFee)} />
-            <TextField name="clubFee" type="number" label="النادي (جنيه)" defaultValue={dec(p?.clubFee)} />
+            <TextField name="garageFee" type="number" label={`الجراج (${CURRENCY_NAMES_AR[currency]})`} defaultValue={dec(p?.garageFee)} />
+            <TextField name="clubFee" type="number" label={`النادي (${CURRENCY_NAMES_AR[currency]})`} defaultValue={dec(p?.clubFee)} />
           </Row>
           <Row cols={4}>
             <TextField name="nameAr" label="اسم النظام بالعربية" defaultValue={p?.nameAr} placeholder="10% مقدم على 8 سنوات" />

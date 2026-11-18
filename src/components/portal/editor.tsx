@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveSubmission } from "@/app/portal/actions";
 import { checkFile, uploadFile } from "@/components/admin/upload";
 import { IMAGE_TYPES } from "@/lib/admin/upload-config";
+import { moneyAr } from "@/lib/format";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "@/lib/portal/draft-types";
 import {
   DISTANCE_FIELDS,
@@ -16,6 +17,7 @@ import {
   TYPOLOGY_FIELDS,
   type FieldDef,
 } from "@/lib/portal/fields";
+import { isCurrency } from "@/lib/property";
 
 // The portal's editors. Everything lives in the browser until "save draft" or "send for review";
 // the server checks the whole draft with the admin's rules and sends back field errors by path.
@@ -456,7 +458,9 @@ function SaveBar({ pending, message, onSave, errorCount }: { pending: boolean; m
 
 const label = (defs: FieldDef[], key: string, value: string | string[] | undefined) =>
   defs.find((d) => d.key === key)?.choices?.find((c) => c.value === value)?.label ?? "";
-const num = (v: string | string[] | undefined) => (typeof v === "string" && v ? Number(v.replace(/[,\s]/g, "")).toLocaleString("ar-EG") : "");
+/** A typed price in the draft's currency, as the admin shows it. */
+const price = (v: string | string[] | undefined, currency: string | string[] | undefined) =>
+  typeof v === "string" && v ? moneyAr(Number(v.replace(/[,\s]/g, "")), isCurrency(currency) ? currency : "EGP") : "";
 
 export function ProjectEditor({ id, initial, areas, folder }: { id: string; initial: ProjectDraft; areas: Option[]; folder: string }) {
   const [draft, setDraft] = useState(initial);
@@ -497,7 +501,7 @@ export function ProjectEditor({ id, initial, areas, folder }: { id: string; init
           addLabel="+ إضافة نموذج"
           folder={folder}
           onChange={(typologies) => set({ typologies })}
-          summary={(t) => [t.code, label(TYPOLOGY_FIELDS, "subType", t.subType), t.buaM2 && `${t.buaM2} م²`, num(t.priceFrom) && `${num(t.priceFrom)} ج.م`].filter(Boolean).join(" · ")}
+          summary={(t) => [t.code, label(TYPOLOGY_FIELDS, "subType", t.subType), t.buaM2 && `${t.buaM2} م²`, price(t.priceFrom, draft.project.currency)].filter(Boolean).join(" · ")}
         />
       </Section>
 

@@ -39,6 +39,8 @@ export default async function SalesInventoryPage({ searchParams }: PageProps<"/s
     model: project?.types.some((t) => t.id === asked.model) ? asked.model : undefined,
     type: !project || project.types.some((t) => t.subType === asked.type) ? asked.type : undefined,
     plan: projectPlans.some((p) => p.id === asked.plan) ? asked.plan : undefined,
+    // A budget for one project is in that project's currency unless another one was picked.
+    cur: asked.cur ?? (asked.budget !== undefined && project?.currency === "USD" ? "USD" : undefined),
   };
   const { rows, capped } = projects.length ? await searchUnits({ id: me.id, developerId: me.developer.id }, search, plans, now) : { rows: [], capped: false };
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -80,7 +82,15 @@ export default async function SalesInventoryPage({ searchParams }: PageProps<"/s
       ) : (
         <>
           <ProjectChips projects={projects} search={search} />
-          <SearchFilters search={search} project={project} subTypes={subTypes} plans={projectPlans} count={count} invalid={invalid} />
+          <SearchFilters
+            search={search}
+            project={project}
+            subTypes={subTypes}
+            plans={projectPlans}
+            dollars={projects.some((p) => p.currency === "USD")}
+            count={count}
+            invalid={invalid}
+          />
           <section aria-labelledby="results-title" className="admin-panel flex flex-col gap-4">
             {/* A live region, so a screen reader hears the new count after each search. */}
             <div role="status" aria-atomic="true" className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

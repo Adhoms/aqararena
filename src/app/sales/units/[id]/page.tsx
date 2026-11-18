@@ -6,6 +6,7 @@ import ar from "@/app/[lang]/dictionaries/ar.json";
 import { Panel } from "@/components/admin/fields";
 import { PaymentCalculator } from "@/components/project/payment-calculator";
 import { HoldPanel } from "@/components/sales/hold-panel";
+import { Money } from "@/components/sales/money";
 import { SalesShell } from "@/components/sales/sales-shell";
 import { StateBadge } from "@/components/sales/state-badge";
 import { formatNumber } from "@/lib/format";
@@ -18,11 +19,6 @@ export const metadata: Metadata = { title: "وحدة" };
 
 /** A number left to right inside the Arabic line. */
 const Num = ({ value }: { value: number }) => <bdi dir="ltr">{formatNumber(value, "ar")}</bdi>;
-const money = (v: number) => (
-  <>
-    <Num value={Math.round(v)} /> ج.م
-  </>
-);
 /** Areas can have a fraction (112.5 م²); western digits, as prices are written. */
 const area = new Intl.NumberFormat("ar-EG-u-nu-latn", { maximumFractionDigits: 1 });
 const m2 = (v: number | null) =>
@@ -103,8 +99,8 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
               </div>
               <div className="flex flex-col items-start gap-0.5 sm:items-end">
                 <span className="text-xs text-muted">السعر</span>
-                <span className="font-display text-[28px] leading-tight font-light tabular-nums">{money(unit.price)}</span>
-                {t.buaM2 > 0 && <span className="text-xs text-muted tabular-nums">سعر المتر {money(unit.price / t.buaM2)}</span>}
+                <span className="font-display text-[28px] leading-tight font-light tabular-nums"><Money value={unit.price} currency={unit.project.currency} /></span>
+                {t.buaM2 > 0 && <span className="text-xs text-muted tabular-nums">سعر المتر <Money value={unit.price / t.buaM2} currency={unit.project.currency} /></span>}
               </div>
             </div>
             <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-divider pt-5 text-sm sm:grid-cols-3 xl:grid-cols-4">
@@ -152,7 +148,7 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
                 title: "حاسبة السداد",
                 sub: "اختار الخطة وشوف المقدم والأقساط على سعر الوحدة دي.",
                 unit: "الوحدة",
-                note: "الأرقام من سعر الوحدة وخطط السداد السارية النهارده، ومقرّبة: المبالغ الكبيرة لأقرب ألف جنيه والأقساط لأقرب ١٠٠.",
+                note: "الأرقام من سعر الوحدة وخطط السداد السارية النهارده، ومقرّبة: المبالغ الكبيرة لأقرب ألف والأقساط لأقرب ١٠٠.",
                 frequencyPer: ar.frequencyPer,
                 planNames: plans.map(planLabel),
               }}

@@ -4,7 +4,7 @@
 /** A problem with a unit's price, or null. Empty price is fine: the type's price is shown. */
 export function unitPriceProblem(price: number | null, typePrice: number | null): string | null {
   if (price === null || typePrice === null || typePrice <= 0) return null;
-  if (price < typePrice) return `سعر الوحدة أقل من سعر «يبدأ من» للنموذج (${typePrice.toLocaleString("ar-EG")} جنيه). عدّل سعر النموذج الأول من «تعديل المشروع».`;
+  if (price < typePrice) return `سعر الوحدة أقل من سعر «يبدأ من» للنموذج (${typePrice.toLocaleString("ar-EG")}). عدّل سعر النموذج الأول من «تعديل المشروع».`;
   return null;
 }
 

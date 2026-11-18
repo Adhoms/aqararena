@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Unit } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { options } from "@/lib/admin/labels";
-import { HOURS_NOUN, UNITS_NOUN, countAr, formatCountAr as num } from "@/lib/format";
+import { CURRENCY_NAMES_AR, HOURS_NOUN, UNITS_NOUN, countAr, formatCountAr as num, moneyAr } from "@/lib/format";
 import { requireAccount } from "@/lib/portal/session";
 import { projectLiveHoldCount, projectUnitHolds } from "@/lib/sales/hold-service";
 import { HOLD_HOURS_MAX, HOLD_HOURS_MIN } from "@/lib/sales/holds";
@@ -17,7 +17,6 @@ import { Panel, Row, Select, TextField } from "@/components/admin/fields";
 import { deletePortalUnit, saveProjectHoldHours, savePortalUnit } from "../../../unit-actions";
 
 const UNITS_SHOWN = 500;
-const egp = (v: { toString(): string } | null) => (v ? `${Number(v).toLocaleString("ar-EG")} ج.م` : "—");
 const dec = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? undefined : v.toString());
 
 // A developer's units for one project: status, price, building and floor. Changes here go live
@@ -33,6 +32,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
       slug: true,
       published: true,
       holdHours: true,
+      currency: true,
       developer: { select: { holdHours: true } },
       typologies: { where: { priceFrom: { not: null } }, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, priceFrom: true } },
     },
@@ -50,8 +50,10 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
   ]);
   const editingHold = editing ? holdText(editing.holds[0]) : undefined;
   const count = (a: string) => counts.find((c) => c.availability === a)?._count._all ?? 0;
+  /** An amount in the project's currency, or a dash. */
+  const money = (v: { toString(): string } | null) => (v ? moneyAr(Number(v), project.currency) : "—");
   const code = new Map(project.typologies.map((t) => [t.id, t.code]));
-  const typeOptions = project.typologies.map((t) => ({ value: t.id, label: `${t.code}${t.nameAr ? ` · ${t.nameAr}` : ""} (يبدأ من ${egp(t.priceFrom)})` }));
+  const typeOptions = project.typologies.map((t) => ({ value: t.id, label: `${t.code}${t.nameAr ? ` · ${t.nameAr}` : ""} (يبدأ من ${money(t.priceFrom)})` }));
   const page = `/portal/projects/${project.id}/units`;
   const name = (u: Unit) => [u.building, u.unitNumber].filter(Boolean).join(" · ");
 
@@ -65,7 +67,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
       </Row>
       <Row cols={4}>
         <Select name="availability" label="الحالة *" defaultValue={u?.availability ?? "AVAILABLE"} options={options.availability} />
-        <TextField name="price" type="number" label="سعر الوحدة (جنيه)" defaultValue={dec(u?.price)} hint="فاضي = سعر النموذج. مايقلش عن سعر النموذج" />
+        <TextField name="price" type="number" label={`سعر الوحدة (${CURRENCY_NAMES_AR[project.currency]})`} defaultValue={dec(u?.price)} hint="فاضي = سعر النموذج. مايقلش عن سعر النموذج" />
         <Select name="view" label="الإطلالة" emptyLabel="—" defaultValue={u?.view} options={options.unitViews} />
         <Select name="orientation" label="الاتجاه" emptyLabel="—" defaultValue={u?.orientation} options={options.orientations} />
       </Row>
@@ -156,7 +158,7 @@ export default async function PortalUnitsPage({ params, searchParams }: PageProp
                             <span dir="ltr">{code.get(u.typologyId)}</span>
                           </td>
                           <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
-                          <td>{egp(u.price)}</td>
+                          <td>{money(u.price)}</td>
                           <td>
                             <UnitStatusSelect unitId={u.id} value={u.availability} label={`حالة الوحدة ${name(u)}`} hold={holdText(u.holds[0])} />
                           </td>

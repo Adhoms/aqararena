@@ -1,26 +1,15 @@
 import Link from "next/link";
-import { formatDateTimeAr, formatNumber } from "@/lib/format";
+import { formatDateTimeAr } from "@/lib/format";
 import { BASIS_LABELS, type BudgetBasis } from "@/lib/sales/budget";
 import type { SalesUnitRow } from "@/lib/sales/inventory";
 import { floorLabel, subTypeSingular, viewLabel } from "@/lib/sales/labels";
+import { Money } from "./money";
 import { StateBadge } from "./state-badge";
 
 // Unit | project and type | bedrooms | floor | view | price | state.
 // On a phone the figure's name sits quietly before it; from tablet up the column head says it.
 const label = "font-sans text-xs font-normal text-muted md:sr-only";
 const COLS = "md:grid-cols-[minmax(4.5rem,1fr)_minmax(0,1.7fr)_minmax(2.5rem,0.5fr)_minmax(3rem,0.6fr)_minmax(0,1fr)_minmax(7rem,1.4fr)_9rem]";
-
-/** An amount in pounds: the figure left to right, the currency after it in the Arabic line. */
-function Money({ value }: { value: number }) {
-  return (
-    <>
-      <bdi dir="ltr" className="whitespace-nowrap">
-        {formatNumber(Math.round(value), "ar")}
-      </bdi>{" "}
-      ج.م
-    </>
-  );
-}
 
 function HoldNote({ hold }: { hold: NonNullable<SalesUnitRow["hold"]> }) {
   return (
@@ -88,15 +77,15 @@ export function UnitResults({ rows, basis, showProject }: { rows: SalesUnitRow[]
               {r.figure !== null ? (
                 <>
                   <span className={label}>{figureHead} </span>
-                  <Money value={r.figure} />
+                  <Money value={r.figure} currency={r.currency} />
                   <span className="block font-sans text-xs font-normal text-muted">
-                    السعر <Money value={r.price} />
+                    السعر <Money value={r.price} currency={r.currency} />
                   </span>
                 </>
               ) : (
                 <>
                   <span className={label}>السعر </span>
-                  <Money value={r.price} />
+                  <Money value={r.price} currency={r.currency} />
                 </>
               )}
             </span>

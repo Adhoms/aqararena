@@ -1,4 +1,4 @@
-import { isSubType, isUnitView, type SubType, type UnitView } from "@/lib/property";
+import { isCurrency, isSubType, isUnitView, type Currency, type SubType, type UnitView } from "@/lib/property";
 import { BUDGET_BASES, type BudgetBasis } from "./budget";
 import { SALES_STATES, type SalesState } from "./holds";
 
@@ -18,6 +18,8 @@ export type SalesSearch = {
   view?: UnitView;
   state?: SalesState;
   budget?: number;
+  /** The budget's currency; pounds when not set. A budget only matches projects in that currency. */
+  cur?: Currency;
   by: BudgetBasis;
   /** A plan of the chosen project, for a down payment or monthly budget. */
   plan?: string;
@@ -51,6 +53,7 @@ export function readSalesSearch(params: Params): SalesSearch {
   const view = one(params.view);
   const state = one(params.state);
   const by = one(params.by);
+  const cur = one(params.cur);
   const project = id(params.project);
   let floorMin = int(params.floorMin, -5, 200);
   let floorMax = int(params.floorMax, -5, 200);
@@ -66,6 +69,7 @@ export function readSalesSearch(params: Params): SalesSearch {
     view: isUnitView(view) ? view : undefined,
     state: isState(state) ? state : undefined,
     budget: int(params.budget, 1, 100_000_000_000, true),
+    cur: isCurrency(cur) ? cur : undefined,
     by: isBasis(by) ? by : "total",
     plan: project ? id(params.plan) : undefined,
     page: int(params.page, 1, 10_000) ?? 1,
@@ -73,7 +77,7 @@ export function readSalesSearch(params: Params): SalesSearch {
   return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== undefined)) as SalesSearch;
 }
 
-const KEYS = ["project", "model", "type", "beds", "floorMin", "floorMax", "view", "state", "budget", "by", "plan", "page"] as const;
+const KEYS = ["project", "model", "type", "beds", "floorMin", "floorMax", "view", "state", "budget", "cur", "by", "plan", "page"] as const;
 
 /** The /sales URL for a search, with `changes` applied (an undefined value clears that filter). */
 export function searchHref(search: SalesSearch, changes: Partial<SalesSearch> = {}): string {
@@ -84,6 +88,7 @@ export function searchHref(search: SalesSearch, changes: Partial<SalesSearch> = 
     if (value === undefined || value === "") continue;
     if (key === "page" && value === 1) continue;
     if (key === "by" && (value === "total" || next.budget === undefined)) continue;
+    if (key === "cur" && next.budget === undefined) continue;
     query.set(key, String(value));
   }
   const qs = query.toString();

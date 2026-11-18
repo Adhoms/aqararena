@@ -58,3 +58,11 @@ test("Persian digits and decimals in the budget", () => {
   assert.equal(readSalesSearch({ budget: "4.5.1" }).budget, undefined);
   assert.equal(readSalesSearch({ beds: "2.5" }).beds, undefined, "only the budget takes decimals");
 });
+
+test("a budget has a currency: pounds unless dollars are chosen", () => {
+  assert.equal(readSalesSearch({ budget: "200000", cur: "USD" }).cur, "USD");
+  assert.equal(readSalesSearch({ budget: "200000" }).cur, undefined);
+  assert.equal(readSalesSearch({ budget: "200000", cur: "EUR" }).cur, undefined);
+  assert.match(searchHref(readSalesSearch({ budget: "200000", cur: "USD" })), /cur=USD/);
+  assert.doesNotMatch(searchHref(readSalesSearch({ cur: "USD" })), /cur=/, "no budget, no currency");
+});

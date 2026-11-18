@@ -24,6 +24,7 @@ const todayCairo = () => new Date(new Intl.DateTimeFormat("en-CA", { timeZone: "
 export type SalesProject = {
   id: string;
   nameAr: string;
+  currency: Currency;
   types: { id: string; code: string; nameAr: string | null; subType: SubType; bedrooms: number | null }[];
   /** Units free to hold: AVAILABLE and without a live hold (the search shows held units as their own state). */
   available: number;
@@ -36,7 +37,7 @@ export async function salesProjects(developerId: string, now = new Date()): Prom
   const projects = await db.project.findMany({
     where: { typologies: { some: types } },
     orderBy: { nameAr: "asc" },
-    select: { id: true, nameAr: true, typologies: { where: types, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, subType: true, bedrooms: true } } },
+    select: { id: true, nameAr: true, currency: true, typologies: { where: types, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, subType: true, bedrooms: true } } },
   });
   const typeIds = projects.flatMap((p) => p.typologies.map((t) => t.id));
   const [counts, held] = typeIds.length
@@ -62,7 +63,7 @@ export async function salesProjects(developerId: string, now = new Date()): Prom
     const t = totals.get(projectOf.get(h.typologyId)!);
     if (t) t.available -= h._count._all;
   }
-  return projects.map((p) => ({ id: p.id, nameAr: p.nameAr, types: p.typologies, ...(totals.get(p.id) ?? { available: 0, total: 0 }) }));
+  return projects.map((p) => ({ id: p.id, nameAr: p.nameAr, currency: p.currency, types: p.typologies, ...(totals.get(p.id) ?? { available: 0, total: 0 }) }));
 }
 
 /** Active plans that haven't passed their end date, by project, for the developer's published projects (all of them, or `projectIds`). */
@@ -107,6 +108,8 @@ export type SalesUnitRow = {
   floor: number | null;
   view: string | null;
   price: number;
+  /** The project's currency, for every amount of the row. */
+  currency: Currency;
   /** The down payment or monthly installment that met the budget (null for a total-price budget or none). */
   figure: number | null;
   state: SalesState;
@@ -128,7 +131,12 @@ export async function searchUnits(
   };
   const held = salesHoldWhere(me.developerId, now);
   const where: Prisma.UnitWhereInput = {
-    AND: [salesUnitWhere(me.developerId), { typology }],
+    AND: [
+      salesUnitWhere(me.developerId),
+      { typology },
+      // A budget is in one currency: it only matches projects priced in it.
+      ...(s.budget ? [{ typology: { project: { currency: s.cur ?? "EGP" } } }] : []),
+    ],
     ...(s.floorMin !== undefined || s.floorMax !== undefined ? { floor: { gte: s.floorMin, lte: s.floorMax } } : {}),
     ...(s.view ? { view: s.view } : {}),
     // Held and available are told apart by a live hold, in the database, so the scan limit never cuts them short.
@@ -157,7 +165,7 @@ export async function searchUnits(
       price: true,
       availability: true,
       typologyId: true,
-      typology: { select: { code: true, nameAr: true, subType: true, bedrooms: true, priceFrom: true, project: { select: { id: true, nameAr: true } } } },
+      typology: { select: { code: true, nameAr: true, subType: true, bedrooms: true, priceFrom: true, project: { select: { id: true, nameAr: true, currency: true } } } },
       holds: { where: held, take: 1, select: { salesAccountId: true, expiresAt: true, salesAccount: { select: { nameAr: true } } } },
     },
   });
@@ -185,6 +193,7 @@ export async function searchUnits(
       floor: u.floor,
       view: u.view,
       price,
+      currency: u.typology.project.currency,
       figure,
       state,
       hold: hold ? { name: hold.salesAccount.nameAr, expiresAt: hold.expiresAt, mine: hold.salesAccountId === me.id } : null,
@@ -193,6 +202,8 @@ export async function searchUnits(
   rows.sort(
     (a, b) =>
       SALES_STATE_RANK[a.state] - SALES_STATE_RANK[b.state] ||
+      // Prices are only compared within a currency: pounds first.
+      Number(a.currency !== "EGP") - Number(b.currency !== "EGP") ||
       a.price - b.price ||
       a.projectName.localeCompare(b.projectName, "ar") ||
       a.label.localeCompare(b.label, "en", { numeric: true }),

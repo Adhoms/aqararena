@@ -1,15 +1,11 @@
 import { AdminForm } from "@/components/admin/admin-form";
 import { holdUnit } from "@/app/sales/hold-actions";
-import { formatDateTimeAr } from "@/lib/format";
+import { HOURS_NOUN, countAr, formatDateTimeAr } from "@/lib/format";
 import type { SalesState } from "@/lib/sales/holds";
 import type { UnitHoldView } from "@/lib/sales/inventory";
 import type { SalesUser } from "@/lib/sales/session";
 import { CancelHoldButton, ConvertHoldButton } from "./hold-buttons";
 import { HoldStatus } from "./hold-status";
-
-const num = (n: number) => n.toLocaleString("ar-EG");
-/** "ساعة", "ساعتين", "٣ ساعات", "٤٨ ساعة". */
-const hoursText = (n: number) => (n === 1 ? "ساعة" : n === 2 ? "ساعتين" : n <= 10 ? `${num(n)} ساعات` : `${num(n)} ساعة`);
 
 /** The unit's temporary hold and what this salesperson may do: hold it, confirm or cancel their own, or (team lead) cancel a colleague's. */
 export function HoldPanel({ me, unitId, state, hold, hours }: { me: SalesUser; unitId: string; state: SalesState; hold: UnitHoldView | null; hours: number }) {
@@ -25,7 +21,7 @@ export function HoldPanel({ me, unitId, state, hold, hours }: { me: SalesUser; u
         {state === "AVAILABLE" && (
           <AdminForm
             action={holdUnit}
-            submitLabel={`احجزها ${hoursText(hours)}`}
+            submitLabel={`احجزها ${countAr(hours, HOURS_NOUN)}`}
             submitClassName="press admin-btn min-h-11 justify-center sm:min-h-0"
             pendingLabel="جارٍ الحجز…"
           >

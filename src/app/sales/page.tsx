@@ -5,15 +5,16 @@ import { SalesShell } from "@/components/sales/sales-shell";
 import { SearchFilters, type InvalidFilters } from "@/components/sales/search-filters";
 import { FocusResults } from "@/components/sales/search-form";
 import { UnitResults } from "@/components/sales/unit-results";
+import { UNITS_NOUN, countAr, formatCountAr as num } from "@/lib/format";
 import { PAGE_SIZE, SCAN_LIMIT, salesPlans, salesProjects, searchUnits } from "@/lib/sales/inventory";
+import type { SalesPlan } from "@/lib/sales/budget";
 import { activeFilterCount, readSalesSearch, searchHref, type SalesSearch } from "@/lib/sales/search";
 import { requireSales } from "@/lib/sales/session";
 
 export const metadata: Metadata = { title: "المخزون" };
 
-const num = (n: number) => n.toLocaleString("ar-EG");
 /** "وحدة واحدة", "وحدتين", "٧ وحدات", "٦٥ وحدة". */
-const units = (n: number) => (n === 0 ? "مفيش وحدات" : n === 1 ? "وحدة واحدة" : n === 2 ? "وحدتين" : n <= 10 ? `${num(n)} وحدات` : `${num(n)} وحدة`);
+const units = (n: number) => (n === 0 ? "مفيش وحدات" : n === 1 ? "وحدة واحدة" : countAr(n, UNITS_NOUN));
 
 // The inventory search: every unit of the company's published projects, available ones first.
 // The filters live in the address, so a search can be sent to a colleague as a link.
@@ -24,9 +25,13 @@ export default async function SalesInventoryPage({ searchParams }: PageProps<"/s
   const asked = readSalesSearch(params);
   // One clock for the chips' counts and the search, so a hold ending mid-request can't make them disagree.
   const now = new Date();
-  const [projects, plans] = await Promise.all([salesProjects(me.developer.id, now), salesPlans(me.developer.id)]);
+  const projects = await salesProjects(me.developer.id, now);
   // Ids from another company or an old link are dropped, never trusted; so is a type the chosen project doesn't have.
   const project = projects.find((p) => p.id === asked.project);
+  // Plans are read only when needed: a budget by down payment or installment checks the searched
+  // projects' plans, and the plan select lists the chosen project's.
+  const needsPlans = asked.budget !== undefined && asked.by !== "total";
+  const plans = project || needsPlans ? await salesPlans(me.developer.id, project ? [project.id] : undefined) : new Map<string, SalesPlan[]>();
   const projectPlans = project ? (plans.get(project.id) ?? []) : [];
   const search: SalesSearch = {
     ...asked,

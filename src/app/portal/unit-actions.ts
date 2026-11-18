@@ -14,6 +14,7 @@ import { UNIT_AVAILABILITY } from "@/lib/property";
 import { shouldNotify, unitPriceProblem } from "@/lib/unit-rules";
 import { findTwinUnit } from "@/lib/units";
 import { releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
+import { HOURS_NOUN, countAr } from "@/lib/format";
 import { readHoldHours } from "@/lib/sales/holds";
 
 // A developer's own inventory. Unlike everything else in the portal, these changes go live at
@@ -127,5 +128,5 @@ export async function saveProjectHoldHours(_: FormState, data: FormData): Promis
   if (!f.ok) return f.result();
   await db.project.update({ where: { id: project.id }, data: { holdHours } });
   revalidatePath(`/portal/projects/${project.id}/units`);
-  return { ok: true, message: holdHours ? `اتحفظ ✓ الحجز في المشروع ده ${holdHours} ساعة` : "اتحفظ ✓ المشروع بياخد مدة الشركة" };
+  return { ok: true, message: holdHours ? `اتحفظ ✓ الحجز في المشروع ده ${countAr(holdHours, HOURS_NOUN)}` : "اتحفظ ✓ المشروع بياخد مدة الشركة" };
 }

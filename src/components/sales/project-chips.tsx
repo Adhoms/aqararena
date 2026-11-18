@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { SalesProject } from "@/lib/sales/inventory";
 import { searchHref, type SalesSearch } from "@/lib/sales/search";
+import { formatCountAr as num } from "@/lib/format";
 
-const num = (n: number) => n.toLocaleString("ar-EG");
 const chip =
   "press flex min-h-14 shrink-0 flex-col justify-center gap-0.5 rounded-2xl border border-line-strong bg-surface px-4 py-2 text-sm text-ink no-underline hover:border-ink hover:text-ink aria-[current=page]:border-brand aria-[current=page]:bg-brand aria-[current=page]:text-white";
 

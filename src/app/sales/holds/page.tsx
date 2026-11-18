@@ -5,14 +5,13 @@ import { Panel } from "@/components/admin/fields";
 import { CancelHoldButton, ConvertHoldButton } from "@/components/sales/hold-buttons";
 import { HoldStatus } from "@/components/sales/hold-status";
 import { SalesShell } from "@/components/sales/sales-shell";
-import { formatDateAr, formatDateTimeAr } from "@/lib/format";
+import { formatCountAr as num, formatDateAr, formatDateTimeAr } from "@/lib/format";
 import { holdOutcome, subTypeSingular, unitLabel } from "@/lib/sales/labels";
 import { myHolds, RECENT_DAYS, RECENT_LIMIT, type HoldRow } from "@/lib/sales/my-holds";
 import { requireSales } from "@/lib/sales/session";
 
 export const metadata: Metadata = { title: "حجوزاتي" };
 
-const num = (n: number) => n.toLocaleString("ar-EG");
 
 function HoldItem({ h, detail, tone, children }: { h: HoldRow; detail: ReactNode; tone?: "good"; children?: ReactNode }) {
   const t = h.unit.typology;

@@ -24,9 +24,44 @@ export function formatMillions(value: number, locale: Locale) {
   return locale === "ar" ? `${m} مليون` : `EGP ${m}M`;
 }
 
+/** A count on the Arabic admin, portal and Sales screens, in Arabic digits: "١٢٣". */
+export function formatCountAr(n: number) {
+  return n.toLocaleString("ar-EG");
+}
+
+/** An Arabic noun's forms for counting: one, two (dual), and 3 to 10 (plural). */
+export type CountNoun = { one: string; two: string; few: string };
+export const HOURS_NOUN: CountNoun = { one: "ساعة", two: "ساعتين", few: "ساعات" };
+export const UNITS_NOUN: CountNoun = { one: "وحدة", two: "وحدتين", few: "وحدات" };
+export const HOLDS_NOUN: CountNoun = { one: "حجز", two: "حجزين", few: "حجوزات" };
+
+/**
+ * A number with its noun, by the Arabic rule: 1 alone ("ساعة"), 2 as the dual ("ساعتين"), 3 to 10
+ * with the plural ("٣ ساعات"), 11 and up with the singular ("١١ ساعة"). Past 100 the last two digits
+ * decide ("١٠٣ ساعات", "١٠٢ ساعة"); 0 takes the singular too.
+ */
+export function countAr(n: number, noun: CountNoun) {
+  if (n === 1) return noun.one;
+  if (n === 2) return noun.two;
+  const lastTwo = n % 100;
+  return `${formatCountAr(n)} ${lastTwo >= 3 && lastTwo <= 10 ? noun.few : noun.one}`;
+}
+
 /** A date for the Arabic admin, portal and Sales screens, on Cairo's calendar (servers run on UTC). */
 export function formatDateAr(date: Date, month: "short" | "long" = "short") {
   return date.toLocaleDateString("ar-EG", { day: "numeric", month, year: "numeric", timeZone: "Africa/Cairo" });
+}
+
+/** A day and time for the Sales and portal screens (when a hold ends), on Cairo's clock. */
+export function formatDateTimeAr(date: Date) {
+  return date.toLocaleString("ar-EG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Africa/Cairo",
+  });
 }
 
 /** A link target for a phone number, or undefined while the number is still a placeholder like "[19XXX]". */

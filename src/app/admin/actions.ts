@@ -13,6 +13,9 @@ import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } 
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
 import { recordPriceHistory } from "@/lib/price-history";
 import { findTwinUnit } from "@/lib/units";
+import { HOLDS_NOUN, countAr } from "@/lib/format";
+import { releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
+import { projectLeavesSales } from "@/lib/sales/scope";
 import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
 // Every admin write goes through here. Each action checks the session first and refreshes
@@ -33,6 +36,10 @@ function dbError(e: unknown, uniqueField: string, uniqueMessage: string): FormSt
 }
 
 const today = () => new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+
+/** "تم الحفظ ✓" and, when the save released Sales holds, how many. */
+const savedReleasing = (released: number): FormState =>
+  released ? { ok: true, message: `تم الحفظ ✓ واتلغى ${countAr(released, HOLDS_NOUN)} في AqarArena Sales` } : SAVED;
 
 // ─── Session ────────────────────────────────────────────────────────────
 
@@ -76,7 +83,13 @@ export async function saveDeveloper(_: FormState, data: FormData): Promise<FormS
 export async function deleteDeveloper(data: FormData) {
   await requireAdmin();
   const id = new FormReader(data).id("id");
-  if (id) await db.developer.delete({ where: { id } });
+  if (id) {
+    await db.$transaction([
+      // Holds point at sales accounts with ON DELETE RESTRICT; clear them before the cascade removes the accounts.
+      db.unitHold.deleteMany({ where: { salesAccount: { developerId: id } } }),
+      db.developer.delete({ where: { id } }),
+    ]);
+  }
   published();
   redirect("/admin");
 }
@@ -113,15 +126,23 @@ export async function saveProject(_: FormState, data: FormData): Promise<FormSta
 
   const relations = { developer: { connect: { id: developerId } }, area: { connect: { id: areaId } } };
   let newId: string | undefined;
+  let released = 0;
   try {
-    if (id) await db.project.update({ where: { id }, data: { ...values, ...relations } });
-    else newId = (await db.project.create({ data: { ...values, ...relations } })).id;
+    if (id) {
+      released = await db.$transaction(async (tx) => {
+        const before = await tx.project.findUnique({ where: { id }, select: { developerId: true, published: true } });
+        await tx.project.update({ where: { id }, data: { ...values, ...relations } });
+        // Moved to another developer or unpublished: its units leave that developer's Sales, and lose their holds.
+        const leaves = before && projectLeavesSales({ developer: before.developerId, published: before.published }, { developer: developerId, published: values.published });
+        return leaves ? releaseHoldsOutOfSales(tx, { typology: { projectId: id } }) : 0;
+      });
+    } else newId = (await db.project.create({ data: { ...values, ...relations } })).id;
   } catch (e) {
     return dbError(e, "slug", "هذا الرابط المختصر مستخدم لمشروع آخر");
   }
   published();
   if (newId) redirect(`/admin/projects/${newId}?created=1`);
-  return SAVED;
+  return savedReleasing(released);
 }
 
 export async function deleteProject(data: FormData) {
@@ -147,15 +168,21 @@ export async function saveTypology(_: FormState, data: FormData): Promise<FormSt
   const projectId = f.id("projectId");
   const values = readTypology(f);
   if (!f.ok || !projectId) return f.result();
+  let released = 0;
   try {
-    if (id) await db.typology.update({ where: { id, projectId }, data: values });
-    else await db.typology.create({ data: { ...values, projectId } });
+    if (id) {
+      released = await db.$transaction(async (tx) => {
+        await tx.typology.update({ where: { id, projectId }, data: values });
+        // A type without a starting price isn't sold in Sales: its units lose their holds.
+        return values.priceFrom === null ? releaseHoldsOutOfSales(tx, { typologyId: id }) : 0;
+      });
+    } else await db.typology.create({ data: { ...values, projectId } });
   } catch (e) {
     return dbError(e, "code", "هذا الكود مستخدم لنموذج آخر في نفس المشروع");
   }
   await touchPrices(projectId);
   published();
-  return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };
+  return id ? savedReleasing(released) : { ok: true, message: "تمت الإضافة ✓" };
 }
 
 // ─── Units ──────────────────────────────────────────────────────────────
@@ -173,10 +200,21 @@ export async function saveUnit(_: FormState, data: FormData): Promise<FormState>
   const typology = await db.typology.findFirst({ where: { id: typologyId, projectId }, select: { id: true } });
   if (!typology) return { ok: false, message: "النموذج ده مش في المشروع", errors: { typologyId: "اختر النموذج" } };
   if (await findTwinUnit(projectId, values.building, values.unitNumber, id)) return { ok: false, message: "فيه وحدة بنفس الرقم في نفس المبنى", errors: { unitNumber: "الرقم ده مستخدم في نفس المبنى" } };
-  if (id) await db.unit.update({ where: { id, typology: { projectId } }, data: { ...values, typologyId } });
-  else await db.unit.create({ data: { ...values, typologyId } });
+  let released = 0;
+  if (id) {
+    released = await db.$transaction(async (tx) => {
+      await tx.unit.update({ where: { id, typology: { projectId } }, data: { ...values, typologyId } });
+      // A unit that stops being available loses its Sales hold (spec section 6), and so does one
+      // moved to a unit type without a starting price.
+      return (
+        (await releaseHoldsOfUnavailable(tx, [{ id, availability: values.availability }], "ADMIN_STATUS_CHANGE")) +
+        (await releaseHoldsOutOfSales(tx, { id }))
+      );
+    });
+  } else await db.unit.create({ data: { ...values, typologyId } });
   published();
-  return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };
+  if (!id) return { ok: true, message: "تمت الإضافة ✓" };
+  return released ? { ok: true, message: "تم الحفظ ✓ والحجز المؤقت على الوحدة اتلغى" } : SAVED;
 }
 
 /** Removes every unit of a project, e.g. before importing a fresh list from Excel. */

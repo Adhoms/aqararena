@@ -5,6 +5,7 @@ import { FormReader } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { FEDDAN_M2, readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
 import { recordPriceHistory } from "@/lib/price-history";
+import { releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
 import { matchTypologies } from "./match-typologies";
 import { PHOTO_GROUPS } from "@/lib/property";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "./draft-types";
@@ -319,6 +320,8 @@ export async function applyProjectDraft(
       : await tx.typology.create({ data: { ...t, projectId: id }, select: { id: true } });
     typId.set(t.code.toLowerCase(), saved.id);
   }
+  // A unit type left without a starting price isn't sold in AqarArena Sales: its units lose their holds.
+  if (values.typologies.some((t) => t.priceFrom === null)) await releaseHoldsOutOfSales(tx, { typology: { projectId: id, priceFrom: null } });
 
   await recordPriceHistory([id], tx);
 

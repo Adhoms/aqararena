@@ -166,6 +166,8 @@ model Developer {
   hqAddressEn   String?
   verified      Boolean            @default(false)
   plan          DeveloperPlan      @default(BASIC)
+  /// How many hours an AqarArena Sales hold lasts (1–168), set in the portal's «فريق المبيعات». A project can override it.
+  holdHours     Int                @default(48)
   projects      Project[]
   accounts      DeveloperAccount[]
   submissions   Submission[]
@@ -212,6 +214,8 @@ model Project {
   masterPlanUrl   String?
   isFeatured      Boolean       @default(false)
   published       Boolean       @default(false)
+  /// Overrides the developer's hold length for this project only (1–168), e.g. a few hours on launch day. Empty = the developer's.
+  holdHours       Int?
 
   typologies          Typology[]
   zones               MasterPlanZone[]
@@ -288,6 +292,7 @@ model Unit {
   view         String?
   price        Decimal?         @db.Decimal(14, 2)
   availability UnitAvailability @default(AVAILABLE)
+  holds        UnitHold[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -616,8 +621,60 @@ model SalesAccount {
   /// Raised to sign the account out everywhere (password change, disable).
   sessionVersion     Int           @default(0)
   lastLoginAt        DateTime?
+  holds              UnitHold[]    @relation("HoldOwner")
+  releasedHolds      UnitHold[]    @relation("HoldReleasedBy")
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
   @@index([developerId, status])
+}
+
+/// ACTIVE: holding the unit until expiresAt. CONVERTED: the holder confirmed it (the unit is RESERVED). RELEASED: ended.
+enum HoldStatus {
+  ACTIVE
+  CONVERTED
+  RELEASED
+}
+
+/// Why a hold was released.
+enum HoldReleaseReason {
+  /// Its time ran out (marked the first time something touched it afterwards).
+  EXPIRED
+  /// The holder or a team lead cancelled it.
+  CANCELLED
+  /// The developer changed the unit's status in the portal (form, quick switch or Excel).
+  PORTAL_STATUS_CHANGE
+  /// The admin changed the unit's status (form or Excel import).
+  ADMIN_STATUS_CHANGE
+  /// The unit left its developer's Sales inventory: the project moved to another developer or was
+  /// unpublished, or the unit type lost its starting price.
+  OUT_OF_SALES
+  /// The developer disabled the salesperson's account.
+  ACCOUNT_DISABLED
+}
+
+/// A salesperson's temporary hold on a unit (spec section 6). At most one ACTIVE hold per unit:
+/// the partial unique index "UnitHold_unitId_active_key" is written by hand in the migration, because
+/// the schema can't describe it (Prisma 7.10 leaves it alone). Never drop it.
+/// A hold counts while ACTIVE and expiresAt is in the future; see src/lib/sales/holds.ts.
+model UnitHold {
+  id             String             @id @default(cuid())
+  unitId         String
+  unit           Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  salesAccountId String
+  /// Restrict: holds are history. src/app/admin/actions.ts deleteDeveloper clears them first.
+  salesAccount   SalesAccount       @relation("HoldOwner", fields: [salesAccountId], references: [id], onDelete: Restrict)
+  /// Who the unit is held for, until phase 4 adds clients.
+  clientNote     String?            @db.VarChar(200)
+  expiresAt      DateTime
+  status         HoldStatus         @default(ACTIVE)
+  /// The salesperson (holder or team lead) who cancelled it.
+  releasedById   String?
+  releasedBy     SalesAccount?      @relation("HoldReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
+  releaseReason  HoldReleaseReason?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([salesAccountId, status])
+  @@index([unitId, status])
 }

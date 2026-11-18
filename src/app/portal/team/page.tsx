@@ -5,8 +5,9 @@ import { ROLE_LABELS, SALES_ROLES } from "@/lib/sales/fields";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { AdminForm, ConfirmForm } from "@/components/admin/admin-form";
 import { Panel, Row, Select, TextField } from "@/components/admin/fields";
-import { createSalesAccount, resetSalesPassword, setSalesStatus, updateSalesAccount } from "../team-actions";
-import { formatDateAr } from "@/lib/format";
+import { createSalesAccount, resetSalesPassword, saveHoldHours, setSalesStatus, updateSalesAccount } from "../team-actions";
+import { HOLD_HOURS_MAX, HOLD_HOURS_MIN } from "@/lib/sales/holds";
+import { HOURS_NOUN, countAr, formatCountAr, formatDateAr } from "@/lib/format";
 
 const when = (d: Date | null) => (d ? formatDateAr(d) : "لسه ماخدش");
 const roleOptions = SALES_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }));
@@ -32,7 +33,10 @@ function PersonFields({ m }: { m?: Member }) {
 
 export default async function PortalTeamPage() {
   const me = await requireAccount();
-  const team = await db.salesAccount.findMany({ where: { developerId: me.developerId }, orderBy: [{ status: "asc" }, { nameAr: "asc" }] });
+  const [team, developer] = await Promise.all([
+    db.salesAccount.findMany({ where: { developerId: me.developerId }, orderBy: [{ status: "asc" }, { nameAr: "asc" }] }),
+    db.developer.findUniqueOrThrow({ where: { id: me.developerId }, select: { holdHours: true } }),
+  ]);
 
   return (
     <PortalShell company={me.developer.nameAr} title="فريق المبيعات" back>
@@ -42,6 +46,20 @@ export default async function PortalTeamPage() {
           كل سيلز بيدخل من <span dir="ltr">{SITE_URL.replace(/^https?:\/\//, "")}/sales</span> باسم مستخدم وكلمة مرور خاصين بيه، وبيشوف مشروعات شركتك بس. «قائد الفريق» بيشوف شغل الفريق كله. الاسم والأرقام هنا بتظهر على عروض الأسعار اللي السيلز بيبعتها.
         </p>
       </section>
+
+      <Panel title="مدة الحجز المؤقت">
+        <AdminForm action={saveHoldHours}>
+          <TextField
+            name="holdHours"
+            type="number"
+            inputMode="numeric"
+            autoComplete="off"
+            label="عدد الساعات *"
+            defaultValue={developer.holdHours}
+            hint={`من ${formatCountAr(HOLD_HOURS_MIN)} لـ ${countAr(HOLD_HOURS_MAX, HOURS_NOUN)} (أسبوع). السيلز بيحجز الوحدة المدة دي، ولو ماأكدش الحجز الوحدة بترجع متاحة لوحدها. تقدر تحدد مدة مختلفة لكل مشروع من صفحة مخزونه. بيسري على الحجوزات الجديدة بس.`}
+          />
+        </AdminForm>
+      </Panel>
 
       <Panel title={`الفريق (${team.length.toLocaleString("ar-EG")})`}>
         <div className="flex flex-col gap-3">
@@ -72,7 +90,7 @@ export default async function PortalTeamPage() {
                 <ConfirmForm
                   action={setSalesStatus}
                   fields={{ id: m.id, status: m.status === "ACTIVE" ? "DISABLED" : "ACTIVE" }}
-                  confirmText={m.status === "ACTIVE" ? "هتوقف الحساب والسيلز هيخرج من كل الأجهزة. نكمل؟" : undefined}
+                  confirmText={m.status === "ACTIVE" ? "هتوقف الحساب والسيلز هيخرج من كل الأجهزة، والحجوزات المؤقتة اللي عليه هتتلغي. نكمل؟" : undefined}
                   label={m.status === "ACTIVE" ? "إيقاف الحساب" : "تفعيل الحساب"}
                   className={m.status === "ACTIVE" ? "admin-btn-danger" : "admin-btn-ghost"}
                 />

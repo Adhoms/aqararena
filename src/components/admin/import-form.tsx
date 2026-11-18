@@ -61,6 +61,7 @@ export function ImportForm() {
       {result && (
         <div role="status" aria-live="polite" className="flex flex-col gap-3">
           <p className={`font-medium ${result.ok ? "text-brand" : "text-red-700 dark:text-red-300"}`}>{result.message}</p>
+          {result.warning && <p className="rounded-lg border border-brass bg-brass-soft px-3 py-2 text-brass-dark text-sm">تنبيه: {result.warning}</p>}
           {result.ok && (
             <ul className="grid gap-2 text-sm sm:grid-cols-5">
               {SHEET_NAMES.map(([key, name]) => (

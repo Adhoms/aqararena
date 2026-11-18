@@ -10,7 +10,8 @@ export class FormReader {
   readonly errors: Record<string, string> = {};
   constructor(private readonly data: FormData) {}
 
-  private raw(name: string): string {
+  /** The field as typed, trimmed ("" when missing). */
+  raw(name: string): string {
     const v = this.data.get(name);
     return typeof v === "string" ? v.trim() : "";
   }

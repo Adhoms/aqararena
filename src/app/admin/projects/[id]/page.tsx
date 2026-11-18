@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { deleteProject } from "@/app/admin/actions";
 import { sendProjectAlerts } from "@/app/admin/portal-actions";
 import { pendingAlert } from "@/lib/price-alerts";
+import { projectLiveHoldCount, projectUnitHolds } from "@/lib/sales/hold-service";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { DeleteButton } from "@/components/admin/admin-form";
 import { NewAreaForm, ProjectForm } from "@/components/admin/project-form";
@@ -28,7 +29,9 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
   const { created, alerts, unit } = await searchParams;
   // The unit picked with "تعديل" in the units table.
   const unitId = typeof unit === "string" && /^[a-z0-9]{10,40}$/i.test(unit) ? unit : null;
-  const [project, developers, areas, units, unitsTotal, editingUnit] = await Promise.all([
+  // Each unit comes with its live AqarArena Sales hold, if any.
+  const holds = projectUnitHolds(id);
+  const [project, developers, areas, units, unitsTotal, editingUnit, heldTotal] = await Promise.all([
     db.project.findUnique({
       where: { id },
       include: {
@@ -45,9 +48,11 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
       where: { typology: { projectId: id } },
       orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }],
       take: UNITS_SHOWN,
+      include: { holds },
     }),
     db.unit.count({ where: { typology: { projectId: id } } }),
-    unitId ? db.unit.findFirst({ where: { id: unitId, typology: { projectId: id } } }) : null,
+    unitId ? db.unit.findFirst({ where: { id: unitId, typology: { projectId: id } }, include: { holds } }) : null,
+    projectLiveHoldCount(id),
   ]);
   if (!project) notFound();
   const alert = await pendingAlert(project.id);
@@ -106,7 +111,7 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
       </div>
       <NewAreaForm />
       <TypologyList projectId={project.id} items={project.typologies} />
-      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} />
+      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} heldTotal={heldTotal} />
       <PaymentPlanList projectId={project.id} items={project.paymentPlans} typologies={project.typologies} />
       <ZoneList projectId={project.id} items={project.zones} />
       <MediaList projectId={project.id} items={project.media} />

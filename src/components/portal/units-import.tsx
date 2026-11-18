@@ -43,6 +43,7 @@ export function UnitsImport({ projectId }: { projectId: string }) {
       {result && (
         <div role="status" aria-live="polite" className="flex flex-col gap-2 text-sm">
           <p className={result.ok ? "text-brand" : "text-red-700 dark:text-red-300"}>{result.message}</p>
+          {result.warning && <p className="rounded-lg border border-brass bg-brass-soft px-3 py-2 text-brass-dark">تنبيه: {result.warning}</p>}
           {result.problems.length > 0 && (
             <div className="overflow-x-auto">
               <table className="admin-table">

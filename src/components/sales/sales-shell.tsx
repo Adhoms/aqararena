@@ -21,7 +21,7 @@ export function SalesShell({ me, title, children, actions }: { me: SalesUser; ti
             {brand}
           </Link>
           <span className="admin-badge">{me.developer.nameAr}</span>
-          <nav aria-label="قائمة المبيعات" className="flex flex-wrap gap-4 text-sm">
+          <nav aria-label="قائمة المبيعات" className="flex flex-wrap gap-1 text-sm">
             <SalesNav />
           </nav>
           <div className="ms-auto flex items-center gap-3 text-sm">

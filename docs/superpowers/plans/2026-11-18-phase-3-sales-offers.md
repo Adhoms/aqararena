@@ -3001,6 +3001,8 @@ git commit -m "Offer service: snapshot at issue, create with the unit locked, ap
 
 The page is the offer itself: landscape 16:10 sheets (spec 7), sized with container units so a sheet reads the same on a laptop and printed on 297 × 185.6 mm paper. On phones the sheets lose the fixed ratio and grow with their content. Colours and fonts are the public site's; the page is always light (no `data-theme`).
 
+**Fonts must come from `next/font`.** The server's PDF browser (`@sparticuz/chromium`) ships only Open Sans (Latin, Greek, Cyrillic; no Arabic) and the Vercel function has no system fonts, so a system fallback would print Arabic as empty boxes. The `/o` layout below loads IBM Plex Sans Arabic and Alexandria through `next/font/google` (self-hosted by the build, so the PDF browser fetches them from this deployment); keep it that way, and never rely on a local font name such as Tahoma on the offer page.
+
 - [ ] **Step 1: Let `/o` through, keep it out of search**
 
 `src/proxy.ts`, after the `sales` block:
@@ -3606,7 +3608,6 @@ git commit -m "Client offer page: master plan with the unit's zone, unit sheet, 
 ```ts
 // src/lib/sales/offer-pdf.ts
 import "server-only";
-import { headers } from "next/headers";
 import { del, put } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { SITE_URL } from "@/lib/site";
@@ -3618,13 +3619,15 @@ import { pdfEnabled, renderPdf } from "./pdf";
 /** The client's link, on the site's public address. */
 export const offerUrl = (token: string) => `${SITE_URL}/o/${token}`;
 
-/** This deployment's own address, so the PDF browser opens this deployment's page. */
-export async function requestOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  if (!host) return SITE_URL;
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
-  return `${proto}://${host}`;
+/**
+ * This deployment's own address, so the PDF browser opens this deployment's page: the site's address
+ * in production and locally (NEXT_PUBLIC_SITE_URL), the deployment's own URL on a preview. Never from
+ * Host or X-Forwarded-* headers, which the caller controls and would point the browser (with the
+ * protection-bypass secret) at another server.
+ */
+export function requestOrigin(): string {
+  if (process.env.VERCEL_ENV !== "production" && process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return SITE_URL;
 }
 
 export const pdfAvailable = () => pdfEnabled() && Boolean(process.env.BLOB_READ_WRITE_TOKEN);
@@ -3655,7 +3658,7 @@ Check `put`'s options against `node_modules/@vercel/blob` 2.9 (the merged `main`
 import { db } from "@/lib/db";
 import { canSeeOffer } from "@/lib/sales/offers";
 import { asSnapshot } from "@/lib/sales/offer-snapshot";
-import { ensureOfferPdf, offerFileName } from "@/lib/sales/offer-pdf";
+import { ensureOfferPdf, offerFileName, requestOrigin } from "@/lib/sales/offer-pdf";
 import { currentSalesAccount } from "@/lib/sales/session";
 
 // The offer's PDF for its salesperson or a team lead (the share screen downloads it and hands it to the
@@ -3663,7 +3666,7 @@ import { currentSalesAccount } from "@/lib/sales/session";
 
 export const maxDuration = 60;
 
-export async function GET(request: Request, ctx: RouteContext<"/sales/offers/[id]/pdf">) {
+export async function GET(_request: Request, ctx: RouteContext<"/sales/offers/[id]/pdf">) {
   const me = await currentSalesAccount();
   if (!me || me.mustChangePassword) return new Response("Sign in", { status: 401 });
   const { id } = await ctx.params;
@@ -3673,7 +3676,7 @@ export async function GET(request: Request, ctx: RouteContext<"/sales/offers/[id
   if (!offer || offer.status !== "ISSUED" || !canSeeOffer({ id: me.id, role: me.role, developerId: me.developer.id }, offer)) return new Response("Not found", { status: 404 });
   let url: string | null = null;
   try {
-    url = await ensureOfferPdf(offer, new URL(request.url).origin);
+    url = await ensureOfferPdf(offer, requestOrigin());
   } catch (e) {
     console.error("[offer-pdf]", e);
   }
@@ -3694,7 +3697,7 @@ export async function GET(request: Request, ctx: RouteContext<"/sales/offers/[id
 
 - [ ] **Step 3: Remove the spike route**
 
-Run: `git rm src/app/api/pdf-check/route.ts` and delete the `OFFER_PDF_CHECK` lines from `.env.example`.
+Run: `git rm src/app/api/pdf-check/route.ts`, then delete the `OFFER_PDF_CHECK` lines from `.env.example`, and remove the `"/api/pdf-check"` key from `outputFileTracingIncludes` in `next.config.ts` (keep the `/sales/offers/\\[id\\]/pdf` one). Add `next.config.ts` to the commit below.
 
 - [ ] **Step 4: Check, try it, commit**
 
@@ -3702,7 +3705,7 @@ Run: `npx next typegen && npx tsc --noEmit && npm run lint` — clean.
 On `next dev` with `OFFER_PDF=on`, `CHROME_PATH` and a `BLOB_READ_WRITE_TOKEN` **for a test store only** (if there is none, skip the upload: check with `OFFER_PDF=on` unset that the route answers 503, and test `renderPdf` on `/o/<token>` as in Task 18): signed in as the salesperson, `/sales/offers/<id>/pdf` downloads the PDF; a second request reuses `pdfUrl`; another company's salesperson gets 404; signed out, 401.
 
 ```bash
-git add src/lib/sales/offer-pdf.ts src/app/sales/offers .env.example
+git add src/lib/sales/offer-pdf.ts src/app/sales/offers .env.example next.config.ts
 git commit -m "Offer PDF: printed once from /o/[token], kept in Vercel Blob, served to the salesperson"
 ```
 
@@ -3826,7 +3829,7 @@ export async function emailOfferAction(_: FormState, data: FormData): Promise<Fo
   if (!(await withinRate(`offer-email:${me.id}`, EMAILS_PER_HOUR, 60))) return { ok: false, message: "بعتّ إيميلات كتير في الساعة دي. جرّب بعد شوية أو ابعت على واتساب" };
   let pdf: string | null = null;
   try {
-    pdf = await ensureOfferPdf(offer, await requestOrigin());
+    pdf = await ensureOfferPdf(offer, requestOrigin());
   } catch (e) {
     console.error("[offer-pdf]", e);
   }
@@ -4543,7 +4546,7 @@ export const printPdf = async (send, file) => {
 3. **Zones:** set in the admin, the portal (immediately, and a zone of another project refused) and both Excel imports; the Sales unit page and the offer's master-plan sheet box it at the same spot; the public master plan's zones sit at the same place in Arabic and English.
 4. **Settings:** portal «عروض الأسعار» refuses 0 / 31 days, 21%, 1.255% and agent > lead; saves 7 / 2 / 5.
 5. **Offers:** `x-agent1` makes an Arabic offer for the sample unit with no discount → share screen; its schedule shows down 1,372,700, installments 797,052, the last 797,040, maintenance 915,133 / 915,133 / 915,134 on the 3rd, 7th and 11th installments, «33 شيك للوحدة · 3 شيك صيانة · 36 شيك في المجموع», and dates from the issue date; the calculator on the unit page gives the same down payment. With 3% → «مستني موافقة», `/o/<token>` is not found; `x-agent2` can't open it; `x-lead` approves from «مستنية موافقتك» and it opens, dated today. 6% is refused. `x-agent2` holds a unit → `x-agent1` can't make an offer on it; on his own held unit he can. A sold unit has no «عرض سعر».
-6. **States:** raise the unit's price in the portal → «السعر اتغيّر» (the client's page has no banner); approve a portal draft that changes the plan → «السعر اتغيّر»; set `validUntil` in the past → «انتهت صلاحيته» and the client's banner; mark the unit sold → «الوحدة اتباعت أو اتحجزت» and the banner; cancel → «اتلغى» and the banner.
+6. **States:** raise the unit's price in the portal → «السعر اتغيّر» (the client's page has no banner); approve a portal draft that changes the plan → «السعر اتغيّر»; set `validUntil` in the past (move `issuedAt` back too, e.g. both by 30 days: the `SalesOffer_validity` CHECK needs `validUntil > issuedAt`) → «انتهت صلاحيته» and the client's banner; mark the unit sold → «الوحدة اتباعت أو اتحجزت» and the banner; cancel → «اتلغى» and the banner.
 7. **Sharing:** WhatsApp opens `https://wa.me/20…?text=…` with the four lines and the link (read the `href`, don't follow it); Telegram `t.me/share/url?url=…&text=…`; both add to «اتبعت على»; email without `RESEND_API_KEY` answers that it wasn't sent; the 21st email in an hour is refused (call the action 21 times from a scratch script with a fake sender if needed). No real email is sent unless the user gives a test key and address.
 8. **Permissions:** `y-agent` gets the not-found page for X's offer, 404 from its PDF route, and «العرض ده مش موجود» from cancel/approve posted by hand; an agent can't approve; an agent doesn't see a colleague's offer.
 9. **The client's page and PDF:** `/o/<token>` in Arabic and English at 360 px and 1280 px; `Page.printToPDF` gives one landscape page per sheet (each page about 841.9 × 526.2 pt), nothing cut, Arabic shaped and right to left, figures equal to step 5. With `OFFER_PDF=on` and `CHROME_PATH` (and a test Blob store only if the user gives one), `/sales/offers/<id>/pdf` downloads the same PDF and a second request reuses it. `curl -sI` shows `X-Robots-Tag: noindex, nofollow`, `/robots.txt` disallows `/o/`, and `/o/x` is not redirected to `/ar`.

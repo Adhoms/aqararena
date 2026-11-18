@@ -1,4 +1,5 @@
 import ar from "@/app/[lang]/dictionaries/ar.json";
+import { UNITS_NOUN, countAr, formatDateTimeAr } from "@/lib/format";
 import type { HoldReleaseReasonValue, HoldStatusValue, SalesState } from "./holds";
 
 // Arabic wording for the Sales screens, reusing the public site's dictionary where it has it.
@@ -47,6 +48,8 @@ const RELEASED: Record<HoldReleaseReasonValue, string> = {
   CANCELLED: "اتلغى",
   PORTAL_STATUS_CHANGE: "اتلغى: الشركة غيّرت حالة الوحدة",
   ADMIN_STATUS_CHANGE: "اتلغى: AqarArena غيّرت حالة الوحدة",
+  OUT_OF_SALES: "اتلغى: الوحدة مبقتش معروضة لفريق المبيعات",
+  ACCOUNT_DISABLED: "اتلغى: الحساب اتوقف",
 };
 
 /** How a hold ended, for the holds list. */
@@ -55,3 +58,11 @@ export function holdOutcome(h: { status: HoldStatusValue; releaseReason: HoldRel
   if (h.status === "RELEASED") return h.releaseReason ? RELEASED[h.releaseReason] : "اتلغى";
   return "ساري";
 }
+
+/** A live hold as the admin and portal unit pages show it: who holds the unit, and until when. */
+export type HoldBadge = { expiresAt: Date; salesAccount: { nameAr: string } };
+export const holdText = (hold: HoldBadge | undefined) => hold && `${hold.salesAccount.nameAr} لحد ${formatDateTimeAr(hold.expiresAt)}`;
+
+/** An import's warning before saving, when the file takes held units out of Sales (or off the market). */
+export const holdsLeavingWarning = (units: number) =>
+  units ? `الملف ده هيخرّج من البيع ${countAr(units, UNITS_NOUN)} عليها حجز مؤقت لفريق المبيعات، والحجز هيتلغي.` : undefined;

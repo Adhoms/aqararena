@@ -10,7 +10,7 @@ export const HOLD_HOURS_MAX = 168;
 export const DEFAULT_HOLD_HOURS = 48;
 
 export type HoldStatusValue = "ACTIVE" | "CONVERTED" | "RELEASED";
-export type HoldReleaseReasonValue = "EXPIRED" | "CANCELLED" | "PORTAL_STATUS_CHANGE" | "ADMIN_STATUS_CHANGE";
+export type HoldReleaseReasonValue = "EXPIRED" | "CANCELLED" | "PORTAL_STATUS_CHANGE" | "ADMIN_STATUS_CHANGE" | "OUT_OF_SALES" | "ACCOUNT_DISABLED";
 export type AvailabilityValue = "AVAILABLE" | "RESERVED" | "SOLD";
 
 /** The signed-in salesperson. */

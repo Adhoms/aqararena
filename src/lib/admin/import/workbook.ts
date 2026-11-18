@@ -5,8 +5,11 @@ import { FormReader } from "@/lib/admin/form";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FEDDAN_M2 } from "@/lib/admin/readers";
 import { recordPriceHistory } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
-import { liveHoldWhere, releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
+import { HOLDS_NOUN, countAr } from "@/lib/format";
+import { liveHoldCount, releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
 import type { AvailabilityValue } from "@/lib/sales/holds";
+import { holdsLeavingWarning } from "@/lib/sales/labels";
+import { leavingSales, nothingLeaves, type Leaving } from "./leaving";
 import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./columns";
 
 // Builds the Excel template (optionally filled with what is already on the site) and imports
@@ -217,7 +220,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   const [developers, areas, projects, typologies, plans, units] = await Promise.all([
     db.developer.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.area.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
-    db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
+    db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true, published: true, developer: { select: { slug: true } } } }),
     db.typology.findMany({ select: { id: true, code: true, projectId: true } }),
     db.paymentPlan.findMany({ select: { projectId: true, typologyId: true, downPaymentPct: true, years: true, frequency: true } }),
     db.unit.findMany({ select: { id: true, building: true, unitNumber: true, typology: { select: { projectId: true } } } }),
@@ -351,8 +354,8 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
 
   // Units
   const unitRows: { projSlug: string; code: string; values: ReturnType<typeof readUnit>; present: Set<string> }[] = [];
-  // Existing units the sheet takes off the market (they lose any Sales hold when it is saved).
-  const leavingIds: string[] = [];
+  // Existing units and the status the sheet gives them (one taken off the market loses its Sales hold).
+  const unitStatuses: { existingId?: string; availability: AvailabilityValue }[] = [];
   {
     const { def, rows, present } = sheets.units;
     const seen = new Set<string>();
@@ -375,7 +378,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       seen.add(key);
       const knownId = proj.existingId ? unitIdByKey.get(unitKey(proj.existingId, values.building, values.unitNumber)) : undefined;
       const known = Boolean(knownId);
-      if (knownId && values.availability !== "AVAILABLE") leavingIds.push(knownId);
+      unitStatuses.push({ existingId: knownId, availability: values.availability });
       counts.units[known ? "update" : "create"]++;
       unitRows.push({ projSlug: proj.slug, code, values, present });
     }
@@ -394,8 +397,18 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
 
   if (problems.length) return fail(`فيه ${problems.length} مشكلة لازم تتصلّح قبل الاستيراد. ماحدش اتحفظ.`);
   if (!save) {
-    const held = leavingIds.length ? await db.unitHold.count({ where: { unitId: { in: leavingIds }, ...liveHoldWhere() } }) : 0;
-    const warning = held ? `فيه ${held} وحدة محجوزة مؤقتًا لفريق المبيعات هتتغيّر حالتها، والحجز عليها هيتلغي.` : undefined;
+    // What saving takes out of Sales: projects moved to another developer or unpublished, unit types
+    // left without a price, units taken off the market. Their live holds will be released.
+    const before = new Map(projects.map((p) => [p.slug, { id: p.id, developer: p.developer.slug, published: p.published }]));
+    const leaving = leavingSales({
+      projects: projRows.map((p) => ({ before: before.get(p.slug), developer: p.devSlug, published: p.present.has("published") ? p.values.published : undefined })),
+      types: typRows.map((t) => {
+        const projectId = projBySlug.get(t.projSlug)?.existingId;
+        return { existingId: projectId && typIdByCode.get(`${projectId}/${t.values.code.toLowerCase()}`), priceFrom: t.values.priceFrom };
+      }),
+      units: unitStatuses,
+    });
+    const warning = holdsLeavingWarning(await heldLeaving(leaving));
     return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts, warning };
   }
 
@@ -459,6 +472,8 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       await recordPriceHistory([...touched], tx);
 
       const leaving: { id: string; availability: AvailabilityValue }[] = [];
+      // Projects whose units may have left Sales: moved, unpublished, a type without a price.
+      const scoped = new Set([...projRows.map((p) => projId.get(p.slug)!), ...typRows.map((t) => projId.get(t.projSlug)!)]);
       for (const u of unitRows) {
         const projectId = projId.get(u.projSlug)!;
         const typologyId = typId.get(`${projectId}/${u.code.toLowerCase()}`)!;
@@ -467,13 +482,23 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
         else await tx.unit.create({ data: { ...u.values, typologyId } });
         if (existing && u.values.availability !== "AVAILABLE") leaving.push({ id: existing, availability: u.values.availability });
       }
-      // Units taken off the market lose their Sales holds (spec section 6).
-      return releaseHoldsOfUnavailable(tx, leaving, "ADMIN_STATUS_CHANGE");
+      // Units taken off the market lose their Sales holds (spec section 6), and so do units that left
+      // their developer's Sales inventory.
+      return (
+        (await releaseHoldsOfUnavailable(tx, leaving, "ADMIN_STATUS_CHANGE")) +
+        (scoped.size ? await releaseHoldsOutOfSales(tx, { typology: { projectId: { in: [...scoped] } } }) : 0)
+      );
     },
     { timeout: 120_000, maxWait: 20_000 },
   );
 
-  return { ok: true, saved: true, message: summary("تم الاستيراد ✓ ") + (released ? ` · اتلغى ${released} حجز مؤقت` : ""), problems, counts };
+  return { ok: true, saved: true, message: summary("تم الاستيراد ✓ ") + (released ? ` · اتلغى ${countAr(released, HOLDS_NOUN)} في AqarArena Sales` : ""), problems, counts };
+}
+
+/** How many of the units an import takes out of Sales have a live hold. */
+function heldLeaving(l: Leaving) {
+  if (nothingLeaves(l)) return Promise.resolve(0);
+  return liveHoldCount({ OR: [{ id: { in: l.unitIds } }, { typology: { projectId: { in: l.projectIds } } }, { typologyId: { in: l.typeIds } }] });
 }
 
 // ─── Template ───────────────────────────────────────────────────────────
@@ -769,8 +794,7 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
   // Units this sheet takes off the market lose their Sales holds when it is saved (spec section 6).
   const leaving = out.flatMap((u) => (u.id && u.values.availability !== "AVAILABLE" ? [{ id: u.id, availability: u.values.availability }] : []));
   if (!save) {
-    const held = leaving.length ? await db.unitHold.count({ where: { unitId: { in: leaving.map((u) => u.id) }, ...liveHoldWhere() } }) : 0;
-    const warning = held ? `فيه ${held} وحدة محجوزة مؤقتًا لفريق المبيعات هتتغيّر حالتها، والحجز عليها هيتلغي.` : undefined;
+    const warning = holdsLeavingWarning(await heldLeaving(leavingSales({ units: leaving.map((u) => ({ existingId: u.id, availability: u.availability })) })));
     return { ok: true, saved: false, message: `الملف سليم: ${create} وحدة جديدة و${update} تحديث.`, problems, create, update, warning };
   }
 
@@ -784,7 +808,7 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
     },
     { timeout: 120_000, maxWait: 20_000 },
   );
-  const holds = released ? `، واتلغى ${released} حجز مؤقت` : "";
+  const holds = released ? `، واتلغى ${countAr(released, HOLDS_NOUN)} لفريق المبيعات` : "";
   return { ok: true, saved: true, message: `تم ✓ ${create} وحدة جديدة و${update} تحديث${holds}.`, problems, create, update };
 }
 

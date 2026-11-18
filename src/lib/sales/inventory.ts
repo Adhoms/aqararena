@@ -1,23 +1,22 @@
-// src/lib/sales/inventory.ts
 import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { SubType } from "@/lib/property";
 import { budgetFigure, fitsBudget, plansForType, type SalesPlan } from "./budget";
-import { liveHoldWhere, releaseExpired } from "./hold-service";
+import { releaseExpired, salesHoldWhere } from "./hold-service";
 import { effectiveHoldHours, salesState, SALES_STATE_RANK, type HoldActor, type SalesState } from "./holds";
 import { unitLabel } from "./labels";
+import { salesTypologyWhere, salesUnitWhere } from "./scope";
 import type { SalesSearch } from "./search";
 
 // What AqarArena Sales reads: one developer's published projects, their units and active plans.
-// Every query is scoped by the signed-in salesperson's developer; another company's ids find nothing.
+// Every query is scoped by the signed-in salesperson's developer (the rule in scope.ts); another
+// company's ids find nothing. A unit counts as held only by a hold of that developer's own salespeople.
 
 /** Results per page, and how many units one search looks at (available ones first). */
 export const PAGE_SIZE = 40;
 export const SCAN_LIMIT = 2000;
 
-/** Only unit types with a starting price are shown and sold (the public catalog's rule too). */
-const priced = { priceFrom: { not: null } } satisfies Prisma.TypologyWhereInput;
 const dec = (v: Prisma.Decimal | null) => (v === null ? null : Number(v));
 /** Today on Cairo's calendar, as the UTC midnight a `@db.Date` column compares with: a plan "valid until" a day lasts all of that day in Cairo. */
 const todayCairo = () => new Date(new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(new Date()) + "T00:00:00Z");
@@ -33,10 +32,11 @@ export type SalesProject = {
 
 /** The developer's published projects that have priced unit types, with available (not held) / total unit counts. */
 export async function salesProjects(developerId: string, now = new Date()): Promise<SalesProject[]> {
+  const types = salesTypologyWhere(developerId);
   const projects = await db.project.findMany({
-    where: { developerId, published: true, typologies: { some: priced } },
+    where: { typologies: { some: types } },
     orderBy: { nameAr: "asc" },
-    select: { id: true, nameAr: true, typologies: { where: priced, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, subType: true, bedrooms: true } } },
+    select: { id: true, nameAr: true, typologies: { where: types, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, subType: true, bedrooms: true } } },
   });
   const typeIds = projects.flatMap((p) => p.typologies.map((t) => t.id));
   const [counts, held] = typeIds.length
@@ -44,7 +44,7 @@ export async function salesProjects(developerId: string, now = new Date()): Prom
         db.unit.groupBy({ by: ["typologyId", "availability"], where: { typologyId: { in: typeIds } }, _count: { _all: true } }),
         db.unit.groupBy({
           by: ["typologyId"],
-          where: { typologyId: { in: typeIds }, availability: "AVAILABLE", holds: { some: liveHoldWhere(now) } },
+          where: { typologyId: { in: typeIds }, availability: "AVAILABLE", holds: { some: salesHoldWhere(developerId, now) } },
           _count: { _all: true },
         }),
       ])
@@ -121,21 +121,21 @@ export async function searchUnits(
   now = new Date(),
 ): Promise<{ rows: SalesUnitRow[]; capped: boolean }> {
   const typology: Prisma.TypologyWhereInput = {
-    ...priced,
-    project: { developerId: me.developerId, published: true, ...(s.project ? { id: s.project } : {}) },
+    ...(s.project ? { projectId: s.project } : {}),
     ...(s.model ? { id: s.model } : {}),
     ...(s.type ? { subType: s.type } : {}),
     ...(s.beds ? { bedrooms: s.beds >= 5 ? { gte: 5 } : s.beds } : {}),
   };
+  const held = salesHoldWhere(me.developerId, now);
   const where: Prisma.UnitWhereInput = {
-    typology,
+    AND: [salesUnitWhere(me.developerId), { typology }],
     ...(s.floorMin !== undefined || s.floorMax !== undefined ? { floor: { gte: s.floorMin, lte: s.floorMax } } : {}),
     ...(s.view ? { view: s.view } : {}),
     // Held and available are told apart by a live hold, in the database, so the scan limit never cuts them short.
     ...(s.state === "HELD"
-      ? { availability: "AVAILABLE", holds: { some: liveHoldWhere(now) } }
+      ? { availability: "AVAILABLE", holds: { some: held } }
       : s.state === "AVAILABLE"
-        ? { availability: "AVAILABLE", holds: { none: liveHoldWhere(now) } }
+        ? { availability: "AVAILABLE", holds: { none: held } }
         : s.state
           ? { availability: s.state }
           : {}),
@@ -158,7 +158,7 @@ export async function searchUnits(
       availability: true,
       typologyId: true,
       typology: { select: { code: true, nameAr: true, subType: true, bedrooms: true, priceFrom: true, project: { select: { id: true, nameAr: true } } } },
-      holds: { where: liveHoldWhere(now), take: 1, select: { salesAccountId: true, expiresAt: true, salesAccount: { select: { nameAr: true } } } },
+      holds: { where: held, take: 1, select: { salesAccountId: true, expiresAt: true, salesAccount: { select: { nameAr: true } } } },
     },
   });
   const rows: SalesUnitRow[] = [];
@@ -240,7 +240,7 @@ export type SalesUnitDetail = {
  */
 export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new Date()): Promise<SalesUnitDetail | null> {
   const { developerId } = viewer;
-  const scope: Prisma.UnitWhereInput = { id: unitId, typology: { ...priced, project: { developerId, published: true } } };
+  const scope: Prisma.UnitWhereInput = { id: unitId, ...salesUnitWhere(developerId) };
   await releaseExpired(db, { unit: scope }, now);
   const unit = await db.unit.findFirst({
     where: scope,
@@ -283,7 +283,7 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
           },
         },
       },
-      holds: { where: liveHoldWhere(now), take: 1, select: { id: true, salesAccountId: true, expiresAt: true, clientNote: true, salesAccount: { select: { nameAr: true } } } },
+      holds: { where: salesHoldWhere(developerId, now), take: 1, select: { id: true, salesAccountId: true, expiresAt: true, clientNote: true, salesAccount: { select: { nameAr: true } } } },
     },
   });
   if (!unit) return null;

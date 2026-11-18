@@ -646,6 +646,11 @@ enum HoldReleaseReason {
   PORTAL_STATUS_CHANGE
   /// The admin changed the unit's status (form or Excel import).
   ADMIN_STATUS_CHANGE
+  /// The unit left its developer's Sales inventory: the project moved to another developer or was
+  /// unpublished, or the unit type lost its starting price.
+  OUT_OF_SALES
+  /// The developer disabled the salesperson's account.
+  ACCOUNT_DISABLED
 }
 
 /// A salesperson's temporary hold on a unit (spec section 6). At most one ACTIVE hold per unit:

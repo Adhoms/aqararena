@@ -7,7 +7,7 @@ import { AdminForm, ConfirmForm } from "@/components/admin/admin-form";
 import { Panel, Row, Select, TextField } from "@/components/admin/fields";
 import { createSalesAccount, resetSalesPassword, saveHoldHours, setSalesStatus, updateSalesAccount } from "../team-actions";
 import { HOLD_HOURS_MAX, HOLD_HOURS_MIN } from "@/lib/sales/holds";
-import { formatDateAr } from "@/lib/format";
+import { HOURS_NOUN, countAr, formatCountAr, formatDateAr } from "@/lib/format";
 
 const when = (d: Date | null) => (d ? formatDateAr(d) : "لسه ماخدش");
 const roleOptions = SALES_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }));
@@ -56,7 +56,7 @@ export default async function PortalTeamPage() {
             autoComplete="off"
             label="عدد الساعات *"
             defaultValue={developer.holdHours}
-            hint={`من ${HOLD_HOURS_MIN} لـ ${HOLD_HOURS_MAX} ساعة (أسبوع). السيلز بيحجز الوحدة المدة دي، ولو ماأكدش الحجز الوحدة بترجع متاحة لوحدها. تقدر تحدد مدة مختلفة لكل مشروع من صفحة مخزونه. بيسري على الحجوزات الجديدة بس.`}
+            hint={`من ${formatCountAr(HOLD_HOURS_MIN)} لـ ${countAr(HOLD_HOURS_MAX, HOURS_NOUN)} (أسبوع). السيلز بيحجز الوحدة المدة دي، ولو ماأكدش الحجز الوحدة بترجع متاحة لوحدها. تقدر تحدد مدة مختلفة لكل مشروع من صفحة مخزونه. بيسري على الحجوزات الجديدة بس.`}
           />
         </AdminForm>
       </Panel>
@@ -90,7 +90,7 @@ export default async function PortalTeamPage() {
                 <ConfirmForm
                   action={setSalesStatus}
                   fields={{ id: m.id, status: m.status === "ACTIVE" ? "DISABLED" : "ACTIVE" }}
-                  confirmText={m.status === "ACTIVE" ? "هتوقف الحساب والسيلز هيخرج من كل الأجهزة. نكمل؟" : undefined}
+                  confirmText={m.status === "ACTIVE" ? "هتوقف الحساب والسيلز هيخرج من كل الأجهزة، والحجوزات المؤقتة اللي عليه هتتلغي. نكمل؟" : undefined}
                   label={m.status === "ACTIVE" ? "إيقاف الحساب" : "تفعيل الحساب"}
                   className={m.status === "ACTIVE" ? "admin-btn-danger" : "admin-btn-ghost"}
                 />

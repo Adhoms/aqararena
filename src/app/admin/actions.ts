@@ -13,7 +13,9 @@ import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } 
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
 import { recordPriceHistory } from "@/lib/price-history";
 import { findTwinUnit } from "@/lib/units";
-import { releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
+import { HOLDS_NOUN, countAr } from "@/lib/format";
+import { releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
+import { projectLeavesSales } from "@/lib/sales/scope";
 import { PHOTO_GROUPS, SUB_TYPES, ZONE_KINDS } from "@/lib/property";
 
 // Every admin write goes through here. Each action checks the session first and refreshes
@@ -34,6 +36,10 @@ function dbError(e: unknown, uniqueField: string, uniqueMessage: string): FormSt
 }
 
 const today = () => new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+
+/** "تم الحفظ ✓" and, when the save released Sales holds, how many. */
+const savedReleasing = (released: number): FormState =>
+  released ? { ok: true, message: `تم الحفظ ✓ واتلغى ${countAr(released, HOLDS_NOUN)} في AqarArena Sales` } : SAVED;
 
 // ─── Session ────────────────────────────────────────────────────────────
 
@@ -120,15 +126,23 @@ export async function saveProject(_: FormState, data: FormData): Promise<FormSta
 
   const relations = { developer: { connect: { id: developerId } }, area: { connect: { id: areaId } } };
   let newId: string | undefined;
+  let released = 0;
   try {
-    if (id) await db.project.update({ where: { id }, data: { ...values, ...relations } });
-    else newId = (await db.project.create({ data: { ...values, ...relations } })).id;
+    if (id) {
+      released = await db.$transaction(async (tx) => {
+        const before = await tx.project.findUnique({ where: { id }, select: { developerId: true, published: true } });
+        await tx.project.update({ where: { id }, data: { ...values, ...relations } });
+        // Moved to another developer or unpublished: its units leave that developer's Sales, and lose their holds.
+        const leaves = before && projectLeavesSales({ developer: before.developerId, published: before.published }, { developer: developerId, published: values.published });
+        return leaves ? releaseHoldsOutOfSales(tx, { typology: { projectId: id } }) : 0;
+      });
+    } else newId = (await db.project.create({ data: { ...values, ...relations } })).id;
   } catch (e) {
     return dbError(e, "slug", "هذا الرابط المختصر مستخدم لمشروع آخر");
   }
   published();
   if (newId) redirect(`/admin/projects/${newId}?created=1`);
-  return SAVED;
+  return savedReleasing(released);
 }
 
 export async function deleteProject(data: FormData) {
@@ -154,15 +168,21 @@ export async function saveTypology(_: FormState, data: FormData): Promise<FormSt
   const projectId = f.id("projectId");
   const values = readTypology(f);
   if (!f.ok || !projectId) return f.result();
+  let released = 0;
   try {
-    if (id) await db.typology.update({ where: { id, projectId }, data: values });
-    else await db.typology.create({ data: { ...values, projectId } });
+    if (id) {
+      released = await db.$transaction(async (tx) => {
+        await tx.typology.update({ where: { id, projectId }, data: values });
+        // A type without a starting price isn't sold in Sales: its units lose their holds.
+        return values.priceFrom === null ? releaseHoldsOutOfSales(tx, { typologyId: id }) : 0;
+      });
+    } else await db.typology.create({ data: { ...values, projectId } });
   } catch (e) {
     return dbError(e, "code", "هذا الكود مستخدم لنموذج آخر في نفس المشروع");
   }
   await touchPrices(projectId);
   published();
-  return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };
+  return id ? savedReleasing(released) : { ok: true, message: "تمت الإضافة ✓" };
 }
 
 // ─── Units ──────────────────────────────────────────────────────────────
@@ -184,8 +204,12 @@ export async function saveUnit(_: FormState, data: FormData): Promise<FormState>
   if (id) {
     released = await db.$transaction(async (tx) => {
       await tx.unit.update({ where: { id, typology: { projectId } }, data: { ...values, typologyId } });
-      // A unit that stops being available loses its Sales hold (spec section 6).
-      return releaseHoldsOfUnavailable(tx, [{ id, availability: values.availability }], "ADMIN_STATUS_CHANGE");
+      // A unit that stops being available loses its Sales hold (spec section 6), and so does one
+      // moved to a unit type without a starting price.
+      return (
+        (await releaseHoldsOfUnavailable(tx, [{ id, availability: values.availability }], "ADMIN_STATUS_CHANGE")) +
+        (await releaseHoldsOutOfSales(tx, { id }))
+      );
     });
   } else await db.unit.create({ data: { ...values, typologyId } });
   published();

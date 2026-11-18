@@ -61,8 +61,6 @@ type Labels = {
 
 // Free vector map tiles, no API key (https://openfreemap.org). Map data © OpenStreetMap contributors.
 const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
-// Shapes Arabic place names correctly on the map.
-const RTL_PLUGIN = "https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js";
 
 const pinClass = (active: boolean) =>
   `flex flex-col items-center rounded-xl px-3 py-1 font-display leading-tight shadow-lg transition-transform cursor-pointer whitespace-nowrap border ${
@@ -198,11 +196,12 @@ export function ProjectMap({ points, locale, labels, mode = "explore", search = 
     const markerMap = markers.current;
     const clusterMarkers: Marker[] = [];
     (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      // MapLibre 6 is ESM-only with named exports (no default), and shapes Arabic labels itself.
+      const maplibregl = await import("maplibre-gl");
+      // MapLibre 6 finds its web worker next to its own script, which a bundler moves. Give it the
+      // worker file as a build asset instead (otherwise the worker 404s and the map never draws).
+      maplibregl.setWorkerUrl(new URL("../../../node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href);
       if (cancelled || !container.current || points.length === 0) return;
-      if (maplibregl.getRTLTextPluginStatus() === "unavailable") {
-        maplibregl.setRTLTextPlugin(RTL_PLUGIN, true).catch(() => {});
-      }
       const map = new maplibregl.Map({
         container: container.current,
         // Read the mode from the page itself: on first load React may not have caught up with it yet.

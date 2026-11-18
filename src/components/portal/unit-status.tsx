@@ -21,6 +21,14 @@ export function UnitStatusSelect({ unitId, value, label, hold }: { unitId: strin
   // Cleared once a status change has cancelled the hold, so the line and the confirmation go away.
   const [held, setHeld] = useState(hold);
   const [note, setNote] = useState("");
+  // When a refresh brings new server data (another row's change, a hold made or ended elsewhere),
+  // follow it without remounting, so the message from this row's last change stays on screen.
+  const [seen, setSeen] = useState({ value, hold });
+  if (seen.value !== value || seen.hold !== hold) {
+    setSeen({ value, hold });
+    setCurrent(value);
+    setHeld(hold);
+  }
   const [pending, start] = useTransition();
   return (
     <span className="flex flex-col items-start gap-1">

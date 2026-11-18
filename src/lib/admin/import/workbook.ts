@@ -461,7 +461,9 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
         for (const p of planRows) {
           const projectId = projId.get(p.projSlug)!;
           const typologyId = p.code ? typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null : null;
-          const values = { ...p.values, typologyId };
+          const { steps: _steps, ...plan } = p.values;
+          void _steps;
+          const values = { ...plan, typologyId };
           // The same plan (down payment, years, frequency, unit type) is updated rather than duplicated.
           const same = await tx.paymentPlan.findFirst({
             where: { projectId, typologyId, downPaymentPct: values.downPaymentPct, years: values.years, frequency: values.frequency },

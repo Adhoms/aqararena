@@ -11,6 +11,7 @@ import {
   UNIT_AVAILABILITY,
   UNIT_VIEWS,
 } from "@/lib/property";
+import { parseSteps, termsFromSteps } from "@/lib/catalog/plan-steps";
 
 // The fields of each record, read and checked from a form. Shared by the admin forms
 // (app/admin/actions.ts) and the Excel import (lib/admin/import), so both accept exactly
@@ -95,16 +96,24 @@ export function readTypology(f: FormReader) {
   };
 }
 
+/**
+ * A payment plan. With a custom schedule in `steps` (the notation in catalog/plan-steps.ts), the down
+ * payment, years and delivery payment are taken from the steps, so they needn't be typed.
+ */
 export function readPaymentPlan(f: FormReader) {
-  const down = f.pct("downPaymentPct", { required: true });
+  const parsed = parseSteps(f.text("steps", { max: 5000 }) ?? "");
+  if (parsed.error) f.errors.steps = parsed.error;
+  const terms = parsed.steps.length ? termsFromSteps(parsed.steps) : null;
+  const down = f.pct("downPaymentPct", { required: !terms });
   const delivery = f.pct("deliveryPaymentPct") ?? 0;
-  if (down !== null && down + delivery > 100) f.errors.deliveryPaymentPct = "المقدم + دفعة الاستلام أكثر من 100%";
+  if (!terms && down !== null && down + delivery > 100) f.errors.deliveryPaymentPct = "المقدم + دفعة الاستلام أكثر من 100%";
+  const years = f.int("years", { required: !terms, min: 0, max: 30 });
   return {
     nameAr: f.text("nameAr", { max: 200 }),
     nameEn: f.text("nameEn", { max: 200 }),
-    downPaymentPct: down ?? 0,
-    deliveryPaymentPct: delivery,
-    years: f.int("years", { required: true, min: 0, max: 30 }) ?? 0,
+    downPaymentPct: terms?.downPaymentPct ?? down ?? 0,
+    deliveryPaymentPct: terms ? terms.deliveryPaymentPct : delivery,
+    years: terms?.years ?? years ?? 0,
     frequency: f.oneOf("frequency", INSTALLMENT_FREQUENCIES, { required: true }) ?? "QUARTERLY",
     cashDiscountPct: f.pct("cashDiscountPct"),
     maintenancePct: f.pct("maintenancePct"),
@@ -112,6 +121,8 @@ export function readPaymentPlan(f: FormReader) {
     clubFee: f.number("clubFee", { min: 0 }),
     validUntil: f.date("validUntil"),
     isActive: f.bool("isActive"),
+    /** The custom schedule; empty for a plan paid by its terms. Written as nested PlanStep rows by the caller. */
+    steps: parsed.steps,
   };
 }
 

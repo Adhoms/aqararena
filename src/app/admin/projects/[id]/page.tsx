@@ -36,7 +36,7 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
       where: { id },
       include: {
         typologies: { orderBy: { priceFrom: "asc" } },
-        paymentPlans: { orderBy: { createdAt: "asc" } },
+        paymentPlans: { orderBy: { createdAt: "asc" }, include: { steps: { orderBy: { sortOrder: "asc" } } } },
         zones: { orderBy: { sortOrder: "asc" } },
         media: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] },
         distances: { orderBy: { sortOrder: "asc" } },

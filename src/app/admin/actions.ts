@@ -11,6 +11,7 @@ import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { deleteIfUnused } from "@/lib/admin/blob";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
+import { toStepRows } from "@/lib/catalog/plan-steps";
 import { recordPriceHistory } from "@/lib/price-history";
 import { findTwinUnit } from "@/lib/units";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
@@ -233,10 +234,13 @@ export async function savePaymentPlan(_: FormState, data: FormData): Promise<For
   const f = new FormReader(data);
   const id = f.id("id");
   const projectId = f.id("projectId");
-  const values = { ...readPaymentPlan(f), typologyId: f.id("typologyId") };
+  const { steps, ...plan } = readPaymentPlan(f);
+  const values = { ...plan, typologyId: f.id("typologyId") };
   if (!f.ok || !projectId) return f.result();
-  if (id) await db.paymentPlan.update({ where: { id, projectId }, data: values });
-  else await db.paymentPlan.create({ data: { ...values, projectId } });
+  const rows = toStepRows(steps);
+  // One statement: the plan and its steps change together.
+  if (id) await db.paymentPlan.update({ where: { id, projectId }, data: { ...values, steps: { deleteMany: {}, create: rows } } });
+  else await db.paymentPlan.create({ data: { ...values, projectId, steps: { create: rows } } });
   await touchPrices(projectId);
   published();
   return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };

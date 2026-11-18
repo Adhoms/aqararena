@@ -1,14 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { Media, MasterPlanZone, PaymentPlan, ProjectDistance, Typology, Unit } from "@/generated/prisma/client";
+import type { Media, MasterPlanZone, PaymentPlan, PlanStep, ProjectDistance, Typology, Unit } from "@/generated/prisma/client";
 import { deleteProjectPart, deleteProjectUnits, saveDistance, saveMedia, savePaymentPlan, saveTypology, saveUnit, saveZone } from "@/app/admin/actions";
 import type { FormState } from "@/lib/admin/form";
 import { options } from "@/lib/admin/labels";
 import { CURRENCY_NAMES_AR, UNITS_NOUN, countAr, moneyAr } from "@/lib/format";
+import { formatSteps, stepsOf } from "@/lib/catalog/plan-steps";
 import type { Currency } from "@/lib/property";
 import { holdText, type HoldBadge } from "@/lib/sales/labels";
 import { AdminForm, DeleteButton } from "./admin-form";
 import { HoldConfirm } from "./hold-confirm";
+import { ScheduleField } from "./schedule-field";
 import { Checkbox, CheckboxGroup, Panel, Row, Select, TextArea, TextField } from "./fields";
 import { isoDate } from "./project-form";
 import { BulkMediaUpload, UploadField } from "./upload";
@@ -299,7 +301,7 @@ export function PaymentPlanList({
   currency,
 }: {
   projectId: string;
-  items: PaymentPlan[];
+  items: (PaymentPlan & { steps: PlanStep[] })[];
   typologies: Typology[];
   currency: Currency;
 }) {
@@ -319,17 +321,19 @@ export function PaymentPlanList({
           <span className="text-muted">
             {Number(p.downPaymentPct)}% مقدم · {p.years === 0 ? "كاش" : `${p.years} سنوات`}
           </span>
+          {p.steps.length > 0 && <span className="admin-badge">جدول مخصص</span>}
           {!p.isActive && <span className="admin-badge-off">متوقف</span>}
         </>
       )}
       fields={(p) => (
         <>
           <Row cols={4}>
-            <TextField name="downPaymentPct" type="number" label="المقدم % *" defaultValue={dec(p?.downPaymentPct)} />
-            <TextField name="years" type="number" label="عدد السنوات *" defaultValue={p?.years} hint="0 = كاش" />
+            <TextField name="downPaymentPct" type="number" label="المقدم % *" defaultValue={dec(p?.downPaymentPct)} hint="مش لازم لو فيه جدول مخصص" />
+            <TextField name="years" type="number" label="عدد السنوات *" defaultValue={p?.years} hint="0 = كاش، ومش لازم لو فيه جدول مخصص" />
             <Select name="frequency" label="الأقساط *" defaultValue={p?.frequency ?? "QUARTERLY"} options={options.frequency} />
             <TextField name="deliveryPaymentPct" type="number" label="دفعة الاستلام %" defaultValue={dec(p?.deliveryPaymentPct)} />
           </Row>
+          <ScheduleField name="steps" defaultValue={p ? formatSteps(stepsOf(p.steps)) : ""} />
           <Row cols={4}>
             <TextField name="cashDiscountPct" type="number" label="خصم الكاش %" defaultValue={dec(p?.cashDiscountPct)} />
             <TextField name="maintenancePct" type="number" label="وديعة الصيانة %" defaultValue={dec(p?.maintenancePct)} />

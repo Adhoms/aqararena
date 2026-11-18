@@ -328,7 +328,8 @@ export async function applyProjectDraft(
 
   // Plans: replaced as a whole.
   await tx.paymentPlan.deleteMany({ where: { projectId: id } });
-  for (const { typologyCode, ...p } of values.plans) {
+  for (const { typologyCode, steps: _steps, ...p } of values.plans) {
+    void _steps;
     await tx.paymentPlan.create({ data: { ...p, projectId: id, typologyId: typologyCode ? (typId.get(typologyCode.toLowerCase()) ?? null) : null } });
   }
 

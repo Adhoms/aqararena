@@ -15,6 +15,10 @@ export type PlanStepInput = { monthOffset: number; pct: number; kind: StepKind }
 export const MAX_STEP_MONTH = 360;
 export const MAX_STEPS = 400;
 
+/** Help under the schedule field, in the admin and the portal. */
+export const SCHEDULE_HINT =
+  "اختياري، لو الخطة مش أقساط متساوية. اكتب الشهر:النسبة مفصولين بفاصلة، و«من-لحد/كل:النسبة» لدفعات متساوية، و«صيانة» قبل دفعات الصيانة. مثال: 0:5, 3:5, 6-96/3:90, صيانة 9-33/12:100. لو كتبته، المقدم والسنين بيتحسبوا منه.";
+
 const SCALE = 1_000_000;
 const HUNDRED = 100 * SCALE;
 const units = (pct: number) => Math.round(pct * SCALE);

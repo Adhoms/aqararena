@@ -5,7 +5,7 @@ import type { Locale } from "@/i18n/config";
 import { paymentBreakdown } from "@/lib/catalog/payment";
 import type { PaymentPlan } from "@/lib/catalog/types";
 import { fill, formatMoney } from "@/lib/format";
-import type { InstallmentFrequency } from "@/lib/property";
+import type { Currency, InstallmentFrequency } from "@/lib/property";
 
 type Unit = { code: string; name: string; price: number };
 
@@ -37,6 +37,8 @@ type Props = {
   plans: PaymentPlan[];
   maintenancePct?: number;
   locale: Locale;
+  /** The project's currency; every figure is in it. */
+  currency: Currency;
   labels: Labels;
 };
 
@@ -48,8 +50,8 @@ const PART_STYLES = {
   maintenance: "bg-brass-light",
 } as const;
 
-/** Every pound a buyer pays for one unit type on one plan: at contract, per installment, at handover, in total. */
-export function PaymentCalculator({ units, plans, maintenancePct, locale, labels }: Props) {
+/** Everything a buyer pays for one unit type on one plan: at contract, per installment, at handover, in total. */
+export function PaymentCalculator({ units, plans, maintenancePct, locale, currency, labels }: Props) {
   const id = useId();
   const [unitCode, setUnitCode] = useState(units[0]?.code);
   const [planIndex, setPlanIndex] = useState(0);
@@ -57,7 +59,7 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, labels
   const plan = plans[planIndex] ?? plans[0];
   if (!unit || !plan) return null;
 
-  const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale);
+  const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale, currency);
   const { price, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
     unit.price,
     plan,

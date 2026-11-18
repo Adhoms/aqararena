@@ -378,7 +378,7 @@
       "cash": "Cash discount",
       "maintenance": "Maintenance deposit",
       "monthly": "Lowest monthly",
-      "downAmount": "Lowest down payment (EGP)",
+      "downAmount": "Lowest down payment",
       "valueScore": "Value score",
       "vsArea": "Price per m² vs the area",
       "areaRank": "Rank in the area",
@@ -634,6 +634,8 @@
   "calculator": {
     "title": "Work out your plan in pounds",
     "sub": "Pick a unit type and a payment plan to see every pound you'll pay, and when.",
+    "titleDollars": "Work out your plan in dollars",
+    "subDollars": "Pick a unit type and a payment plan to see every dollar you'll pay, and when.",
     "unit": "Unit type",
     "plan": "Payment plan",
     "price": "Unit price",

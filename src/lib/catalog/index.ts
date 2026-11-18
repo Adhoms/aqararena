@@ -17,7 +17,7 @@ import type { Developer, Project } from "./types";
 
 export type { Developer, MasterPlanZone, PaymentPlan, Photo, PricePoint, Project, ProjectSummary, Text, Typology } from "./types";
 export { paymentBreakdown, paymentSchedule, type PaymentBreakdown } from "./payment";
-export { isCashPlan, monthlyFor, summarize } from "./summary";
+export { currencyOf, inEgp, isCashPlan, monthlyFor, summarize } from "./summary";
 export { unitName } from "./unit-name";
 export { SORTS, type ProjectFilters, type Sort } from "./filters";
 export { bestBudgetFit, budgetFits, hasBudget, type Budget, type BudgetFit } from "./budget";

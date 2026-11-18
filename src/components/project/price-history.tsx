@@ -2,6 +2,7 @@ import type { Locale } from "@/i18n/config";
 import type { PricePoint } from "@/lib/catalog/types";
 import { fill, formatMoney } from "@/lib/format";
 import { changePct } from "@/lib/price-points";
+import type { Currency } from "@/lib/property";
 
 type Labels = { title: string; sub: string; up: string; down: string; same: string; perM2: string; chart: string };
 
@@ -9,14 +10,24 @@ type Labels = { title: string; sub: string; up: string; down: string; same: stri
  * The project's average price per m² at each change, as a stepped line: a price holds until the
  * developer changes it. Needs at least two points; time always runs left to right.
  */
-export function PriceHistory({ points, locale, labels }: { points: PricePoint[]; locale: Locale; labels: Labels }) {
+export function PriceHistory({
+  points,
+  locale,
+  currency,
+  labels,
+}: {
+  points: PricePoint[];
+  locale: Locale;
+  currency: Currency;
+  labels: Labels;
+}) {
   if (points.length < 2) return null;
   const first = points[0];
   const last = points[points.length - 1];
   const dateLocale = locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB";
   const monthYear = (iso: string) => new Intl.DateTimeFormat(dateLocale, { month: "long", year: "numeric" }).format(new Date(iso));
   const fullDate = (iso: string) => new Intl.DateTimeFormat(dateLocale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
-  const perM2 = (n: number) => fill(labels.perM2, { amount: formatMoney(n, locale) });
+  const perM2 = (n: number) => fill(labels.perM2, { amount: formatMoney(n, locale, currency) });
 
   const pct = changePct(points);
   const change = fill(pct > 0 ? labels.up : pct < 0 ? labels.down : labels.same, { pct: Math.abs(pct), date: monthYear(first.date) });

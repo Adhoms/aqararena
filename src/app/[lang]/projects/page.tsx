@@ -82,9 +82,9 @@ async function Results({ searchParams, locale, dict }: { searchParams: Promise<S
     ...(f.subTypes ?? []).map((t) => ({ label: dict.subTypes[t], href: withoutValue(locale, params, "type", t) })),
     ...(f.minBedrooms ? [{ label: fill(dict.smart.chips.minBedrooms, { n: f.minBedrooms }), href: withParam(locale, params, "beds", undefined) }] : []),
     ...(f.q ? [{ label: fill(dict.smart.chips.q, { q: f.q }), href: withParam(locale, params, "q", undefined) }] : []),
-    ...(f.cash ? [{ label: fill(dict.budget.chipCash, { amount: formatMoney(f.cash, locale) }), href: withParam(locale, params, "cash", undefined) }] : []),
+    ...(f.cash ? [{ label: fill(dict.budget.chipCash, { amount: formatMoney(f.cash, locale, "EGP") }), href: withParam(locale, params, "cash", undefined) }] : []),
     ...(f.monthly
-      ? [{ label: fill(dict.budget.chipMonthly, { amount: formatMoney(f.monthly, locale) }), href: withParam(locale, params, "monthly", undefined) }]
+      ? [{ label: fill(dict.budget.chipMonthly, { amount: formatMoney(f.monthly, locale, "EGP") }), href: withParam(locale, params, "monthly", undefined) }]
       : []),
   ];
   const budgetOn = hasBudget(f);

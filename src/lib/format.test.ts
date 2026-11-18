@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { HOLDS_NOUN, HOURS_NOUN, UNITS_NOUN, countAr, formatCountAr, formatDateTimeAr } from "./format";
+import {
+  HOLDS_NOUN,
+  HOURS_NOUN,
+  OFFERS_NOUN,
+  UNITS_NOUN,
+  countAr,
+  currencyAr,
+  formatCountAr,
+  formatDateTimeAr,
+  formatMillions,
+  formatMoney,
+  moneyAr,
+} from "./format";
 
 test("a hold's end is shown on Cairo's clock, whatever the server's time zone", () => {
   // 13:00 UTC on Thursday 19 November 2026 is 3:00 pm in Cairo (UTC+2 in winter).
@@ -44,4 +56,32 @@ test("past 100 the last two digits decide, and 0 takes the singular", () => {
   assert.equal(countAr(102, UNITS_NOUN), "١٠٢ وحدة");
   assert.equal(countAr(103, UNITS_NOUN), "١٠٣ وحدات");
   assert.equal(countAr(111, UNITS_NOUN), "١١١ وحدة");
+});
+
+// A left-to-right mark starts a dollar amount in Arabic, so the sign stays before the figure.
+const LRM = "\u200E";
+
+test("money in pounds or dollars, in both languages", () => {
+  assert.equal(formatMoney(4_850_000, "ar", "EGP"), "4,850,000 ج.م");
+  assert.equal(formatMoney(4_850_000, "en", "EGP"), "EGP 4,850,000");
+  assert.equal(formatMoney(250_000, "ar", "USD"), `${LRM}$250,000`);
+  assert.equal(formatMoney(250_000, "en", "USD"), "$250,000");
+  assert.equal(currencyAr("EGP"), "ج.م");
+  assert.equal(currencyAr("USD"), "$");
+});
+
+test("millions for cards", () => {
+  assert.equal(formatMillions(4_850_000, "ar", "EGP"), "4.85 مليون");
+  assert.equal(formatMillions(4_850_000, "en", "EGP"), "EGP 4.85M");
+  assert.equal(formatMillions(1_200_000, "ar", "USD"), `${LRM}$1.20 مليون`);
+  assert.equal(formatMillions(1_200_000, "en", "USD"), "$1.20M");
+});
+
+test("the Arabic admin screens write pounds in Arabic digits and dollars as they are written", () => {
+  assert.equal(moneyAr(4_850_000, "EGP"), "٤٬٨٥٠٬٠٠٠ ج.م");
+  assert.equal(moneyAr(250_000, "USD"), `${LRM}$250,000`);
+});
+
+test("offers are counted like the other nouns", () => {
+  assert.deepEqual([1, 2, 5, 30].map((n) => countAr(n, OFFERS_NOUN)), ["عرض", "عرضين", "٥ عروض", "٣٠ عرض"]);
 });

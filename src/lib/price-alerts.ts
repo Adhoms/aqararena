@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { sendEmails, type Mail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
 import { formatMoney } from "@/lib/format";
+import type { Currency } from "@/lib/property";
 
 // Price alerts: visitors leave their name and email (phone optional) on a project, confirm by
 // email, and hear from us when its prices or payment plans change. "Changed" means the figures
@@ -86,10 +87,10 @@ const LABELS = {
   en: { start: "Prices from", perM2: "Average price per m²", down: "Lowest down payment", years: "Longest installment plan", monthly: "Lowest monthly installment", cash: "Cash discount" },
 } as const;
 
-function show(key: (typeof KEYS)[number], value: number, locale: "ar" | "en") {
+function show(key: (typeof KEYS)[number], value: number, locale: "ar" | "en", currency: Currency) {
   if (key === "down" || key === "cash") return `${value}%`;
   if (key === "years") return locale === "ar" ? `${value} سنين` : `${value} years`;
-  return value ? formatMoney(value, locale) : "-";
+  return value ? formatMoney(value, locale, currency) : "-";
 }
 
 export const alertLink = (locale: string, token: string, off = false) => `${SITE_URL}/${locale === "en" ? "en" : "ar"}/alerts/${token}${off ? "?off=1" : ""}`;
@@ -99,7 +100,7 @@ export const alertLink = (locale: string, token: string, off = false) => `${SITE
  * new figures. Returns how many emails went out. Does nothing for unpublished projects.
  */
 export async function sendPriceAlerts(projectId: string): Promise<number> {
-  const project = await db.project.findUnique({ where: { id: projectId }, select: { slug: true, nameAr: true, nameEn: true, published: true, alertSnapshot: true } });
+  const project = await db.project.findUnique({ where: { id: projectId }, select: { slug: true, nameAr: true, nameEn: true, currency: true, published: true, alertSnapshot: true } });
   if (!project) return 0;
   const now = await priceSnapshot(projectId);
   if (!now) return 0;
@@ -115,7 +116,7 @@ export async function sendPriceAlerts(projectId: string): Promise<number> {
   const mails: Mail[] = subscribers.map((s) => {
     const locale = s.locale === "en" ? "en" : "ar";
     const name = locale === "en" ? project.nameEn : project.nameAr;
-    const lines = changes.map((c) => `${LABELS[locale][c.key]}: ${show(c.key, c.from, locale)} ← ${show(c.key, c.to, locale)}`);
+    const lines = changes.map((c) => `${LABELS[locale][c.key]}: ${show(c.key, c.from, locale, project.currency)} ← ${show(c.key, c.to, locale, project.currency)}`);
     const page = `${SITE_URL}/${locale}/projects/${project.slug}#prices`;
     const off = alertLink(locale, s.token, true);
     const text =

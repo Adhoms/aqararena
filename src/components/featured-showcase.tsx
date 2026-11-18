@@ -2,10 +2,11 @@ import Link from "next/link";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import type { Locale } from "@/i18n/config";
 import {
+  currencyOf,
   summarize,
   type Developer,
+  type MarketInsights,
   type Project,
-  type ProjectValue,
 } from "@/lib/catalog";
 import { fill, formatMillions, formatMoney } from "@/lib/format";
 import { CompareButton } from "./compare/compare-button";
@@ -17,7 +18,7 @@ import { ArrowIcon } from "./ui";
 type Props = {
   projects: Project[];
   developers: Map<string, Developer>;
-  values: Record<string, ProjectValue>;
+  values: MarketInsights["values"];
   locale: Locale;
   dict: Dictionary;
 };
@@ -85,7 +86,7 @@ export function FeaturedShowcase({
                   <div className="acc-more flex min-h-0 flex-col gap-4 overflow-hidden px-0.5 pb-0.5">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <span className="font-display text-4xl font-light text-brass-light">
-                        {formatMillions(s.startingPrice, locale)}
+                        {formatMillions(s.startingPrice, locale, currencyOf(project))}
                       </span>
                       {value && (
                         <span className="text-[13px] text-on-dark">
@@ -94,7 +95,7 @@ export function FeaturedShowcase({
                       )}
                       {s.entryDown > 0 && (
                         <span className="w-full text-[13px] text-on-dark">
-                          {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale), monthly: formatMoney(s.entryMonthly, locale) })}
+                          {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale, currencyOf(project)), monthly: formatMoney(s.entryMonthly, locale, currencyOf(project)) })}
                         </span>
                       )}
                     </div>

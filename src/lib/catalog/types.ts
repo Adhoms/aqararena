@@ -1,6 +1,7 @@
 import type {
   Amenity,
   AreaSlug,
+  Currency,
   Finishing,
   InstallmentFrequency,
   PhotoGroup,
@@ -111,8 +112,10 @@ export type Project = {
   launchYear?: number;
   /** ISO date of the launch, when known. */
   launchDate?: string;
-  /** Refundable amount to reserve a unit at launch (EOI), in EGP. */
+  /** Refundable amount to reserve a unit at launch (EOI), in the project's currency. */
   bookingFee?: number;
+  /** The currency of every price of this project; EGP when not set (the demo data). */
+  currency?: Currency;
   /** Official brochure (PDF) from the developer. */
   brochureUrl?: string;
   deliveryYear: number;

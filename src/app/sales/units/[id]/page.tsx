@@ -146,6 +146,7 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
               plans={plans}
               maintenancePct={plans.find((p) => p.maintenancePct !== undefined)?.maintenancePct}
               locale="ar"
+              currency={unit.project.currency}
               labels={{
                 ...ar.calculator,
                 title: "حاسبة السداد",

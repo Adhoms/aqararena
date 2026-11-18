@@ -50,7 +50,7 @@ async function AreaContent({ params }: { params: PageProps<"/[lang]/areas/[slug]
   const figures: [string, string][] = [
     [a.projects, formatNumber(projects.length, locale)],
     [a.avgPerM2, stats ? `${formatNumber(stats.avgPricePerM2, locale)} ${dict.insights.perM2}` : "-"],
-    [a.lowest, stats ? formatMillions(stats.lowestStartingPrice, locale) : "-"],
+    [a.lowest, stats ? formatMillions(stats.lowestStartingPrice, locale, "EGP") : "-"],
     [a.developers, formatNumber(devSlugs.size, locale)],
   ];
 

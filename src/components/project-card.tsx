@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import type { Locale } from "@/i18n/config";
-import { summarize, type BudgetFit, type Developer, type Project, type ProjectValue } from "@/lib/catalog";
+import { currencyOf, summarize, type BudgetFit, type Developer, type Project, type ProjectValue } from "@/lib/catalog";
+import type { Currency } from "@/lib/property";
 import { fill, formatMillions, formatMoney } from "@/lib/format";
 import { CompareButton } from "./compare/compare-button";
 import { FavoriteButton } from "./favorites/favorite-button";
@@ -24,6 +25,7 @@ type Props = {
 
 export function ProjectCard({ project, developer, locale, dict, value, size = "compact", badge = "status", fit }: Props) {
   const s = summarize(project);
+  const currency = currencyOf(project);
   const href = `/${locale}/projects/${project.slug}`;
   const feature = size === "feature";
   const large = size === "large" || feature;
@@ -52,7 +54,7 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
           </span>
         )}
         <span className={`absolute bottom-3 start-4 font-display font-medium text-white drop-shadow ${feature ? "text-[30px]" : "text-[22px]"}`}>
-          {formatMillions(s.startingPrice, locale)}
+          {formatMillions(s.startingPrice, locale, currency)}
         </span>
       </Link>
 
@@ -73,12 +75,12 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
           <span className={`text-[13px] font-medium ${value.vsAreaPct < -1 ? "text-link" : "text-muted"}`}>{valueText(value, dict)}</span>
         )}
         {fit ? (
-          <BudgetFitLine fit={fit} locale={locale} dict={dict} />
+          <BudgetFitLine fit={fit} currency={currency} locale={locale} dict={dict} />
         ) : (
           s.entryDown > 0 && (
-            // The down payment in pounds next to the monthly figure of the same plan, never a monthly figure alone.
+            // The down payment next to the monthly figure of the same plan, never a monthly figure alone.
             <span className="text-[13px] text-body">
-              {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale), monthly: formatMoney(s.entryMonthly, locale) })}
+              {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale, currency), monthly: formatMoney(s.entryMonthly, locale, currency) })}
             </span>
           )
         )}
@@ -105,16 +107,16 @@ export function ProjectCard({ project, developer, locale, dict, value, size = "c
   );
 }
 
-function BudgetFitLine({ fit, locale, dict }: { fit: BudgetFit; locale: Locale; dict: Dictionary }) {
+function BudgetFitLine({ fit, currency, locale, dict }: { fit: BudgetFit; currency: Currency; locale: Locale; dict: Dictionary }) {
   const b = dict.budget;
   const unit = fit.typology.name[locale];
-  const money = (n: number) => formatMoney(Math.round(n / 1000) * 1000, locale);
+  const money = (n: number) => formatMoney(Math.round(n / 1000) * 1000, locale, currency);
   return (
     <span className="flex flex-col gap-0.5 rounded-2xl bg-brass-soft px-3.5 py-2.5 text-[13px] text-ink">
       <span className="font-semibold text-link">{b.fitTitle}</span>
       <span>
         {fit.monthly
-          ? fill(b.fitLine, { unit, down: money(fit.down), monthly: formatMoney(Math.round(fit.monthly / 100) * 100, locale) })
+          ? fill(b.fitLine, { unit, down: money(fit.down), monthly: formatMoney(Math.round(fit.monthly / 100) * 100, locale, currency) })
           : fill(b.fitCash, { unit, total: money(fit.down) })}
       </span>
       {fit.delivery > 0 && <span className="text-muted">{fill(b.fitDelivery, { amount: money(fit.delivery) })}</span>}

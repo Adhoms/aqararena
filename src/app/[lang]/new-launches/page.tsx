@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { ProjectCover } from "@/components/project-cover";
 import { ArrowIcon, Container } from "@/components/ui";
-import { listDevelopers, listProjects, summarize, type Project } from "@/lib/catalog";
+import { currencyOf, listDevelopers, listProjects, summarize, type Project } from "@/lib/catalog";
 import { fill, formatMillions, formatMoney, telHref } from "@/lib/format";
 import { pageAlternates } from "@/lib/site";
 import { getDictionary, getLocale } from "../dictionaries";
@@ -51,6 +51,7 @@ export default async function NewLaunchesPage() {
             const developer = devBySlug.get(project.developerSlug);
             const hotline = developer?.contacts.hotline ?? developer?.contacts.salesPhone;
             const s = summarize(project);
+            const currency = currencyOf(project);
             const href = `/${locale}/projects/${project.slug}`;
             return (
               <li
@@ -86,7 +87,7 @@ export default async function NewLaunchesPage() {
                           <span>{dict.subTypes[subType]}</span>
                           <span className="font-display">
                             <span className="text-xs text-muted">{n.from} </span>
-                            {formatMillions(price, locale)}
+                            {formatMillions(price, locale, currency)}
                           </span>
                         </li>
                       ))}
@@ -94,7 +95,7 @@ export default async function NewLaunchesPage() {
                   </div>
                   {s.entryDown > 0 && (
                     <span className="text-[13px] text-body">
-                      {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale), monthly: formatMoney(s.entryMonthly, locale) })}
+                      {fill(dict.budget.entryLine, { down: formatMoney(s.entryDown, locale, currency), monthly: formatMoney(s.entryMonthly, locale, currency) })}
                     </span>
                   )}
                 </div>
@@ -104,13 +105,13 @@ export default async function NewLaunchesPage() {
                   {project.bookingFee ? (
                     <div className="flex flex-col gap-0.5">
                       <span className="text-xs font-medium text-muted">{n.bookingFee}</span>
-                      <span className="font-display text-3xl font-light text-brass">{formatMoney(project.bookingFee, locale)}</span>
+                      <span className="font-display text-3xl font-light text-brass">{formatMoney(project.bookingFee, locale, currency)}</span>
                       <span className="text-xs text-muted">{n.bookingNote}</span>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-0.5">
                       <span className="text-xs font-medium text-muted">{dict.common.startingFrom}</span>
-                      <span className="font-display text-3xl font-light text-brass">{formatMillions(s.startingPrice, locale)}</span>
+                      <span className="font-display text-3xl font-light text-brass">{formatMillions(s.startingPrice, locale, currency)}</span>
                     </div>
                   )}
                   <div className="flex flex-col gap-2">

@@ -218,7 +218,7 @@ export function SmartSearch({ locale, labels, variant = "hero", initialText = ""
                       <span className="flex gap-4 text-[13px]">
                         <span>
                           <span className="text-muted">{labels.from} </span>
-                          <b>{formatMillions(hit.startingPrice, locale)}</b>
+                          <b>{formatMillions(hit.startingPrice, locale, hit.currency)}</b>
                         </span>
                         <span>
                           <span className="text-muted">{labels.down} </span>

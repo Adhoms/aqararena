@@ -44,7 +44,7 @@ export default async function AreasPage() {
                         {formatNumber(stats.avgPricePerM2, locale)} <span className="text-xs text-muted">{dict.insights.perM2}</span>
                       </span>
                       <span className="text-[13px] text-muted">
-                        {fill(dict.insights.projects, { n: stats.projects })} · {dict.common.startingFrom} {formatMillions(stats.lowestStartingPrice, locale)}
+                        {fill(dict.insights.projects, { n: stats.projects })} · {dict.common.startingFrom} {formatMillions(stats.lowestStartingPrice, locale, "EGP")}
                       </span>
                     </span>
                   ) : (

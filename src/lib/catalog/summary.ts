@@ -1,4 +1,10 @@
+import type { Currency } from "@/lib/property";
 import type { PaymentPlan, Project, ProjectSummary } from "./types";
+
+/** A project's currency. */
+export const currencyOf = (p: Pick<Project, "currency">): Currency => p.currency ?? "EGP";
+/** Cross-project comparisons (area figures, price filters and sort, "best" marks) are made in pounds only. */
+export const inEgp = (p: Pick<Project, "currency">) => currencyOf(p) === "EGP";
 
 /** What a plan costs per month once the down payment and the delivery payment are set aside. */
 export const monthlyFor = (price: number, plan: PaymentPlan) =>

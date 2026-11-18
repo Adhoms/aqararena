@@ -25,6 +25,7 @@ import {
   getDeveloper,
   getMarketInsights,
   getProject,
+  currencyOf,
   isCashPlan,
   monthlyFor,
   listProjectSlugs,
@@ -39,7 +40,7 @@ import {
 } from "@/lib/catalog";
 import { compareHref } from "@/lib/compare";
 import { fill, formatMillions, formatMoney, formatNumber } from "@/lib/format";
-import { INSTALLMENTS_PER_YEAR, PHOTO_GROUPS, type SubType } from "@/lib/property";
+import { INSTALLMENTS_PER_YEAR, PHOTO_GROUPS, type Currency, type SubType } from "@/lib/property";
 import { pageAlternates, SITE_URL } from "@/lib/site";
 import { getDictionary, getLocale, type Dictionary } from "../../dictionaries";
 
@@ -70,7 +71,7 @@ function describe(project: Project, developer: Developer | undefined, dict: Dict
     name: project.name[locale],
     dev: developer?.name[locale] ?? "",
     place: [project.district[locale], dict.areas[project.areaSlug]].filter(Boolean).join(locale === "ar" ? "، " : ", "),
-    price: formatMillions(s.startingPrice, locale),
+    price: formatMillions(s.startingPrice, locale, currencyOf(project)),
     down: s.minDownPct,
     years: s.maxYears,
     year: project.deliveryYear,
@@ -90,7 +91,7 @@ function similarTo(project: Project, all: Project[]) {
       const score =
         (x.areaSlug === project.areaSlug ? 3 : 0) +
         (x.categories.some((c) => project.categories.includes(c)) ? 2 : 0) +
-        (ratio > 0.6 && ratio < 1.6 ? 2 : 0) +
+        (currencyOf(x) === currencyOf(project) && ratio > 0.6 && ratio < 1.6 ? 2 : 0) +
         (x.developerSlug === project.developerSlug ? 1 : 0);
       return { x, score, gap: Math.abs(Math.log(ratio)) };
     })
@@ -140,6 +141,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
   if (!developer) notFound();
 
   const s = summarize(project);
+  const currency = currencyOf(project);
   const p = dict.projectPage;
   const [all, insights] = await Promise.all([searchProjects({}), getMarketInsights()]);
   const similar = similarTo(project, all);
@@ -177,7 +179,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
   const value = insights.values[project.slug];
   const areaAvg = insights.areas.find((a) => a.area === project.areaSlug)?.avgPricePerM2;
   const heroStats: [string, string][] = [
-    [dict.common.startingFrom, formatMillions(s.startingPrice, locale)],
+    [dict.common.startingFrom, formatMillions(s.startingPrice, locale, currency)],
     [dict.common.lowestDown, `${s.minDownPct}%`],
     [p.planYears, s.maxYears ? fill(dict.common.years, { n: s.maxYears }) : "-"],
     [dict.common.delivery, String(project.deliveryYear)],
@@ -199,7 +201,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
           ...(project.pricesUpdated && { dateModified: project.pricesUpdated }),
           offers: {
             "@type": "AggregateOffer",
-            priceCurrency: "EGP",
+            priceCurrency: currency,
             lowPrice: s.startingPrice,
             highPrice: Math.max(...project.typologies.map((t) => t.priceFrom)),
             offerCount: project.typologies.length,
@@ -361,7 +363,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
           <aside aria-label={p.officialNumbers} className="flex flex-[1_1_320px] flex-col gap-4.5 rounded-3xl border border-line bg-surface p-6">
             <div className="flex flex-col">
               <span className="text-[13px] text-muted">{p.pricesFrom}</span>
-              <span className="font-display text-[32px] font-medium">{formatMoney(s.startingPrice, locale)}</span>
+              <span className="font-display text-[32px] font-medium">{formatMoney(s.startingPrice, locale, currency)}</span>
               <span className="text-sm text-muted">{fill(p.priceSummary, { down: s.minDownPct, years: s.maxYears })}</span>
             </div>
             <div className="flex flex-col gap-2.5 border-t border-divider pt-4">
@@ -428,7 +430,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-5">
                       {items.map((t) => (
                         <li key={t.code}>
-                          <UnitCard typology={t} locale={locale} dict={dict} />
+                          <UnitCard typology={t} currency={currency} locale={locale} dict={dict} />
                         </li>
                       ))}
                     </ul>
@@ -461,7 +463,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
                 <span className="font-semibold">{dict.newLaunches.bookingFee}</span>
                 <span className="text-[13px] text-muted">{dict.newLaunches.bookingNote}</span>
               </span>
-              <span className="font-display text-2xl text-brass">{formatMoney(project.bookingFee, locale)}</span>
+              <span className="font-display text-2xl text-brass">{formatMoney(project.bookingFee, locale, currency)}</span>
             </div>
           )}
           {project.typologies.length > 0 && project.paymentPlans.length > 0 && (
@@ -472,8 +474,10 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
               plans={project.paymentPlans}
               maintenancePct={project.fees.maintenancePct}
               locale={locale}
+              currency={currency}
               labels={{
                 ...dict.calculator,
+                ...(currency === "USD" && { title: dict.calculator.titleDollars, sub: dict.calculator.subDollars }),
                 frequencyPer: dict.frequencyPer,
                 planNames: project.paymentPlans.map((plan) => plan.name[locale]),
               }}
@@ -482,7 +486,7 @@ async function ProjectContent({ params }: { params: PageProps<"/[lang]/projects/
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-5">
             {project.paymentPlans.map((plan, i) => (
               <li key={i}>
-                <PlanCard plan={plan} price={s.startingPrice} locale={locale} dict={dict} />
+                <PlanCard plan={plan} price={s.startingPrice} currency={currency} locale={locale} dict={dict} />
               </li>
             ))}
           </ul>
@@ -724,10 +728,12 @@ function ZonePanel({ zone, locale, dict }: { zone: MasterPlanZone; locale: Local
 
 function UnitCard({
   typology: t,
+  currency,
   locale,
   dict,
 }: {
   typology: Typology;
+  currency: Currency;
   locale: Locale;
   dict: Dictionary;
 }) {
@@ -760,27 +766,39 @@ function UnitCard({
         </dl>
         <div className="mt-auto flex flex-col border-t border-divider pt-3">
           <span className="text-xs text-muted">{dict.common.startingFrom}</span>
-          <span className="font-display text-lg font-medium">{formatMoney(t.priceFrom, locale)}</span>
+          <span className="font-display text-lg font-medium">{formatMoney(t.priceFrom, locale, currency)}</span>
         </div>
       </div>
     </article>
   );
 }
 
-function PlanCard({ plan, price, locale, dict }: { plan: PaymentPlan; price: number; locale: Locale; dict: Dictionary }) {
+function PlanCard({
+  plan,
+  price,
+  currency,
+  locale,
+  dict,
+}: {
+  plan: PaymentPlan;
+  price: number;
+  currency: Currency;
+  locale: Locale;
+  dict: Dictionary;
+}) {
   const p = dict.projectPage;
   const cash = isCashPlan(plan);
   const count = plan.years * INSTALLMENTS_PER_YEAR[plan.frequency];
   const installment = cash ? 0 : (price * (100 - plan.downPaymentPct - plan.deliveryPaymentPct)) / 100 / count;
   const example = cash
-    ? formatMoney(price * (1 - (plan.cashDiscountPct ?? 0) / 100), locale)
-    : `~${formatMoney(Math.round(installment / 50) * 50, locale)} ${dict.frequencyPer[plan.frequency]}`;
-  const round = (n: number) => formatMoney(Math.round(n / 50) * 50, locale);
+    ? formatMoney(price * (1 - (plan.cashDiscountPct ?? 0) / 100), locale, currency)
+    : `~${formatMoney(Math.round(installment / 50) * 50, locale, currency)} ${dict.frequencyPer[plan.frequency]}`;
+  const round = (n: number) => formatMoney(Math.round(n / 50) * 50, locale, currency);
   const rows: [string, string][] = [
     [p.planYears, cash ? "-" : fill(dict.common.years, { n: plan.years })],
     [p.planFrequency, cash ? p.oneOff : dict.frequency[plan.frequency]],
     [p.planDelivery, cash ? "-" : plan.deliveryPaymentPct ? `${plan.deliveryPaymentPct}%` : p.none],
-    [fill(p.planExample, { price: formatMillions(price, locale) }), example],
+    [fill(p.planExample, { price: formatMillions(price, locale, currency) }), example],
     ...(cash
       ? []
       : ([
@@ -820,7 +838,7 @@ function SimilarCard({ project, other, locale, dict }: { project: Project; other
       <span className="flex flex-col leading-normal">
         <span className="font-display text-[17px] font-medium">{other.name[locale]}</span>
         <span className="text-[13px] text-muted">
-          {dict.areas[other.areaSlug]} · {dict.common.startingFrom} {formatMillions(summarize(other).startingPrice, locale)}
+          {dict.areas[other.areaSlug]} · {dict.common.startingFrom} {formatMillions(summarize(other).startingPrice, locale, currencyOf(other))}
         </span>
         <span className="text-[13px] font-semibold text-link">{fill(dict.projectPage.compareWith, { name: project.name[locale] })}</span>
       </span>

@@ -758,7 +758,10 @@ model SalesOffer {
   developerId    String
   developer      Developer      @relation(fields: [developerId], references: [id], onDelete: Cascade)
   salesAccountId String
-  salesAccount   SalesAccount   @relation("OfferOwner", fields: [salesAccountId], references: [id], onDelete: Cascade)
+  /// NoAction: offers are history, like holds; an account with offers can't be deleted on its own.
+  /// Deleting the developer still works: its cascade removes the accounts and their offers in one
+  /// statement, and NO ACTION is only checked at the end of it.
+  salesAccount   SalesAccount   @relation("OfferOwner", fields: [salesAccountId], references: [id], onDelete: NoAction)
   /// Null once the unit is deleted; the snapshot keeps what was offered.
   unitId         String?
   unit           Unit?          @relation(fields: [unitId], references: [id], onDelete: SetNull)
@@ -793,4 +796,5 @@ model SalesOffer {
   @@index([salesAccountId, createdAt])
   @@index([developerId, status])
   @@index([unitId])
+  @@index([paymentPlanId])
 }

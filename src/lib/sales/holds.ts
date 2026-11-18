@@ -55,7 +55,9 @@ export const salesState = (availability: AvailabilityValue, held: boolean): Sale
 
 /** Reads an hours field (whole hours, 1 to 168). Empty reads as null, and is an error only when required. */
 export function readHoldHours(f: FormReader, name: string, { required = false } = {}): number | null {
+  const typed = f.raw(name) !== "";
   const hours = f.int(name, { required, min: HOLD_HOURS_MIN, max: HOLD_HOURS_MAX });
-  if (f.errors[name] && f.errors[name] !== "هذا الحقل مطلوب") f.errors[name] = `اكتب عدد ساعات صحيح من ${HOLD_HOURS_MIN} لـ ${HOLD_HOURS_MAX}`;
+  // Something typed but not a whole number in range gets one clear message (empty keeps "required").
+  if (typed && f.errors[name]) f.errors[name] = `اكتب عدد ساعات صحيح من ${HOLD_HOURS_MIN} لـ ${HOLD_HOURS_MAX}`;
   return hours;
 }

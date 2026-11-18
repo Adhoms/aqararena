@@ -1,6 +1,7 @@
 import ar from "@/app/[lang]/dictionaries/ar.json";
 import {
   AMENITIES,
+  CURRENCIES,
   FINISHING_TYPES,
   INSTALLMENT_FREQUENCIES,
   ORIENTATIONS,
@@ -27,6 +28,8 @@ export type Column = {
   /** Short help shown as a note on the header cell and on the instructions sheet. */
   help?: string;
   width?: number;
+  /** Older header texts still accepted on import. */
+  aliases?: string[];
 };
 
 export type SheetDef = { key: SheetKey; name: string; columns: Column[] };
@@ -45,6 +48,7 @@ export const CHOICES = {
   availability: choices(UNIT_AVAILABILITY, ar.availability),
   unitViews: choices(UNIT_VIEWS, ar.unitViews),
   orientations: choices(ORIENTATIONS, ar.orientations),
+  currency: choices(CURRENCIES, { EGP: "جنيه", USD: "دولار" }),
   yesNo: [
     { value: "on", label: "نعم" },
     { value: "", label: "لا" },
@@ -88,7 +92,8 @@ export const SHEETS: SheetDef[] = [
       { key: "deliveryDate", header: "موعد التسليم", required: true, type: "date", help: "تاريخ (31/12/2028) أو سنة فقط (2028)" },
       { key: "launchDate", header: "تاريخ الإطلاق", type: "date" },
       { key: "categories", header: "أنواع المساحات", type: "choices", choices: CHOICES.categories, width: 24, help: "أكثر من نوع؟ افصل بفاصلة: سكني، تجاري" },
-      { key: "bookingFee", header: "مبلغ الحجز (جنيه)", type: "number" },
+      { key: "bookingFee", header: "مبلغ الحجز (بعملة المشروع)", aliases: ["مبلغ الحجز (جنيه)"], type: "number" },
+      { key: "currency", header: "العملة", type: "choice", choices: CHOICES.currency, help: "فاضي = جنيه. كل أسعار المشروع وخططه وعروضه بالعملة دي، ومفيش تحويل" },
       { key: "landFeddan", header: "مساحة الأرض (فدان)", type: "number" },
       { key: "footprintPct", header: "نسبة المباني %", type: "number" },
       { key: "unitsCount", header: "عدد الوحدات", type: "number" },
@@ -113,7 +118,7 @@ export const SHEETS: SheetDef[] = [
       { key: "category", header: "الفئة", required: true, type: "choice", choices: CHOICES.categories },
       { key: "finishing", header: "التشطيب", required: true, type: "choice", choices: CHOICES.finishing, width: 26 },
       { key: "buaM2", header: "المساحة (م²)", required: true, type: "number" },
-      { key: "priceFrom", header: "السعر يبدأ من (جنيه)", required: true, type: "number", width: 20 },
+      { key: "priceFrom", header: "السعر يبدأ من (بعملة المشروع)", aliases: ["السعر يبدأ من (جنيه)"], required: true, type: "number", width: 20 },
       { key: "bedrooms", header: "غرف النوم", type: "number" },
       { key: "bathrooms", header: "الحمامات", type: "number" },
       { key: "gardenM2", header: "حديقة (م²)", type: "number" },
@@ -134,8 +139,8 @@ export const SHEETS: SheetDef[] = [
       { key: "deliveryPaymentPct", header: "دفعة الاستلام %", type: "number" },
       { key: "cashDiscountPct", header: "خصم الكاش %", type: "number" },
       { key: "maintenancePct", header: "وديعة الصيانة %", type: "number" },
-      { key: "garageFee", header: "الجراج (جنيه)", type: "number" },
-      { key: "clubFee", header: "النادي (جنيه)", type: "number" },
+      { key: "garageFee", header: "الجراج (بعملة المشروع)", aliases: ["الجراج (جنيه)"], type: "number" },
+      { key: "clubFee", header: "النادي (بعملة المشروع)", aliases: ["النادي (جنيه)"], type: "number" },
       { key: "validUntil", header: "ساري حتى", type: "date" },
       { key: "nameAr", header: "اسم النظام بالعربية", type: "text", width: 24 },
       { key: "nameEn", header: "اسم النظام بالإنجليزية", type: "text", width: 24 },
@@ -152,7 +157,7 @@ export const SHEETS: SheetDef[] = [
       { key: "building", header: "المبنى", type: "text" },
       { key: "floor", header: "الدور", type: "number", help: "0 أو «أرضي» للدور الأرضي" },
       { key: "availability", header: "حالة الوحدة", type: "choice", choices: CHOICES.availability, help: "فاضي = متاحة" },
-      { key: "price", header: "سعر الوحدة (جنيه)", type: "number", width: 20, help: "اختياري. فاضي = يظهر سعر النموذج بس" },
+      { key: "price", header: "سعر الوحدة (بعملة المشروع)", aliases: ["سعر الوحدة (جنيه)"], type: "number", width: 20, help: "اختياري. فاضي = يظهر سعر النموذج بس" },
       { key: "view", header: "الإطلالة", type: "choice", choices: CHOICES.unitViews },
       { key: "orientation", header: "الاتجاه", type: "choice", choices: CHOICES.orientations },
     ],
@@ -160,3 +165,21 @@ export const SHEETS: SheetDef[] = [
 ];
 
 export const sheetByKey = (key: SheetKey) => SHEETS.find((s) => s.key === key)!;
+
+/** Loose form of a name for matching: case, spaces and common Arabic spelling variants ignored. */
+export function norm(s: string) {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/[ً-ْـ]/g, "") // diacritics and tatweel
+    .replace(/\s+/g, " ");
+}
+
+/** Whether a header cell names this column: its header, an older header, or its field key ("*" ignored). */
+export const headerMatches = (col: Column, cell: string) => {
+  const h = norm(cell.replace(/\*/g, ""));
+  return [col.header, ...(col.aliases ?? [])].some((x) => norm(x) === h) || col.key.toLowerCase() === h;
+};

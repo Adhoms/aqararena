@@ -12,7 +12,7 @@ import { isBusy } from "@/lib/sales/hold-errors";
 import type { AvailabilityValue } from "@/lib/sales/holds";
 import { holdsLeavingWarning } from "@/lib/sales/labels";
 import { leavingSales, nothingLeaves, type Leaving } from "./leaving";
-import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./columns";
+import { CHOICES, SHEETS, headerMatches, norm, type Column, type SheetDef, type SheetKey } from "./columns";
 
 // Builds the Excel template (optionally filled with what is already on the site) and imports
 // a filled one. An import is all or nothing: every row is checked first, and nothing is saved
@@ -34,18 +34,6 @@ const scopeOfSave = (updateIds: string[], leaving: Leaving): Prisma.UnitWhereInp
     : null;
 
 // ─── Matching names typed by people ─────────────────────────────────────
-
-/** Loose form of a name for matching: case, spaces and common Arabic spelling variants ignored. */
-export function norm(s: string) {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/[ً-ْـ]/g, "") // diacritics and tatweel
-    .replace(/\s+/g, " ");
-}
 
 class Lookup<T> {
   private map = new Map<string, T>();
@@ -164,8 +152,7 @@ function readSheet(wb: ExcelJS.Workbook, def: SheetDef, problems: Problem[]): Sh
   // Match header cells to columns by their text (the "*" for required columns is optional).
   const byColumn = new Map<number, Column>();
   ws.getRow(1).eachCell((cell, n) => {
-    const h = norm(String(rawValue(cell) ?? "").replace(/\*/g, ""));
-    const col = def.columns.find((c) => norm(c.header) === h || c.key.toLowerCase() === h);
+    const col = def.columns.find((c) => headerMatches(c, String(rawValue(cell) ?? "")));
     if (col) {
       byColumn.set(n, col);
       out.present.add(col.key);
@@ -683,6 +670,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
       launchDate: date(p.launchDate),
       categories: many(CHOICES.categories, p.categories),
       bookingFee: num(p.bookingFee),
+      currency: label(CHOICES.currency, p.currency),
       landFeddan: p.landAreaM2 ? Math.round((Number(p.landAreaM2) / FEDDAN_M2) * 100) / 100 : null,
       footprintPct: num(p.footprintPct),
       unitsCount: p.unitsCount,
@@ -800,7 +788,7 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
     if (!refs.typology) say("كود النموذج", "هذا الحقل مطلوب");
     else if (!type) say("كود النموذج", `مالقيناش نموذج بالكود «${refs.typology}» في المشروع ده`);
     const priceProblem = type ? unitPriceProblem(values.price, Number(type.priceFrom)) : null;
-    if (priceProblem) say("سعر الوحدة (جنيه)", priceProblem);
+    if (priceProblem) say(def.columns.find((c) => c.key === "price")?.header ?? "price", priceProblem);
     if (!type || !values.unitNumber) continue;
     const key = unitKey(values.building, values.unitNumber);
     if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المبنى والرقم)");

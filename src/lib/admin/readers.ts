@@ -1,6 +1,7 @@
 import type { FormReader } from "./form";
 import {
   AMENITIES,
+  CURRENCIES,
   FINISHING_TYPES,
   INSTALLMENT_FREQUENCIES,
   ORIENTATIONS,
@@ -60,6 +61,8 @@ export function readProject(f: FormReader) {
     progressPct: f.int("progressPct", { min: 0, max: 100 }),
     pricesUpdatedAt: f.date("pricesUpdatedAt"),
     bookingFee: f.number("bookingFee", { min: 0 }),
+    // Not required: an Excel sheet without the column still creates projects in pounds.
+    currency: f.oneOf("currency", CURRENCIES) ?? "EGP",
     landAreaM2: landFeddan === null ? null : Math.round(landFeddan * FEDDAN_M2 * 100) / 100,
     footprintPct: f.pct("footprintPct"),
     unitsCount: f.int("unitsCount", { min: 0 }),

@@ -32,6 +32,10 @@ export const options = {
   availability: UNIT_AVAILABILITY.map((value) => ({ value, label: ar.availability[value] })),
   unitViews: UNIT_VIEWS.map((value) => ({ value, label: ar.unitViews[value] })),
   orientations: ORIENTATIONS.map((value) => ({ value, label: ar.orientations[value] })),
+  currency: [
+    { value: "EGP", label: "جنيه مصري" },
+    { value: "USD", label: "دولار أمريكي" },
+  ],
   zoneKinds: opts(ZONE_KINDS, {
     RESIDENTIAL: "سكني",
     VILLAS: "فيلات",

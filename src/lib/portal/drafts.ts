@@ -44,6 +44,7 @@ export function draftFromProject(p: LiveProject): ProjectDraft {
       launchDate: day(p.launchDate),
       progressPct: str(p.progressPct),
       bookingFee: str(p.bookingFee),
+      currency: p.currency,
       landFeddan: p.landAreaM2 ? String(Math.round((Number(p.landAreaM2) / FEDDAN_M2) * 100) / 100) : "",
       footprintPct: str(p.footprintPct),
       unitsCount: str(p.unitsCount),

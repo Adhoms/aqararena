@@ -83,8 +83,12 @@ export async function projectReview(projectId: string | null, draft: ProjectDraf
   // A renamed unit type keeps its live id, so it shows as a change rather than removed + added.
   const code = (f: Fields) => (typeof f.liveId === "string" && f.liveId) || String(f.code ?? "").trim().toLowerCase();
 
+  // A draft saved before the currency setting has no currency: approving it keeps the live one, so it isn't a change.
+  const currencyGiven = typeof draft.project.currency === "string" && draft.project.currency !== "";
+  const projectFields = ALL_PROJECT_FIELDS.filter((d) => d.type !== "image" && (currencyGiven || d.key !== "currency"));
+
   const sections: DiffSection[] = [
-    { title: "بيانات المشروع", rows: fieldRows(ALL_PROJECT_FIELDS.filter((d) => d.type !== "image"), before?.project ?? null, draft.project, areas) },
+    { title: "بيانات المشروع", rows: fieldRows(projectFields, before?.project ?? null, draft.project, areas) },
     { title: "نماذج الوحدات", rows: listRows(TYPOLOGY_FIELDS, before?.typologies ?? [], draft.typologies, code, areas, "نموذج") },
     { title: "أنظمة السداد", rows: listRows(PLAN_FIELDS, before?.plans ?? [], draft.plans, null, areas, "نظام") },
     { title: "المسافات", rows: listRows(DISTANCE_FIELDS, before?.distances ?? [], draft.distances, null, areas, "مسافة") },

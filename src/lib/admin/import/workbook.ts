@@ -573,6 +573,7 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
     { title: "حالة الوحدة", values: CHOICES.availability.map((c) => c.label) },
     { title: "الإطلالة", values: CHOICES.unitViews.map((c) => c.label) },
     { title: "الاتجاه", values: CHOICES.orientations.map((c) => c.label) },
+    { title: "العملة", values: CHOICES.currency.map((c) => c.label) },
   ];
   const listRange = new Map<string, string>();
   listCols.forEach((l, i) => {
@@ -597,6 +598,7 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
       availability: "حالة الوحدة",
       view: "الإطلالة",
       orientation: "الاتجاه",
+      currency: "العملة",
     }[col.key];
     return title ? { range: listRange.get(title)!, strict: true } : null;
   };

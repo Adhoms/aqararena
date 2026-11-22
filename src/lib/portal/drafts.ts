@@ -195,6 +195,8 @@ function run<T>(fields: Fields, read: (f: FormReader) => T, prefix: string, erro
 
 export type CheckedProject = {
   project: ReturnType<typeof readProject>;
+  /** False for a draft saved before the currency setting: approving it keeps the live project's currency. */
+  currencyGiven: boolean;
   areaId: string | null;
   /** `liveId`: the live unit type the row was opened from (null for a new one). */
   typologies: (ReturnType<typeof readTypology> & { liveId: string | null })[];
@@ -251,7 +253,8 @@ export async function checkProjectDraft(draft: ProjectDraft): Promise<{ errors: 
     return v;
   });
 
-  return { errors, values: { project, areaId, typologies, plans, media, distances } };
+  const currencyGiven = typeof draft.project.currency === "string" && draft.project.currency !== "";
+  return { errors, values: { project, currencyGiven, areaId, typologies, plans, media, distances } };
 }
 
 export function checkProfileDraft(draft: ProfileDraft) {
@@ -282,7 +285,8 @@ export async function applyProjectDraft(
   { developerId, projectId, values, publish }: { developerId: string; projectId: string | null; values: CheckedProject; publish: boolean },
 ): Promise<{ projectId: string; removedUrls: string[] }> {
   // The admin decides about publishing and featuring; the slug stays once set.
-  const { isFeatured: _f, published: _p, slug, pricesUpdatedAt: _d, ...fields } = values.project;
+  const { isFeatured: _f, published: _p, slug, pricesUpdatedAt: _d, currency, ...rest } = values.project;
+  const fields = { ...rest, ...(values.currencyGiven && { currency }) };
   void _f;
   void _p;
   void _d;

@@ -12,7 +12,7 @@ import { deleteIfUnused } from "@/lib/admin/blob";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
 import { toStepRows } from "@/lib/catalog/plan-steps";
-import { recordPriceHistory } from "@/lib/price-history";
+import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
 import { findTwinUnit } from "@/lib/units";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
 import { releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
@@ -131,8 +131,10 @@ export async function saveProject(_: FormState, data: FormData): Promise<FormSta
   try {
     if (id) {
       released = await db.$transaction(async (tx) => {
-        const before = await tx.project.findUnique({ where: { id }, select: { developerId: true, published: true } });
+        const before = await tx.project.findUnique({ where: { id }, select: { developerId: true, published: true, currency: true } });
         await tx.project.update({ where: { id }, data: { ...values, ...relations } });
+        // Prices in another currency: the price history and the alert figures start again.
+        if (before && before.currency !== values.currency) await restartPriceTracking([id], tx);
         // Moved to another developer or unpublished: its units leave that developer's Sales, and lose their holds.
         const leaves = before && projectLeavesSales({ developer: before.developerId, published: before.published }, { developer: developerId, published: values.published });
         return leaves ? releaseHoldsOutOfSales(tx, { typology: { projectId: id } }) : 0;

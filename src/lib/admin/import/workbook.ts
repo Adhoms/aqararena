@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FEDDAN_M2 } from "@/lib/admin/readers";
 import { formatSteps, stepsOf, toStepRows } from "@/lib/catalog/plan-steps";
-import { recordPriceHistory } from "@/lib/price-history";
+import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
 import type { Prisma } from "@/generated/prisma/client";
@@ -429,12 +429,15 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
         }
 
         const projId = new Map(projects.map((p) => [p.slug, p.id]));
+        // Existing projects whose currency the sheet changes: their price history and alert figures start again.
+        const newCurrency: string[] = [];
         for (const p of projRows) {
           // The price date is set below from the unit types and plans, never from the sheet.
           const values: Omit<typeof p.values, "pricesUpdatedAt"> & { pricesUpdatedAt?: Date | null } = { ...p.values };
           delete values.pricesUpdatedAt;
           const relations = { developer: { connect: { id: devId.get(p.devSlug)! } }, area: { connect: { id: p.areaId } } };
           const update = onlyPresent(values, p.present, ["nameAr", "nameEn", "slug", "status", "deliveryDate"]);
+          const was = "currency" in update ? await tx.project.findUnique({ where: { slug: p.slug }, select: { currency: true } }) : null;
           const saved = await tx.project.upsert({
             where: { slug: p.slug },
             create: { ...values, ...relations },
@@ -442,6 +445,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
             select: { id: true },
           });
           projId.set(p.slug, saved.id);
+          if (was && was.currency !== values.currency) newCurrency.push(saved.id);
         }
 
         const typId = new Map(typIdByCode);
@@ -479,6 +483,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
         const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
         if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
         await recordPriceHistory([...touched], tx);
+        await restartPriceTracking(newCurrency, tx);
 
         // Lock the units this save may take out of Sales before writing any unit, in id order, as every
         // other write that changes many units does (after the project and type rows, as they do too).

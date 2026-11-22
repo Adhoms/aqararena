@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { sendEmails, type Mail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
 import { formatMoney } from "@/lib/format";
@@ -28,10 +29,10 @@ export type PriceSnapshot = {
 export const newToken = () => randomBytes(24).toString("base64url");
 
 /** Today's figures for a project, or null when it has no priced units yet. */
-export async function priceSnapshot(projectId: string): Promise<PriceSnapshot | null> {
+export async function priceSnapshot(projectId: string, client: Prisma.TransactionClient | typeof db = db): Promise<PriceSnapshot | null> {
   const [types, plans] = await Promise.all([
-    db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { priceFrom: true, buaM2: true } }),
-    db.paymentPlan.findMany({ where: { projectId, isActive: true }, select: { downPaymentPct: true, deliveryPaymentPct: true, years: true, cashDiscountPct: true } }),
+    client.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { priceFrom: true, buaM2: true } }),
+    client.paymentPlan.findMany({ where: { projectId, isActive: true }, select: { downPaymentPct: true, deliveryPaymentPct: true, years: true, cashDiscountPct: true } }),
   ]);
   if (!types.length) return null;
   const prices = types.map((t) => Number(t.priceFrom));

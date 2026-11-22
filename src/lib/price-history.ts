@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import { priceSnapshot } from "./price-alerts";
 import { changedPoints, currentPoints } from "./price-points";
 
 // Price history: the price per m² of each unit type, and the project's average, on every day it
@@ -33,5 +34,20 @@ export async function recordPriceHistory(projectIds: string[], client: Prisma.Tr
     if (points.length) {
       await client.priceHistory.createMany({ data: points.map((p) => ({ projectId, typologyId: p.typologyId, recordedAt: day, pricePerM2: p.perM2 })) });
     }
+  }
+}
+
+/**
+ * For projects whose currency just changed: their earlier prices were in the other currency, so the
+ * history starts again from today's figures, and the price-alert snapshot is replaced by today's figures
+ * too, so the change itself sends no alert. Call it in the transaction that changes the currency, after
+ * the prices are written.
+ */
+export async function restartPriceTracking(projectIds: string[], client: Prisma.TransactionClient | typeof db = db) {
+  for (const projectId of new Set(projectIds)) {
+    await client.priceHistory.deleteMany({ where: { projectId } });
+    await recordPriceHistory([projectId], client);
+    const now = await priceSnapshot(projectId, client);
+    await client.project.update({ where: { id: projectId }, data: { alertSnapshot: now ?? Prisma.DbNull } });
   }
 }

@@ -5,7 +5,7 @@ import { FormReader } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { FEDDAN_M2, readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
 import { formatSteps, stepsOf, toStepRows } from "@/lib/catalog/plan-steps";
-import { recordPriceHistory } from "@/lib/price-history";
+import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
 import { releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
 import { matchTypologies } from "./match-typologies";
 import { PHOTO_GROUPS } from "@/lib/property";
@@ -294,8 +294,10 @@ export async function applyProjectDraft(
   const removedUrls: string[] = [];
 
   let id = projectId;
+  let currencyChanged = false;
   if (id) {
-    const live = await tx.project.findUnique({ where: { id }, select: { masterPlanUrl: true } });
+    const live = await tx.project.findUnique({ where: { id }, select: { masterPlanUrl: true, currency: true } });
+    currencyChanged = Boolean(live && fields.currency && live.currency !== fields.currency);
     if (live?.masterPlanUrl && live.masterPlanUrl !== fields.masterPlanUrl) removedUrls.push(live.masterPlanUrl);
     await tx.project.update({ where: { id }, data: { ...fields, ...relations, pricesUpdatedAt: today(), ...(publish && { published: true }) } });
   } else {
@@ -331,6 +333,8 @@ export async function applyProjectDraft(
   if (values.typologies.some((t) => t.priceFrom === null)) await releaseHoldsOutOfSales(tx, { typology: { projectId: id, priceFrom: null } });
 
   await recordPriceHistory([id], tx);
+  // Prices in another currency: the price history and the alert figures start again (no alert for the change).
+  if (currencyChanged) await restartPriceTracking([id], tx);
 
   // Plans: replaced as a whole.
   await tx.paymentPlan.deleteMany({ where: { projectId: id } });

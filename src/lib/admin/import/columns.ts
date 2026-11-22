@@ -133,9 +133,10 @@ export const SHEETS: SheetDef[] = [
     columns: [
       { key: "project", header: "المشروع", required: true, type: "ref", width: 26 },
       { key: "typology", header: "كود النموذج", type: "ref", help: "اتركه فاضي لو النظام لكل النماذج" },
-      { key: "downPaymentPct", header: "المقدم %", required: true, type: "number" },
-      { key: "years", header: "عدد السنوات", required: true, type: "number", help: "0 = كاش" },
+      { key: "downPaymentPct", header: "المقدم %", required: true, type: "number", help: "مش لازم لو فيه جدول مخصص" },
+      { key: "years", header: "عدد السنوات", required: true, type: "number", help: "0 = كاش، ومش لازم لو فيه جدول مخصص" },
       { key: "frequency", header: "الأقساط", required: true, type: "choice", choices: CHOICES.frequency },
+      { key: "steps", header: "جدول سداد مخصص", type: "text", width: 40, help: "اختياري: الشهر:النسبة مفصولين بفاصلة، زي 0:5, 3:5, 6-96/3:90, صيانة 9-33/12:100. لو موجود، المقدم والسنين بيتحسبوا منه" },
       { key: "deliveryPaymentPct", header: "دفعة الاستلام %", type: "number" },
       { key: "cashDiscountPct", header: "خصم الكاش %", type: "number" },
       { key: "maintenancePct", header: "وديعة الصيانة %", type: "number" },

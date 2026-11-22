@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FEDDAN_M2 } from "@/lib/admin/readers";
+import { formatSteps, stepsOf, toStepRows } from "@/lib/catalog/plan-steps";
 import { recordPriceHistory } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
@@ -332,7 +333,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   }
 
   // Payment plans
-  const planRows: { projSlug: string; code: string | null; values: ReturnType<typeof readPaymentPlan> }[] = [];
+  const planRows: { projSlug: string; code: string | null; values: ReturnType<typeof readPaymentPlan>; stepsPresent: boolean }[] = [];
   {
     const { def, rows, present } = sheets.plans;
     for (const { row, cells } of rows) {
@@ -347,7 +348,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       const code = refs.typology || null;
       if (proj && code && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
       if (!proj) continue;
-      planRows.push({ projSlug: proj.slug, code, values });
+      planRows.push({ projSlug: proj.slug, code, values, stepsPresent: present.has("steps") });
       const typologyId = code && proj.existingId ? (typIdByCode.get(`${proj.existingId}/${code.toLowerCase()}`) ?? "new") : null;
       const known = proj.existingId && typologyId !== "new" && existingPlans.has(planKey(proj.existingId, typologyId, values.downPaymentPct, values.years, values.frequency));
       counts.plans[known ? "update" : "create"]++;
@@ -461,16 +462,17 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
         for (const p of planRows) {
           const projectId = projId.get(p.projSlug)!;
           const typologyId = p.code ? typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null : null;
-          const { steps: _steps, ...plan } = p.values;
-          void _steps;
+          const { steps, ...plan } = p.values;
           const values = { ...plan, typologyId };
+          const rows = toStepRows(steps);
           // The same plan (down payment, years, frequency, unit type) is updated rather than duplicated.
+          // Its steps change only when the sheet has the column, so an old template never wipes them.
           const same = await tx.paymentPlan.findFirst({
             where: { projectId, typologyId, downPaymentPct: values.downPaymentPct, years: values.years, frequency: values.frequency },
             select: { id: true },
           });
-          if (same) await tx.paymentPlan.update({ where: { id: same.id }, data: values });
-          else await tx.paymentPlan.create({ data: { ...values, projectId } });
+          if (same) await tx.paymentPlan.update({ where: { id: same.id }, data: { ...values, ...(p.stepsPresent && { steps: { deleteMany: {}, create: rows } }) } });
+          else await tx.paymentPlan.create({ data: { ...values, projectId, steps: { create: rows } } });
           touched.add(projectId);
         }
 
@@ -613,6 +615,8 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
       cell.alignment = { vertical: "middle" };
       if (c.help) cell.note = c.help;
       if (c.type === "date") ws.getColumn(i + 1).numFmt = "dd/mm/yyyy";
+      // Text, so Excel doesn't read a typed "0:100" as a time of day.
+      if (c.key === "steps") ws.getColumn(i + 1).numFmt = "@";
       if (c.type === "number" && /price|Fee|bookingFee/i.test(c.key)) ws.getColumn(i + 1).numFmt = "#,##0";
       const list = listFor(c);
       if (list) {
@@ -650,7 +654,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
           orderBy: { code: "asc" },
           include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }] } },
         },
-        paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } } } },
+        paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } }, steps: { orderBy: { sortOrder: "asc" } } } },
       },
     }),
   ]);
@@ -710,6 +714,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
         downPaymentPct: num(pl.downPaymentPct),
         years: pl.years,
         frequency: label(CHOICES.frequency, pl.frequency),
+        steps: pl.steps.length ? formatSteps(stepsOf(pl.steps)) : null,
         deliveryPaymentPct: num(pl.deliveryPaymentPct),
         cashDiscountPct: num(pl.cashDiscountPct),
         maintenancePct: num(pl.maintenancePct),

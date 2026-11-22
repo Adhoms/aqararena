@@ -1,4 +1,5 @@
 import "server-only";
+import type { ChildProcess } from "node:child_process";
 import type { Browser, HTTPRequest } from "puppeteer-core";
 
 // Prints a page of this site to PDF with a headless Chromium (spec section 7). On Vercel the browser
@@ -10,8 +11,16 @@ export const pdfEnabled = () => process.env.OFFER_PDF === "on";
 
 /** An offer page (297 × 185.625 mm) in CSS pixels, so the screen layout matches the printed one. */
 const VIEWPORT = { width: 1123, height: 702 };
-/** The whole render stays under this, well inside the routes' maxDuration of 60 s. */
+/**
+ * The whole request stays under this, well inside the routes' maxDuration of 60 s. It counts from the
+ * call, so time spent waiting for the render before it is part of it.
+ */
 const RENDER_BUDGET_MS = 45_000;
+/** One render at a time; one more may wait this long for it, and any other is turned away. */
+const MAX_WAIT_MS = 10_000;
+const MAX_IN_LINE = 2;
+/** Unpacking @sparticuz/chromium to /tmp on a cold instance. */
+const UNPACK_TIMEOUT_MS = 15_000;
 const LAUNCH_TIMEOUT_MS = 15_000;
 const PROTOCOL_TIMEOUT_MS = 20_000;
 const NAVIGATION_TIMEOUT_MS = 20_000;
@@ -23,14 +32,30 @@ const CLOSE_TIMEOUT_MS = 5_000;
 const UNSAFE_ARGS = new Set(["--disable-web-security", "--allow-running-insecure-content"]);
 /** Analytics beacons: nothing to print, and they'd keep the network busy. */
 const BLOCKED_PATHS = ["/_vercel/insights", "/_vercel/speed-insights"];
+const BYPASS_HEADER = "x-vercel-protection-bypass";
+
+/** Another PDF is being made and this one would wait too long: callers fall back to the print button. */
+export class PdfBusyError extends Error {
+  constructor() {
+    super("Another PDF is being made on this server; try again shortly or use the page's print button.");
+    this.name = "PdfBusyError";
+  }
+}
+
+/** `promise`, or a rejection naming `what` after `ms`. The promise itself carries on. */
+function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error(`${what} took longer than ${ms} ms`)), ms)));
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
 
 // @sparticuz/chromium unpacks itself to /tmp on first use; two cold requests at once could get a
 // half-written binary. Every caller shares one unpacking.
 let chromiumPath: Promise<string> | undefined;
 
-async function launch(): Promise<Browser> {
+async function launch(left: () => number): Promise<Browser> {
   const { default: puppeteer } = await import("puppeteer-core");
-  const options = { headless: true, timeout: LAUNCH_TIMEOUT_MS, protocolTimeout: PROTOCOL_TIMEOUT_MS, defaultViewport: VIEWPORT };
+  const options = { headless: true, timeout: Math.min(LAUNCH_TIMEOUT_MS, left()), protocolTimeout: PROTOCOL_TIMEOUT_MS, defaultViewport: VIEWPORT };
   const local = process.env.CHROME_PATH;
   if (local) return puppeteer.launch({ ...options, executablePath: local });
   if (!process.env.VERCEL) {
@@ -42,20 +67,33 @@ async function launch(): Promise<Browser> {
     chromiumPath = undefined;
     throw e;
   });
+  // A stuck unpacking fails this request only; the next one waits on the same unpacking.
+  const executablePath = await within(chromiumPath, Math.min(UNPACK_TIMEOUT_MS, left()), "Unpacking Chromium");
   // As @sparticuz/chromium's README launches it: its build is chrome-headless-shell. puppeteer-core is
   // pinned to the release whose Chrome matches @sparticuz/chromium's major (153 with 25.11.0).
   const args = await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" });
   return puppeteer.launch({
     ...options,
+    timeout: Math.min(LAUNCH_TIMEOUT_MS, left()),
     args: args.filter((arg) => !UNSAFE_ARGS.has(arg.split("=")[0])),
-    executablePath: await chromiumPath,
+    executablePath,
     headless: "shell",
   });
 }
 
+function originOf(url: string) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Lets the page load what it needs and nothing else. Only requests to the page's own origin get the
- * Vercel protection-bypass secret: logos, master plans and map tiles live on other hosts.
+ * Vercel protection-bypass secret: logos, master plans and map tiles live on other hosts. A redirect
+ * can keep the headers set on the request it came from, so requests to other hosts go out with the
+ * header taken off, and a redirect from the page's origin to another host is stopped.
  */
 function guard(request: HTTPRequest, origin: string, bypass: string | undefined) {
   if (request.isInterceptResolutionHandled()) return;
@@ -69,16 +107,16 @@ function guard(request: HTTPRequest, origin: string, bypass: string | undefined)
   if (target.protocol === "data:" || target.protocol === "blob:") return void request.continue();
   if (target.protocol !== "https:" && target.protocol !== "http:") return void request.abort();
   if (BLOCKED_PATHS.some((path) => target.pathname.startsWith(path))) return void request.abort();
-  if (bypass && target.origin === origin) {
-    return void request.continue({ headers: { ...request.headers(), "x-vercel-protection-bypass": bypass } });
-  }
-  return void request.continue();
+  if (!bypass) return void request.continue();
+  if (target.origin === origin) return void request.continue({ headers: { ...request.headers(), [BYPASS_HEADER]: bypass } });
+  if (request.redirectChain().some((r) => originOf(r.url()) === origin)) return void request.abort();
+  const headers = Object.fromEntries(Object.entries(request.headers()).filter(([name]) => name.toLowerCase() !== BYPASS_HEADER));
+  return void request.continue({ headers });
 }
 
-async function render(url: string): Promise<Uint8Array> {
-  const deadline = Date.now() + RENDER_BUDGET_MS;
+async function render(url: string, deadline: number): Promise<Uint8Array> {
   const left = () => Math.max(1_000, deadline - Date.now());
-  const browser = await launch();
+  const browser = await launch(left);
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
@@ -110,15 +148,58 @@ async function close(browser: Browser) {
   await Promise.race([closed, late]);
   clearTimeout(timer);
   const child = browser.process();
-  if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+  if (child && child.exitCode === null && child.signalCode === null) kill(child);
+}
+
+/**
+ * Kills Chromium with its helper processes. Off Windows, puppeteer starts it as the leader of its own
+ * process group, so the whole group goes; `child.kill` alone would leave the helpers running.
+ */
+function kill(child: ChildProcess) {
+  if (process.platform !== "win32" && child.pid) {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    } catch {
+      // Not a group leader after all: kill the process itself.
+    }
+  }
+  child.kill("SIGKILL");
 }
 
 // One render at a time per server instance: each Chromium needs about 0.5–1.6 GB.
 let queue: Promise<unknown> = Promise.resolve();
+/** Renders running or waiting on this instance. */
+let inLine = 0;
 
-/** The PDF of `url`, sized by the page's own @page rule. Waits for images and fonts. */
+/**
+ * The PDF of `url`, sized by the page's own @page rule. Waits for images and fonts. Rejects with
+ * PdfBusyError when a render is running and another already waits, or after MAX_WAIT_MS of waiting.
+ */
 export function renderPdf(url: string): Promise<Uint8Array> {
-  const job = queue.then(() => render(url));
-  queue = job.catch(() => undefined);
-  return job;
+  if (inLine >= MAX_IN_LINE) return Promise.reject(new PdfBusyError());
+  // Taken now, so the wait counts against the budget.
+  const deadline = Date.now() + RENDER_BUDGET_MS;
+  inLine++;
+  let out = false;
+  const leave = () => {
+    if (!out) inLine--;
+    out = true;
+  };
+  let gaveUp = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const tooLong = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      gaveUp = true;
+      leave();
+      reject(new PdfBusyError());
+    }, MAX_WAIT_MS);
+  });
+  const job = queue.then(() => {
+    clearTimeout(timer);
+    if (gaveUp) throw new PdfBusyError();
+    return render(url, deadline);
+  });
+  queue = job.catch(() => undefined).finally(leave);
+  return Promise.race([job, tooLong]);
 }

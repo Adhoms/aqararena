@@ -1,11 +1,12 @@
 import { CHOICES, type Choice } from "@/lib/admin/import/columns";
 import { options } from "@/lib/admin/labels";
+import { SCHEDULE_HINT } from "@/lib/catalog/plan-steps";
 
 // The fields a developer fills in the portal, with their Arabic labels. Used by the portal
 // editor (to draw the form) and by the admin review page (to label the differences).
 // Field keys are the same names the admin forms use, so lib/admin/readers.ts can check them.
 
-export type FieldType = "text" | "textarea" | "number" | "date" | "url" | "image" | "choice" | "choices" | "area";
+export type FieldType = "text" | "textarea" | "number" | "date" | "url" | "image" | "choice" | "choices" | "area" | "schedule";
 
 export type FieldDef = {
   key: string;
@@ -74,9 +75,10 @@ export const TYPOLOGY_FIELDS: FieldDef[] = [
 ];
 
 export const PLAN_FIELDS: FieldDef[] = [
-  { key: "downPaymentPct", label: "المقدم %", type: "number", required: true },
-  { key: "years", label: "عدد السنوات", type: "number", required: true, hint: "0 = كاش" },
+  { key: "downPaymentPct", label: "المقدم %", type: "number", required: true, hint: "مش لازم لو فيه جدول مخصص" },
+  { key: "years", label: "عدد السنوات", type: "number", required: true, hint: "0 = كاش، ومش لازم لو فيه جدول مخصص" },
   { key: "frequency", label: "الأقساط", type: "choice", required: true, choices: CHOICES.frequency },
+  { key: "steps", label: "جدول سداد مخصص", type: "schedule", dir: "ltr", span: 4, hint: SCHEDULE_HINT },
   { key: "deliveryPaymentPct", label: "دفعة الاستلام %", type: "number" },
   { key: "cashDiscountPct", label: "خصم الكاش %", type: "number" },
   { key: "maintenancePct", label: "وديعة الصيانة %", type: "number" },

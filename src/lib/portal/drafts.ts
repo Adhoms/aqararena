@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { FEDDAN_M2, readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
+import { formatSteps, stepsOf, toStepRows } from "@/lib/catalog/plan-steps";
 import { recordPriceHistory } from "@/lib/price-history";
 import { releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
 import { matchTypologies } from "./match-typologies";
@@ -21,7 +22,7 @@ const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : 
 
 export const projectInclude = {
   typologies: { orderBy: { code: "asc" } },
-  paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } } } },
+  paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } }, steps: { orderBy: { sortOrder: "asc" } } } },
   media: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] },
   distances: { orderBy: { sortOrder: "asc" } },
 } satisfies Prisma.ProjectInclude;
@@ -76,6 +77,7 @@ export function draftFromProject(p: LiveProject): ProjectDraft {
       deliveryPaymentPct: str(pl.deliveryPaymentPct),
       years: str(pl.years),
       frequency: pl.frequency,
+      steps: formatSteps(stepsOf(pl.steps)),
       cashDiscountPct: str(pl.cashDiscountPct),
       maintenancePct: str(pl.maintenancePct),
       garageFee: str(pl.garageFee),
@@ -328,9 +330,10 @@ export async function applyProjectDraft(
 
   // Plans: replaced as a whole.
   await tx.paymentPlan.deleteMany({ where: { projectId: id } });
-  for (const { typologyCode, steps: _steps, ...p } of values.plans) {
-    void _steps;
-    await tx.paymentPlan.create({ data: { ...p, projectId: id, typologyId: typologyCode ? (typId.get(typologyCode.toLowerCase()) ?? null) : null } });
+  for (const { typologyCode, steps, ...p } of values.plans) {
+    await tx.paymentPlan.create({
+      data: { ...p, projectId: id, typologyId: typologyCode ? (typId.get(typologyCode.toLowerCase()) ?? null) : null, steps: { create: toStepRows(steps) } },
+    });
   }
 
   // Photos and files by link.

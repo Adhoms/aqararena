@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { useRouter } from "next/navigation";
 import { saveSubmission } from "@/app/portal/actions";
 import { checkFile, uploadFile } from "@/components/admin/upload";
+import { SchedulePreview } from "@/components/admin/schedule-field";
 import { IMAGE_TYPES } from "@/lib/admin/upload-config";
 import { moneyAr } from "@/lib/format";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "@/lib/portal/draft-types";
@@ -78,7 +79,14 @@ function Field({
 
   if (def.type === "image") return <ImageField def={def} value={text} onChange={onChange} error={error} folder={folder} />;
 
-  if (def.type === "textarea") {
+  if (def.type === "schedule") {
+    control = (
+      <>
+        <textarea className="admin-input font-mono" rows={2} dir="ltr" value={text} aria-invalid={invalid} onChange={(e) => onChange(e.target.value)} />
+        <SchedulePreview text={text} />
+      </>
+    );
+  } else if (def.type === "textarea") {
     control = <textarea className="admin-input" rows={4} dir={def.dir} value={text} aria-invalid={invalid} onChange={(e) => onChange(e.target.value)} />;
   } else if (def.type === "choice" || def.type === "area") {
     const list = def.type === "area" ? (areas ?? []) : def.choices!;
@@ -516,7 +524,7 @@ export function ProjectEditor({ id, initial, areas, folder }: { id: string; init
           folder={folder}
           onChange={(plans) => set({ plans })}
           summary={(p) =>
-            [p.downPaymentPct && `${p.downPaymentPct}% مقدم`, p.years && (p.years === "0" ? "كاش" : `${p.years} سنين`), label(PLAN_FIELDS, "frequency", p.frequency), p.typologyCode && `(${p.typologyCode})`]
+            [p.downPaymentPct && `${p.downPaymentPct}% مقدم`, p.years && (p.years === "0" ? "كاش" : `${p.years} سنين`), label(PLAN_FIELDS, "frequency", p.frequency), p.steps && "جدول مخصص", p.typologyCode && `(${p.typologyCode})`]
               .filter(Boolean)
               .join(" · ")
           }

@@ -101,7 +101,7 @@ export default async function HomePage() {
           {[
             [all.length, dict.home.statProjects],
             [developers.length, dict.home.statDevelopers],
-            [insights.areas.length, dict.home.statAreas],
+            [new Set(all.map((p) => p.areaSlug)).size, dict.home.statAreas],
           ].map(([value, label], i) => (
             <div key={label} className={`flex flex-col-reverse gap-1 px-4 py-6 sm:px-8 ${i ? "border-s border-line" : ""}`}>
               <dt className="text-[13px] text-muted">{label}</dt>

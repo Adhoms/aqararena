@@ -40,6 +40,15 @@ export function formatMillions(value: number, locale: Locale, currency: Currency
 }
 
 /**
+ * Pounds in millions, the currency named in Arabic too ("4.85 مليون ج.م" / "EGP 4.85M"): for market figures
+ * that count only the projects priced in pounds, shown beside projects in other currencies.
+ */
+export function formatMillionsEgp(value: number, locale: Locale) {
+  const m = formatMillions(value, locale, "EGP");
+  return locale === "ar" ? `${m} ج.م` : m;
+}
+
+/**
  * An amount on the Arabic admin and portal screens: pounds in Arabic digits like the rest of those screens
  * ("٤٬٨٥٠٬٠٠٠ ج.م"), dollars the way they are written ("$250,000").
  */

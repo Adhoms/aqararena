@@ -7,9 +7,9 @@ import { mapLabels, toMapPoints } from "@/components/map/map-points";
 import { ProjectMap } from "@/components/map/project-map";
 import { ProjectCard } from "@/components/project-card";
 import { ArrowIcon, CardGridSkeleton, Container } from "@/components/ui";
-import { getMarketInsights, listDevelopers, listProjects, summarize } from "@/lib/catalog";
+import { getMarketInsights, inEgp, listDevelopers, listProjects, sortProjects } from "@/lib/catalog";
 import { compareHref } from "@/lib/compare";
-import { fill, formatMillions, formatNumber } from "@/lib/format";
+import { fill, formatMillionsEgp, formatNumber } from "@/lib/format";
 import { AREA_SLUGS, isAreaSlug } from "@/lib/property";
 import { pageAlternates, SITE_URL } from "@/lib/site";
 import { getDictionary, getLocale } from "../../dictionaries";
@@ -41,7 +41,12 @@ async function AreaContent({ params }: { params: PageProps<"/[lang]/areas/[slug]
   const [locale, dict, all, developers, insights] = await Promise.all([getLocale(), getDictionary(), listProjects(), listDevelopers(), getMarketInsights()]);
   const a = dict.areasPage;
   const area = dict.areas[slug];
-  const projects = all.filter((p) => p.areaSlug === slug).sort((x, y) => summarize(x).startingPrice - summarize(y).startingPrice);
+  // Cheapest first, pounds before other currencies: prices in different currencies can't be ranked together.
+  const projects = sortProjects(
+    all.filter((p) => p.areaSlug === slug),
+    "price",
+  );
+  const cheapestInEgp = projects.filter(inEgp).slice(0, 2);
   const stats = insights.areas.find((x) => x.area === slug);
   const devSlugs = new Set(projects.map((p) => p.developerSlug));
   const devBySlug = new Map(developers.map((d) => [d.slug, d]));
@@ -50,7 +55,7 @@ async function AreaContent({ params }: { params: PageProps<"/[lang]/areas/[slug]
   const figures: [string, string][] = [
     [a.projects, formatNumber(projects.length, locale)],
     [a.avgPerM2, stats ? `${formatNumber(stats.avgPricePerM2, locale)} ${dict.insights.perM2}` : "-"],
-    [a.lowest, stats ? formatMillions(stats.lowestStartingPrice, locale, "EGP") : "-"],
+    [a.lowest, stats ? formatMillionsEgp(stats.lowestStartingPrice, locale) : "-"],
     [a.developers, formatNumber(devSlugs.size, locale)],
   ];
 
@@ -107,9 +112,9 @@ async function AreaContent({ params }: { params: PageProps<"/[lang]/areas/[slug]
               {fill(a.listTitle, { area })}
             </h2>
             <div className="flex flex-wrap gap-2.5">
-              {projects.length > 1 && (
+              {cheapestInEgp.length === 2 && (
                 <Link
-                  href={compareHref(locale, projects.slice(0, 2).map((p) => p.slug))}
+                  href={compareHref(locale, cheapestInEgp.map((p) => p.slug))}
                   className="press inline-flex min-h-11 items-center rounded-full border border-line-strong bg-surface px-5 text-ink no-underline hover:border-ink hover:text-ink"
                 >
                   {a.compareTop}

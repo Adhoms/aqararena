@@ -3,11 +3,13 @@ import { inEgp, summarize } from "./summary";
 import type { Project } from "./types";
 
 // Market figures computed from the projects listed on AqarArena (not the whole market).
-// Shown with that caveat wherever they appear. Only projects priced in pounds take part: prices in
-// another currency can't be averaged or ranked with them, so those projects have no value entry.
+// Shown with that caveat wherever they appear. Only projects priced in pounds take part in the price
+// figures: prices in another currency can't be averaged or ranked with them, so those projects have no
+// value entry. They still count among their area's projects.
 
 export type AreaInsight = {
   area: AreaSlug;
+  /** Every project in the area, in any currency. The price figures below are pounds only. */
   projects: number;
   avgPricePerM2: number;
   lowestStartingPrice: number;
@@ -33,6 +35,8 @@ export type MarketInsights = {
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 export function computeInsights(projects: Project[]): MarketInsights {
+  const counts = new Map<AreaSlug, number>();
+  for (const p of projects) counts.set(p.areaSlug, (counts.get(p.areaSlug) ?? 0) + 1);
   const byArea = new Map<AreaSlug, Project[]>();
   for (const p of projects.filter(inEgp)) byArea.set(p.areaSlug, [...(byArea.get(p.areaSlug) ?? []), p]);
 
@@ -41,7 +45,7 @@ export function computeInsights(projects: Project[]): MarketInsights {
       const sums = list.map(summarize);
       return {
         area,
-        projects: list.length,
+        projects: counts.get(area) ?? list.length,
         avgPricePerM2: Math.round(sums.reduce((a, s) => a + s.avgPricePerM2, 0) / sums.length / 100) * 100,
         lowestStartingPrice: Math.min(...sums.map((s) => s.startingPrice)),
       };

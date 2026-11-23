@@ -1,3 +1,4 @@
+import { paymentBreakdown } from "./payment";
 import { inEgp, isCashPlan, monthlyFor } from "./summary";
 import type { PaymentPlan, Project, Typology } from "./types";
 
@@ -37,11 +38,12 @@ export function budgetFits(project: Project, budget: Budget): BudgetFit[] {
         if (budget.cash && total <= budget.cash) fits.push({ typology, plan, down: total, monthly: 0, delivery: 0 });
         continue;
       }
-      const down = (price * plan.downPaymentPct) / 100;
+      // A custom schedule's first payment, whatever its month, is what the buyer needs to start.
+      const { down, delivery } = paymentBreakdown(price, plan);
       const monthly = monthlyFor(price, plan);
       if (budget.cash && down > budget.cash) continue;
       if (budget.monthly && monthly > budget.monthly) continue;
-      fits.push({ typology, plan, down, monthly, delivery: (price * plan.deliveryPaymentPct) / 100 });
+      fits.push({ typology, plan, down, monthly, delivery });
     }
   }
   return fits;

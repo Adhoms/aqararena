@@ -1,3 +1,4 @@
+import type { PlanStepInput } from "./plan-steps";
 import type {
   Amenity,
   AreaSlug,
@@ -93,6 +94,8 @@ export type PaymentPlan = {
   years: number;
   frequency: InstallmentFrequency;
   cashDiscountPct?: number;
+  /** A custom schedule (catalog/plan-steps.ts). The terms above are then derived from it, and the figures come from the steps. */
+  steps?: PlanStepInput[];
 };
 
 /** A project photo. `url` is set for uploaded photos; the demo data has none and draws art instead. */

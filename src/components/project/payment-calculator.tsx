@@ -27,6 +27,8 @@ type Labels = {
   split: string;
   parts: { down: string; installments: string; delivery: string; maintenance: string };
   note: string;
+  /** Under the figures of a plan with a custom schedule, whose installments differ. */
+  customSchedule: string;
   frequencyPer: Record<InstallmentFrequency, string>;
   /** Plan names in the page's language, in the same order as `plans`. */
   planNames: string[];
@@ -60,7 +62,7 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, curren
   if (!unit || !plan) return null;
 
   const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale, currency);
-  const { price, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
+  const { price, custom, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
     unit.price,
     plan,
     maintenancePct,
@@ -82,7 +84,7 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, curren
       ? ([
           [
             `${labels.installment} (${fill(labels.installmentsCount, { n: count, years: plan.years })})`,
-            `${money(installment)} ${labels.frequencyPer[plan.frequency]}`,
+            custom ? `~${money(installment)}` : `${money(installment)} ${labels.frequencyPer[plan.frequency]}`,
           ],
           [labels.monthlyEq, `~${money(monthly)}`],
           ...(delivery ? [[labels.delivery, money(delivery, 1000)]] : []),
@@ -136,7 +138,7 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, curren
             ))}
           </div>
         </fieldset>
-        <p className="text-xs text-muted">{labels.note}</p>
+        <p className="text-xs text-muted">{custom ? `${labels.customSchedule} ${labels.note}` : labels.note}</p>
       </div>
 
       <div className="flex flex-col gap-5" aria-live="polite">

@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Currency, SubType } from "@/lib/property";
+import { stepsOf } from "@/lib/catalog/plan-steps";
 import { budgetFigure, fitsBudget, plansForType, type SalesPlan } from "./budget";
 import { releaseExpired, salesHoldWhere } from "./hold-service";
 import { effectiveHoldHours, salesState, SALES_STATE_RANK, type HoldActor, type SalesState } from "./holds";
@@ -77,6 +78,7 @@ export async function salesPlans(developerId: string, projectIds?: string[]): Pr
           OR: [{ validUntil: null }, { validUntil: { gte: todayCairo() } }],
         },
         orderBy: { createdAt: "asc" },
+        include: { steps: { orderBy: { sortOrder: "asc" } } },
       })
     : [];
   const byProject = new Map<string, SalesPlan[]>();
@@ -91,6 +93,7 @@ export async function salesPlans(developerId: string, projectIds?: string[]): Pr
       frequency: p.frequency,
       cashDiscountPct: dec(p.cashDiscountPct) ?? undefined,
       maintenancePct: dec(p.maintenancePct) ?? undefined,
+      ...(p.steps.length > 0 && { steps: stepsOf(p.steps) }),
     };
     byProject.set(p.projectId, [...(byProject.get(p.projectId) ?? []), plan]);
   }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { paymentBreakdown, paymentSchedule } from "./payment";
+import { parseSteps } from "./plan-steps";
 import type { PaymentPlan } from "./types";
 
 const plan = (over: Partial<PaymentPlan>): PaymentPlan => ({
@@ -55,4 +56,26 @@ test("a plan shorter than a year of installments counts only what it has in the 
   const b = paymentBreakdown(1_200_000, plan({ downPaymentPct: 50, years: 1, frequency: "ANNUAL" }));
   assert.equal(b.count, 1);
   assert.equal(b.firstYear, 600_000 + 600_000);
+});
+
+test("a custom schedule: the figures come from its steps, like the offer's", () => {
+  const steps = parseSteps("0:5, 3:5, 6-96/3:90, صيانة 9-33/12:100").steps;
+  const b = paymentBreakdown(27_454_000, plan({ downPaymentPct: 5, years: 8, steps }), 10);
+  assert.equal(b.custom, true);
+  assert.equal(b.down, 1_372_700);
+  assert.equal(b.delivery, 0);
+  assert.equal(b.count, 32);
+  assert.equal(b.installmentsTotal, 27_454_000 - 1_372_700);
+  assert.equal(b.firstYear, 1_372_700 * 2 + 797_052 * 2);
+  assert.equal(b.monthly, (27_454_000 - 1_372_700) / 96);
+  assert.equal(b.total, 27_454_000 + 2_745_400);
+  assert.deepEqual(paymentSchedule(b), [], "its installments differ, so no equal year-by-year table");
+});
+
+test("a custom schedule with nothing at contract: its first payment is what the buyer starts with", () => {
+  const steps = parseSteps("3:50, 13:50").steps;
+  const b = paymentBreakdown(2_000_000, plan({ downPaymentPct: 50, years: 2, frequency: "QUARTERLY", steps }));
+  assert.equal(b.down, 1_000_000);
+  assert.equal(b.count, 1);
+  assert.equal(b.monthly, 1_000_000 / 13);
 });

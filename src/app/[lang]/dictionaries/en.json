@@ -655,7 +655,8 @@
       "delivery": "Handover",
       "maintenance": "Maintenance"
     },
-    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest."
+    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest.",
+    "customSchedule": "This plan has its own schedule: the first payment is exact, the installment and monthly figures are averages. A price offer lists every installment."
   },
   "forDevelopersPage": {
     "metaTitle": "For developers: the portal and AqarArena Sales",

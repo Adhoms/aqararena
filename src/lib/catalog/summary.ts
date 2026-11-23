@@ -1,4 +1,5 @@
 import type { Currency } from "@/lib/property";
+import { paymentBreakdown } from "./payment";
 import type { PaymentPlan, Project, ProjectSummary } from "./types";
 
 /** A project's currency. */
@@ -6,9 +7,9 @@ export const currencyOf = (p: Pick<Project, "currency">): Currency => p.currency
 /** Cross-project comparisons (area figures, price filters and sort, "best" marks) are made in pounds only. */
 export const inEgp = (p: Pick<Project, "currency">) => currencyOf(p) === "EGP";
 
-/** What a plan costs per month once the down payment and the delivery payment are set aside. */
+/** What a plan costs per month once the down payment and the delivery payment are set aside (from its steps, when it has a custom schedule). */
 export const monthlyFor = (price: number, plan: PaymentPlan) =>
-  plan.years > 0 ? (price * (100 - plan.downPaymentPct - plan.deliveryPaymentPct)) / 100 / (plan.years * 12) : 0;
+  plan.years === 0 ? 0 : plan.steps?.length ? paymentBreakdown(price, plan).monthly : (price * (100 - plan.downPaymentPct - plan.deliveryPaymentPct)) / 100 / (plan.years * 12);
 
 export const isCashPlan = (plan: PaymentPlan) => plan.years === 0;
 

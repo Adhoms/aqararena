@@ -12,6 +12,7 @@ import { readSalesPerson, readSalesRole } from "@/lib/sales/fields";
 import { HOURS_NOUN, countAr } from "@/lib/format";
 import { releaseHoldsOfAccount } from "@/lib/sales/hold-service";
 import { readHoldHours } from "@/lib/sales/holds";
+import { readOfferSettings } from "@/lib/sales/offers";
 
 // The developer's portal account manages its own sales team. Temporary passwords are shown once,
 // in the form's reply, to be handed to the salesperson, who must choose their own at first sign-in.
@@ -96,4 +97,15 @@ export async function saveHoldHours(_: FormState, data: FormData): Promise<FormS
   await db.developer.update({ where: { id: me.developerId }, data: { holdHours } });
   revalidatePath("/portal/team");
   return { ok: true, message: `اتحفظ ✓ الحجز المؤقت ${countAr(holdHours, HOURS_NOUN)}` };
+}
+
+/** How long offers stay valid by default, and the discount each role may give (spec section 4). Applies to new offers. */
+export async function saveOfferSettings(_: FormState, data: FormData): Promise<FormState> {
+  const me = await requireAccount();
+  const f = new FormReader(data);
+  const values = readOfferSettings(f);
+  if (!f.ok) return f.result();
+  await db.developer.update({ where: { id: me.developerId }, data: values });
+  revalidatePath("/portal/team");
+  return { ok: true, message: "اتحفظ ✓ بيسري على العروض الجديدة" };
 }

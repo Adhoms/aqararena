@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { FEDDAN_M2 } from "@/lib/admin/readers";
 import { formatDateTimeAr } from "@/lib/format";
 import { stepsOf } from "@/lib/catalog/plan-steps";
@@ -14,7 +14,7 @@ import {
   planSteps,
   type SchedulePlan,
 } from "@/lib/catalog/schedule";
-import { isBusy } from "./hold-errors";
+import { isBusy, pgCode } from "./hold-errors";
 import { BUSY, limitLockWait, lockUnit, releaseExpired, salesHoldWhere, TX_OPTIONS } from "./hold-service";
 import { unitLabel } from "./labels";
 import { asSnapshot, SNAPSHOT_VERSION, type OfferSnapshot } from "./offer-snapshot";
@@ -23,9 +23,11 @@ import {
   canCancelOffer,
   canDecideOffer,
   canSeeOffer,
-  canShareOffer,
+  canShareOfferNow,
   clientBanner,
   discountDecision,
+  OFFER_VALIDITY_MAX,
+  OFFER_VALIDITY_MIN,
   offerState,
   offerValidUntil,
   type ClientBanner,
@@ -49,6 +51,9 @@ type Options = { client?: Client; now?: Date };
 
 const GONE: ActionResult = { ok: false, message: "العرض ده مش موجود" };
 const PRICE_MOVED = "السعر أو خطة السداد اتغيّروا من ساعة ما العرض اتعمل. ارفضه والسيلز يعمل عرض جديد";
+const PLAN_GONE = "خطة السداد دي مش سارية دلوقتي، اختار خطة تانية";
+/** Another team lead approved or rejected it a moment earlier. */
+const DECIDED: ActionResult = { ok: false, message: "العرض ده اتوافق عليه أو اترفض بالفعل" };
 const dec = (v: Prisma.Decimal | null) => (v === null ? null : Number(v));
 const notPdf = (url: string) => !/\.pdf(\?|$)/i.test(url);
 /** Today on Cairo's calendar, as the UTC midnight a `@db.Date` column compares with (as in inventory.ts). */
@@ -92,13 +97,18 @@ async function currentFingerprints(client: Client | Tx, projectIds: string[], no
   return out;
 }
 
-type UnitNowRow = { availability: string; price: Prisma.Decimal | null; typologyId: string; typology: { priceFrom: Prisma.Decimal | null; projectId: string } };
+type UnitNowRow = {
+  availability: string;
+  price: Prisma.Decimal | null;
+  typologyId: string;
+  typology: { priceFrom: Prisma.Decimal | null; projectId: string; project: { currency: string } };
+};
 
 const listPriceOf = (unit: UnitNowRow) => Math.round(Number(unit.price ?? unit.typology.priceFrom));
 
-/** The unit's price or its plan changed since the offer was made. */
+/** The unit's price, the project's currency or the offer's plan changed since the offer was made. */
 function priceMoved(unit: UnitNowRow, snap: OfferSnapshot, prints: Prints) {
-  if (listPriceOf(unit) !== snap.listPrice) return true;
+  if (listPriceOf(unit) !== snap.listPrice || unit.typology.project.currency !== snap.currency) return true;
   return !(prints.get(unit.typology.projectId) ?? []).some((p) => (p.typologyId === null || p.typologyId === unit.typologyId) && p.fingerprint === snap.plan.fingerprint);
 }
 
@@ -266,17 +276,37 @@ const limitsOf = (d: { agentDiscountPct: Prisma.Decimal; leadDiscountPct: Prisma
   leadDiscountPct: Number(d.leadDiscountPct),
 });
 
+/**
+ * Locks the plan row against deletion until the transaction ends (a portal approval deletes and
+ * re-creates plans), so the offer never points at a plan that is gone. False when it already is.
+ */
+async function lockPlan(tx: Tx, planId: string): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "PaymentPlan" WHERE "id" = ${planId} FOR KEY SHARE`;
+  return rows.length > 0;
+}
+
+/** A row it points at (the plan) was deleted at the same moment: Postgres 23503, Prisma P2003. */
+const isMissingReference = (e: unknown) => (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") || pgCode(e) === "23503";
+
 /** Makes an offer: issued at once within the salesperson's discount limit, otherwise waiting for a team lead. */
 export async function createOffer(me: OfferActor, input: OfferInput, { client = db, now = new Date() }: Options = {}): Promise<OfferResult> {
+  if (!Number.isInteger(input.validityDays) || input.validityDays < OFFER_VALIDITY_MIN || input.validityDays > OFFER_VALIDITY_MAX) {
+    return { ok: false, message: `الصلاحية من ${OFFER_VALIDITY_MIN} لـ ${OFFER_VALIDITY_MAX} يوم` };
+  }
+  if (!Number.isFinite(input.discountPct)) return { ok: false, message: "الخصم مش رقم" };
+  // The discount as stored (two decimals), so the status, the snapshot and the row all agree.
+  input = { ...input, discountPct: Math.round(input.discountPct * 100) / 100 };
   try {
     return await client.$transaction(async (tx): Promise<OfferResult> => {
       await limitLockWait(tx);
-      // The unit first, then the account: the order createHold takes them in, so the two never deadlock.
+      // The unit first, then the account, then the plan: the unit and account in the order createHold
+      // takes them, so the two never deadlock.
       await lockUnit(tx, input.unitId);
       const unit = await tx.unit.findFirst({ where: { id: input.unitId, ...salesUnitWhere(me.developerId) }, select: unitForOffer });
       if (!unit) return { ok: false, message: "الوحدة دي مش موجودة في مشروعات شركتك" };
       const salesperson = await activeSalesperson(tx, me.id, me.developerId);
       if (!salesperson) return { ok: false, message: "حسابك اتوقف. كلّم الشركة" };
+      if (!(await lockPlan(tx, input.planId))) return { ok: false, message: PLAN_GONE };
       await releaseExpired(tx, { unitId: unit.id }, now);
       const blocked = await unitBlock(tx, unit, me.id, me.developerId, now);
       if (blocked) return { ok: false, message: blocked };
@@ -301,6 +331,7 @@ export async function createOffer(me: OfferActor, input: OfferInput, { client = 
           snapshot: buildSnapshot(unit, plan, salesperson, input, now) as unknown as Prisma.InputJsonValue,
           discountPct: input.discountPct,
           status: decision.status,
+          wasIssued: decision.status === "ISSUED",
         },
         select: { id: true },
       });
@@ -308,6 +339,7 @@ export async function createOffer(me: OfferActor, input: OfferInput, { client = 
     }, TX_OPTIONS);
   } catch (e) {
     if (isBusy(e)) return { ok: false, message: BUSY.message };
+    if (isMissingReference(e)) return { ok: false, message: PLAN_GONE };
     throw e;
   }
 }
@@ -343,7 +375,8 @@ export async function approveOffer(lead: OfferActor, offerId: string, { client =
       const plans = await tx.paymentPlan.findMany({ where: unitPlansWhere(unit, now), orderBy: { createdAt: "asc" }, include: { steps: true } });
       const same = plans.filter((p) => fingerprintOf(p) === snap.plan.fingerprint);
       const plan = same.find((p) => p.id === offer.paymentPlanId) ?? same[0];
-      if (!plan || listPriceOf(unit) !== snap.listPrice) return { ok: false, message: PRICE_MOVED };
+      if (!plan || listPriceOf(unit) !== snap.listPrice || unit.typology.project.currency !== snap.currency) return { ok: false, message: PRICE_MOVED };
+      if (!(await lockPlan(tx, plan.id))) return { ok: false, message: PLAN_GONE };
       const discountPct = Number(offer.discountPct);
       if (!discountDecision("LEAD", discountPct, limitsOf(unit.typology.project.developer)).ok) return { ok: false, message: "الخصم ده أكبر من حدّك دلوقتي" };
       const input: SnapshotInput = { clientName: offer.clientName, clientPhone: offer.clientPhone, validityDays: snap.validityDays, discountPct };
@@ -351,6 +384,7 @@ export async function approveOffer(lead: OfferActor, offerId: string, { client =
         where: { id: offer.id, status: "PENDING_APPROVAL" },
         data: {
           status: "ISSUED",
+          wasIssued: true,
           approvedById: lead.id,
           approvedAt: now,
           issuedAt: now,
@@ -359,10 +393,11 @@ export async function approveOffer(lead: OfferActor, offerId: string, { client =
           snapshot: buildSnapshot(unit, plan, salesperson, input, now) as unknown as Prisma.InputJsonValue,
         },
       });
-      return count ? { ok: true, message: "اتوافق ✓ والعرض بقى ساري" } : GONE;
+      return count ? { ok: true, message: "اتوافق ✓ والعرض بقى ساري" } : DECIDED;
     }, TX_OPTIONS);
   } catch (e) {
     if (isBusy(e)) return BUSY;
+    if (isMissingReference(e)) return { ok: false, message: PLAN_GONE };
     throw e;
   }
 }
@@ -372,22 +407,33 @@ export async function cancelOffer(actor: OfferActor, offerId: string, now = new 
   const offer = await db.salesOffer.findFirst({ where: { id: offerId, ...salesOfferWhere(actor.developerId) }, select: { salesAccountId: true, developerId: true, status: true } });
   if (!offer || !canSeeOffer(actor, offer)) return GONE;
   if (!canCancelOffer(actor, offer)) return { ok: false, message: "العرض ده متلغي بالفعل" };
+  // An offer that never went out gets a new token as it ends, so its link never opens for anyone.
+  // Each branch is conditioned on the status read, so a parallel approval is never undone silently.
+  const pending = offer.status === "PENDING_APPROVAL";
   const { count } = await db.salesOffer.updateMany({
-    where: { id: offerId, ...salesOfferWhere(actor.developerId), status: { not: "CANCELLED" } },
-    data: { status: "CANCELLED", cancelledById: actor.id, cancelledAt: now },
+    where: { id: offerId, ...salesOfferWhere(actor.developerId), status: offer.status },
+    data: { status: "CANCELLED", cancelledById: actor.id, cancelledAt: now, ...(pending && { token: newOfferToken() }) },
   });
-  if (!count) return GONE;
-  return { ok: true, message: offer.status === "PENDING_APPROVAL" && offer.salesAccountId !== actor.id ? "اترفض ✓" : "اتلغى ✓" };
+  if (!count) return pending ? DECIDED : { ok: false, message: "العرض ده متلغي بالفعل" };
+  return { ok: true, message: pending && offer.salesAccountId !== actor.id ? "اترفض ✓" : "اتلغى ✓" };
 }
 
 export const SHARE_CHANNELS = ["WHATSAPP", "TELEGRAM", "EMAIL", "DEVICE"] as const;
 export type ShareChannel = (typeof SHARE_CHANNELS)[number];
 
-/** Notes that the salesperson shared their issued offer this way (once per channel). Anything else is ignored. */
-export async function recordShare(me: OfferActor, offerId: string, channel: ShareChannel): Promise<void> {
+/**
+ * Notes that the salesperson shared their issued offer this way (once per channel). Ignored unless the
+ * offer may be sent now (canShareOfferNow: theirs, issued, valid or only re-priced), or for any other channel.
+ */
+export async function recordShare(me: OfferActor, offerId: string, channel: ShareChannel, now = new Date()): Promise<void> {
   if (!(SHARE_CHANNELS as readonly string[]).includes(channel)) return;
-  const offer = await db.salesOffer.findFirst({ where: { id: offerId, ...salesOfferWhere(me.developerId) }, select: { id: true, salesAccountId: true, developerId: true, status: true } });
-  if (!offer || !canShareOffer(me, offer)) return;
+  const offer = await db.salesOffer.findFirst({
+    where: { id: offerId, ...salesOfferWhere(me.developerId) },
+    select: { id: true, salesAccountId: true, developerId: true, status: true, validUntil: true, unitId: true, snapshot: true },
+  });
+  if (!offer) return;
+  const [{ state }] = await withStates(me.developerId, [offer], now);
+  if (!canShareOfferNow(me, offer, state)) return;
   await db.$executeRaw`
     UPDATE "SalesOffer" SET "sentVia" = array_append("sentVia", ${channel}::"OfferChannel"), "updatedAt" = now()
     WHERE "id" = ${offer.id} AND "salesAccountId" = ${me.id} AND "developerId" = ${me.developerId}
@@ -398,6 +444,7 @@ const listSelect = {
   id: true,
   token: true,
   status: true,
+  wasIssued: true,
   issuedAt: true,
   validUntil: true,
   createdAt: true,
@@ -411,7 +458,14 @@ const listSelect = {
   salesAccount: { select: { nameAr: true } },
 } satisfies Prisma.SalesOfferSelect;
 type ListRow = Prisma.SalesOfferGetPayload<{ select: typeof listSelect }>;
-export type OfferRow = ListRow & { state: OfferState; snap: OfferSnapshot | null };
+/** An offer in a Sales list. `token` is null unless it went out: an offer waiting for approval, or rejected, has no link to hand out. */
+export type OfferRow = Omit<ListRow, "token"> & { token: string | null; state: OfferState; snap: OfferSnapshot | null };
+
+/** Hides the client's link of an offer that never went out. */
+const withLink = <T extends { token: string; wasIssued: boolean }>(row: T): Omit<T, "token"> & { token: string | null } => ({
+  ...row,
+  token: row.wasIssued ? row.token : null,
+});
 
 /** Each offer's state now (spec 5.4): checks the units, holds and current plans in two queries. */
 export async function withStates<T extends Pick<ListRow, "status" | "validUntil" | "unitId" | "salesAccountId" | "snapshot">>(
@@ -423,7 +477,7 @@ export async function withStates<T extends Pick<ListRow, "status" | "validUntil"
   const units = unitIds.length
     ? await db.unit.findMany({
         where: { id: { in: unitIds }, ...salesUnitWhere(developerId) },
-        select: { id: true, availability: true, price: true, typologyId: true, typology: { select: { priceFrom: true, projectId: true } }, holds: { where: salesHoldWhere(developerId, now), take: 1, select: { salesAccountId: true } } },
+        select: { id: true, availability: true, price: true, typologyId: true, typology: { select: { priceFrom: true, projectId: true, project: { select: { currency: true } } } }, holds: { where: salesHoldWhere(developerId, now), take: 1, select: { salesAccountId: true } } },
       })
     : [];
   const byId = new Map(units.map((u) => [u.id, u]));
@@ -441,19 +495,22 @@ export async function withStates<T extends Pick<ListRow, "status" | "validUntil"
 /** The salesperson's latest offers, newest first. */
 export async function myOffers(me: OfferActor, now = new Date(), take = 100): Promise<OfferRow[]> {
   const rows = await db.salesOffer.findMany({ where: { salesAccountId: me.id, ...salesOfferWhere(me.developerId) }, orderBy: { createdAt: "desc" }, take, select: listSelect });
-  return withStates(me.developerId, rows, now);
+  return (await withStates(me.developerId, rows, now)).map(withLink);
 }
 
 /** For a team lead: the team's offers waiting for approval, oldest first. */
 export async function pendingApprovals(lead: OfferActor, now = new Date()): Promise<OfferRow[]> {
   if (lead.role !== "LEAD") return [];
   const rows = await db.salesOffer.findMany({ where: { ...salesOfferWhere(lead.developerId), status: "PENDING_APPROVAL" }, orderBy: { createdAt: "asc" }, take: 100, select: listSelect });
-  return withStates(lead.developerId, rows, now);
+  return (await withStates(lead.developerId, rows, now)).map(withLink);
 }
 
-/** Offers the salesperson issued: all of them, and in the last 30 days (spec 3, «ملفي»). */
+/**
+ * Offers the salesperson issued (spec 3, «ملفي»): every one that went out, at once or approved, even if
+ * cancelled later; not those rejected while waiting. All of them, and those issued in the last 30 days.
+ */
 export async function offerCounts(me: OfferActor, now = new Date()) {
-  const issued = { salesAccountId: me.id, ...salesOfferWhere(me.developerId), status: "ISSUED" as const };
+  const issued = { salesAccountId: me.id, ...salesOfferWhere(me.developerId), wasIssued: true };
   const [total, recent] = await Promise.all([
     db.salesOffer.count({ where: issued }),
     db.salesOffer.count({ where: { ...issued, issuedAt: { gte: new Date(now.getTime() - 30 * 86_400_000) } } }),
@@ -469,13 +526,18 @@ export async function loadOffer(me: OfferActor, offerId: string, now = new Date(
   });
   if (!row || !canSeeOffer(me, row)) return null;
   const [withState] = await withStates(me.developerId, [row], now);
-  return { ...withState, canShare: canShareOffer(me, row), canDecide: canDecideOffer(me, row), canCancel: canCancelOffer(me, row) };
+  return { ...withLink(withState), canShare: canShareOfferNow(me, row, withState.state), canDecide: canDecideOffer(me, row), canCancel: canCancelOffer(me, row) };
 }
 
-/** The snapshot as the client sees it: without the database ids of the project and the unit. */
-export type PublicSnapshot = Omit<OfferSnapshot, "project" | "unit"> & {
+/**
+ * The snapshot as the client sees it: without the database ids of the project and the unit, the plan's
+ * fingerprint (it carries the unit type's id) and the client's phone number (Sales' record, not the page's).
+ */
+export type PublicSnapshot = Omit<OfferSnapshot, "project" | "unit" | "plan" | "client"> & {
   project: Omit<OfferSnapshot["project"], "id">;
   unit: Omit<OfferSnapshot["unit"], "id">;
+  plan: Omit<OfferSnapshot["plan"], "fingerprint">;
+  client: Pick<OfferSnapshot["client"], "name">;
 };
 
 /** What the client's page gets: the offer as issued, its banner, nothing internal (no ids, no other offers). */
@@ -492,20 +554,23 @@ export type PublicOffer = {
 function publicSnapshot(snap: OfferSnapshot): PublicSnapshot {
   const { id: _project, ...project } = snap.project;
   const { id: _unit, ...unit } = snap.unit;
+  const { fingerprint: _fingerprint, ...plan } = snap.plan;
   void _project;
   void _unit;
-  return { ...snap, project, unit };
+  void _fingerprint;
+  return { ...snap, project, unit, plan, client: { name: snap.client.name } };
 }
 
-/** The offer behind a client's link. An offer waiting for approval doesn't open (spec 7). */
+/** The offer behind a client's link. An offer waiting for approval, or rejected, doesn't open (spec 7). */
 export async function loadPublicOffer(token: string, now = new Date()): Promise<PublicOffer | null> {
   if (!isOfferToken(token)) return null;
   const offer = await db.salesOffer.findUnique({
     where: { token },
-    select: { token: true, status: true, language: true, issuedAt: true, validUntil: true, pdfUrl: true, snapshot: true, developerId: true, unitId: true },
+    select: { token: true, status: true, wasIssued: true, language: true, issuedAt: true, validUntil: true, pdfUrl: true, snapshot: true, developerId: true, unitId: true },
   });
   const snap = offer && asSnapshot(offer.snapshot);
-  if (!offer || !snap || offer.status === "PENDING_APPROVAL") return null;
+  // Never issued (waiting for approval, or rejected): the link doesn't open. Rejecting also changes the token.
+  if (!offer || !snap || offer.status === "PENDING_APPROVAL" || !offer.wasIssued) return null;
   const unit = offer.unitId ? await db.unit.findFirst({ where: { id: offer.unitId, ...salesUnitWhere(offer.developerId) }, select: { availability: true } }) : null;
   const banner = clientBanner({ status: offer.status, validUntil: offer.validUntil, unitTaken: !unit || unit.availability !== "AVAILABLE" }, now);
   return { token: offer.token, language: offer.language, issuedAt: offer.issuedAt, validUntil: offer.validUntil, pdfUrl: offer.pdfUrl, banner, snap: publicSnapshot(snap) };

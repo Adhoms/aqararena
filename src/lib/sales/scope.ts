@@ -15,6 +15,15 @@ export function salesUnitWhere(developerId: string): Prisma.UnitWhereInput {
   return { typology: salesTypologyWhere(developerId) };
 }
 
+/**
+ * A price offer `developerId`'s Sales may read or change: one of that developer's, made by one of its
+ * own salespeople. Offers are history, so they stay with the developer that issued them even when the
+ * unit later leaves its Sales inventory (the offer then shows the unit as taken).
+ */
+export function salesOfferWhere(developerId: string): Prisma.SalesOfferWhereInput {
+  return { developerId, salesAccount: { developerId } };
+}
+
 /** What decides whether a hold still belongs in Sales. */
 export type HoldScopeFacts = {
   /** The developer of the salesperson who holds the unit. */

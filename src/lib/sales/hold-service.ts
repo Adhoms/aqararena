@@ -28,10 +28,10 @@ type Options = { client?: Client; now?: Date };
  * minutes; a hold waits at most 3 seconds for a unit row (or for a competing insert), then tells the
  * salesperson to try again.
  */
-const limitLockWait = (tx: Tx) => tx.$executeRaw`SET LOCAL lock_timeout = '3s'`;
+export const limitLockWait = (tx: Tx) => tx.$executeRaw`SET LOCAL lock_timeout = '3s'`;
 /** Both comfortably longer than the 3-second lock wait, so that fails first, with a clear answer. */
-const TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 };
-const BUSY: HoldResult = { ok: false, message: "الوحدة بتتحدّث دلوقتي، جرّب تاني بعد شوية" };
+export const TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 };
+export const BUSY: HoldResult = { ok: false, message: "الوحدة بتتحدّث دلوقتي، جرّب تاني بعد شوية" };
 
 /** Holds that still count: ACTIVE and not yet expired. */
 export function liveHoldWhere(now = new Date()): Prisma.UnitHoldWhereInput {
@@ -72,7 +72,7 @@ export function releaseExpired(client: Client | Tx, where: Prisma.UnitHoldWhereI
 }
 
 /** Takes a row lock on the unit for the rest of the transaction. */
-const lockUnit = (tx: Tx, unitId: string) => tx.$queryRaw`SELECT "id" FROM "Unit" WHERE "id" = ${unitId} FOR UPDATE`;
+export const lockUnit = (tx: Tx, unitId: string) => tx.$queryRaw`SELECT "id" FROM "Unit" WHERE "id" = ${unitId} FOR UPDATE`;
 
 /**
  * Locks every unit matching `where`, in id order, and returns their ids. Every write that changes

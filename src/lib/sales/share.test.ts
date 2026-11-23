@@ -9,6 +9,10 @@ test("Egyptian mobiles: local 01… becomes 201…", () => {
   assert.equal(whatsappNumber("+20 155 123 4567"), "201551234567");
   assert.equal(whatsappNumber("00201212345678"), "201212345678");
   assert.equal(whatsappNumber("1012345678"), "201012345678", "written without the leading 0");
+  assert.equal(whatsappNumber("+20 010 1234 5678"), "201012345678", "+20 and the local 0 together");
+  assert.equal(whatsappNumber("+2001012345678"), "201012345678");
+  assert.equal(whatsappNumber("0020 0101 234 5678"), "201012345678");
+  assert.equal(whatsappNumber("+20 02 2345 6789"), null, "a landline stays without WhatsApp");
 });
 
 test("other countries keep their code; landlines and junk have no WhatsApp number", () => {

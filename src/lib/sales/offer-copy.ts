@@ -67,7 +67,7 @@ export const OFFER_COPY = {
     customPlan: "Custom schedule",
     columns: { no: "Payment", date: "Date", amount: "Amount", pct: "Share", cumulative: "Cumulative", maintenance: "Maintenance", total: "Total due" },
     totals: "Total",
-    cheques: "{payments} cheques for the unit · {maintenance} for maintenance · {all} in all",
+    cheques: "Cheques: {payments} for the unit · {maintenance} for maintenance · {all} in all",
     continued: "Payment schedule (continued)",
     schedule: "Payment schedule",
     project: { land: "Land area", feddan: "{n} feddan", delivery: "Delivery", units: "Units", location: "Location" },

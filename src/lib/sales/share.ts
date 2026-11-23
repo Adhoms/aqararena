@@ -12,13 +12,15 @@ void _same;
 
 /**
  * The client's number as WhatsApp wants it (country code, digits only), or null. Egyptian mobiles
- * written locally (01xxxxxxxxx, or without the 0) get 20 in front; numbers with another country's
+ * written locally (01xxxxxxxxx, or without the 0) get 20 in front, and +20 written before the 0 loses the 0; numbers with another country's
  * code are kept; landlines and anything too short have none.
  */
 export function whatsappNumber(raw: string | null | undefined): string | null {
   if (!raw) return null;
   let d = normalizePhone(raw).replace(/\D/g, "");
   if (d.startsWith("00")) d = d.slice(2);
+  // The country code and the local 0 together (+20 010…): drop the 0.
+  if (/^2001[0125]\d{8}$/.test(d)) d = "20" + d.slice(3);
   if (/^01[0125]\d{8}$/.test(d)) return `2${d}`;
   if (/^1[0125]\d{8}$/.test(d)) return `20${d}`;
   if (/^201[0125]\d{8}$/.test(d)) return d;

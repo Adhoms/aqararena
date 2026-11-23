@@ -12,6 +12,7 @@ export function MarkedPlan({
   alt,
   className = "relative",
   imgClassName = "block h-auto w-full",
+  loading,
 }: {
   image: string;
   zone: ZoneBox | null;
@@ -19,11 +20,13 @@ export function MarkedPlan({
   /** The frame; it must hug the image (e.g. "relative mx-auto w-fit" with a height-capped image). */
   className?: string;
   imgClassName?: string;
+  /** "eager" where the plan is printed (the client's offer). */
+  loading?: "eager" | "lazy";
 }) {
   return (
     <div className={className} dir="ltr">
       {/* eslint-disable-next-line @next/next/no-img-element -- uploaded plan of unknown size */}
-      <img src={image} alt={alt} decoding="async" className={imgClassName} />
+      <img src={image} alt={alt} loading={loading} decoding="async" className={imgClassName} />
       {zone && (
         <span
           className="absolute rounded-md border-[3px] border-brass-light bg-brass-light/25 shadow-[0_0_0_3px_rgb(255_255_255/0.7)]"

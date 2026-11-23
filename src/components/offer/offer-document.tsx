@@ -3,12 +3,14 @@ import { PrintButton } from "@/components/share-button";
 import { fill, telHref, websiteHref, whatsappHref } from "@/lib/format";
 import type { PublicOffer } from "@/lib/sales/offer-service";
 import { offerCtx, type OfferCtx } from "./context";
+import { MasterPlanSheet, scheduleSheets, ScheduleSheet, UnitSheet } from "./offer-sheets";
 import { Fact, Filled, Ltr, Sheet } from "./sheet";
 
 /** The client's offer: the sheets of spec section 7, and a toolbar that isn't printed. */
 export function OfferDocument({ offer }: { offer: PublicOffer }) {
   const ctx = offerCtx(offer);
   const { c, snap } = ctx;
+  const schedulePages = scheduleSheets(snap.schedule.rows);
   return (
     <main lang={offer.language} dir={offer.language === "ar" ? "rtl" : "ltr"} className="offer-doc offer-stack flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
       <div className="no-print mx-auto flex w-full max-w-[1120px] flex-wrap items-center justify-between gap-3">
@@ -26,7 +28,11 @@ export function OfferDocument({ offer }: { offer: PublicOffer }) {
       </div>
       <CoverSheet ctx={ctx} banner={offer.banner ? c.banners[offer.banner] : null} />
       <ProjectSheet ctx={ctx} />
-      {/* Task 18 adds the master plan, unit and schedule sheets here. */}
+      <MasterPlanSheet ctx={ctx} />
+      <UnitSheet ctx={ctx} />
+      {schedulePages.map((rows, i) => (
+        <ScheduleSheet key={i} ctx={ctx} rows={rows} first={i === 0} last={i === schedulePages.length - 1} page={i + 1} pages={schedulePages.length} />
+      ))}
       <ContactSheet ctx={ctx} />
     </main>
   );

@@ -100,14 +100,14 @@
     border-start-end-radius: 10px;
     border-end-end-radius: 10px;
   }
-  .offer-table tbody tr:nth-child(even) td {
+  .offer-table tbody tr:nth-child(even) > * {
     background: rgb(16 38 33 / 0.035);
   }
-  .offer-table tbody td:first-child {
+  .offer-table tbody tr > :first-child {
     border-start-start-radius: 8px;
     border-end-start-radius: 8px;
   }
-  .offer-table tbody td:last-child {
+  .offer-table tbody tr > :last-child {
     border-start-end-radius: 8px;
     border-end-end-radius: 8px;
   }

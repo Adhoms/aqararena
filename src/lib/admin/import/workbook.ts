@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FEDDAN_M2 } from "@/lib/admin/readers";
 import { formatSteps, stepsOf, toStepRows } from "@/lib/catalog/plan-steps";
+import { matchPlans, type PlanCandidate, type PlanWanted } from "./plan-match";
 import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
@@ -199,6 +200,37 @@ export type ImportResult = {
   warning?: string;
 };
 
+/** What the plan matching reads of an existing plan. */
+const PLAN_MATCH_SELECT = {
+  id: true,
+  projectId: true,
+  typologyId: true,
+  downPaymentPct: true,
+  years: true,
+  frequency: true,
+  steps: { orderBy: { sortOrder: "asc" }, select: { monthOffset: true, pct: true, kind: true } },
+} satisfies Prisma.PaymentPlanSelect;
+
+const asCandidate = (p: Prisma.PaymentPlanGetPayload<{ select: typeof PLAN_MATCH_SELECT }>): PlanCandidate => ({
+  id: p.id,
+  projectId: p.projectId,
+  typologyId: p.typologyId,
+  downPaymentPct: Number(p.downPaymentPct),
+  years: p.years,
+  frequency: p.frequency,
+  steps: formatSteps(stepsOf(p.steps)),
+});
+
+/** A sheet row as the plan matching sees it. `typologyId` is undefined for a unit type not on the site yet. */
+const wantedPlan = (values: ReturnType<typeof readPaymentPlan>, projectId: string | null, typologyId: string | null | undefined, stepsPresent: boolean): PlanWanted => ({
+  projectId,
+  typologyId,
+  downPaymentPct: values.downPaymentPct,
+  years: values.years,
+  frequency: values.frequency,
+  steps: stepsPresent ? formatSteps(values.steps) : null,
+});
+
 export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promise<ImportResult> {
   const problems: Problem[] = [];
   const counts: ImportResult["counts"] = {
@@ -225,16 +257,14 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
     db.area.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true, published: true, developer: { select: { slug: true } } } }),
     db.typology.findMany({ select: { id: true, code: true, projectId: true } }),
-    db.paymentPlan.findMany({ select: { projectId: true, typologyId: true, downPaymentPct: true, years: true, frequency: true } }),
+    db.paymentPlan.findMany({ orderBy: { createdAt: "asc" }, select: PLAN_MATCH_SELECT }),
     db.unit.findMany({ select: { id: true, building: true, unitNumber: true, typology: { select: { projectId: true } } } }),
   ]);
   // How a unit is recognised: same project, building and unit number.
   const unitKey = (project: string, building: string | null, number: string) => `${project}|${norm(building ?? "")}|${norm(number)}`;
   const unitIdByKey = new Map(units.filter((u) => u.unitNumber).map((u) => [unitKey(u.typology.projectId, u.building, u.unitNumber!), u.id]));
-  // How a plan is recognised: same project, unit type, down payment, years and frequency.
-  const planKey = (projectId: string, typologyId: string | null, down: number, years: number, frequency: string) =>
-    `${projectId}|${typologyId ?? ""}|${down}|${years}|${frequency}`;
-  const existingPlans = new Set(plans.map((p) => planKey(p.projectId, p.typologyId, Number(p.downPaymentPct), p.years, p.frequency)));
+  // How a plan is recognised: lib/admin/import/plan-match.ts.
+  const existingPlans = plans.map(asCandidate);
   const typIdByCode = new Map(typologies.map((t) => [`${t.projectId}/${t.code.toLowerCase()}`, t.id]));
 
   // A developer or project is identified by its slug; rows in the file win over the site.
@@ -336,9 +366,13 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   const planRows: { projSlug: string; code: string | null; values: ReturnType<typeof readPaymentPlan>; stepsPresent: boolean }[] = [];
   {
     const { def, rows, present } = sheets.plans;
+    const previewRows: PlanWanted[] = [];
     for (const { row, cells } of rows) {
       const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
       const { data, refs } = rowToForm(def, cells, say);
+      // "0:100" typed into a cell Excel formats itself becomes a time of day. Said first, so it is the cell's one message.
+      const typedSteps = cells.get("steps") && rawValue(cells.get("steps")!);
+      if (typedSteps instanceof Date || typeof typedSteps === "number") say(def.columns.find((c) => c.key === "steps")!.header, "Excel قرأها كوقت، خلّي تنسيق الخانة نص");
       // A blank "active" cell means active.
       if (!present.has("isActive") || !String(rawValue(cells.get("isActive")!) ?? "").trim()) data.set("isActive", "on");
       const values = check(def, row, data, readPaymentPlan);
@@ -349,10 +383,10 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       if (proj && code && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
       if (!proj) continue;
       planRows.push({ projSlug: proj.slug, code, values, stepsPresent: present.has("steps") });
-      const typologyId = code && proj.existingId ? (typIdByCode.get(`${proj.existingId}/${code.toLowerCase()}`) ?? "new") : null;
-      const known = proj.existingId && typologyId !== "new" && existingPlans.has(planKey(proj.existingId, typologyId, values.downPaymentPct, values.years, values.frequency));
-      counts.plans[known ? "update" : "create"]++;
+      const typologyId = code && proj.existingId ? typIdByCode.get(`${proj.existingId}/${code.toLowerCase()}`) : null;
+      previewRows.push(wantedPlan(values, proj.existingId ?? null, typologyId, present.has("steps")));
     }
+    for (const id of matchPlans(previewRows, existingPlans)) counts.plans[id ? "update" : "create"]++;
   }
 
   // Units
@@ -463,20 +497,38 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
           touched.add(projectId);
         }
 
-        for (const p of planRows) {
+        // Each row updates the plan it matches (plan-match.ts), or adds one.
+        const planTargets = planRows.map((p) => {
           const projectId = projId.get(p.projSlug)!;
-          const typologyId = p.code ? typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null : null;
+          const typologyId = p.code ? (typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null) : null;
+          return { projectId, typologyId };
+        });
+        const currentPlans = await tx.paymentPlan.findMany({
+          where: { projectId: { in: [...new Set(planTargets.map((p) => p.projectId))] } },
+          orderBy: { createdAt: "asc" },
+          select: PLAN_MATCH_SELECT,
+        });
+        const stepped = new Set(currentPlans.filter((p) => p.steps.length).map((p) => p.id));
+        const matched = matchPlans(
+          planRows.map((p, i) => wantedPlan(p.values, planTargets[i].projectId, planTargets[i].typologyId, p.stepsPresent)),
+          currentPlans.map(asCandidate),
+        );
+        for (const [i, p] of planRows.entries()) {
+          const { projectId, typologyId } = planTargets[i];
           const { steps, ...plan } = p.values;
-          const values = { ...plan, typologyId };
           const rows = toStepRows(steps);
-          // The same plan (down payment, years, frequency, unit type) is updated rather than duplicated.
-          // Its steps change only when the sheet has the column, so an old template never wipes them.
-          const same = await tx.paymentPlan.findFirst({
-            where: { projectId, typologyId, downPaymentPct: values.downPaymentPct, years: values.years, frequency: values.frequency },
-            select: { id: true },
-          });
-          if (same) await tx.paymentPlan.update({ where: { id: same.id }, data: { ...values, ...(p.stepsPresent && { steps: { deleteMany: {}, create: rows } }) } });
-          else await tx.paymentPlan.create({ data: { ...values, projectId, steps: { create: rows } } });
+          const id = matched[i];
+          if (id) {
+            // Steps change only when the sheet has the column, so an old template never wipes them, nor
+            // overwrites the terms a stepped plan takes from its steps.
+            const { downPaymentPct: _d, deliveryPaymentPct: _p, years: _y, frequency: _f, ...rest } = plan;
+            void [_d, _p, _y, _f];
+            const terms = !p.stepsPresent && stepped.has(id) ? rest : plan;
+            await tx.paymentPlan.update({
+              where: { id },
+              data: { ...terms, typologyId, ...(p.stepsPresent && { steps: { deleteMany: {}, createMany: { data: rows } } }) },
+            });
+          } else await tx.paymentPlan.create({ data: { ...plan, typologyId, projectId, steps: { createMany: { data: rows } } } });
           touched.add(projectId);
         }
 

@@ -54,3 +54,23 @@ export async function clearFailures(keys: string[]) {
 }
 
 export const lockedMessage = (minutes: number) => `محاولات كتير غلط. جرّب تاني بعد ${minutes} دقيقة.`;
+
+/**
+ * Counts one more use of `key` in a window of `minutes`, and says whether it is still within `max`
+ * (e.g. offer emails per salesperson). One statement, so two requests can't both slip under the limit.
+ * Keys of this kind start with their own prefix ("offer-email:"), so lockedMinutes, which only looks up
+ * the sign-in keys it is given, never reads them as wrong passwords.
+ */
+export async function withinRate(key: string, max: number, minutes: number): Promise<boolean> {
+  const now = new Date();
+  const resetAt = new Date(now.getTime() + minutes * 60_000);
+  // The column has no time zone and Prisma keeps UTC in it: both times go in as UTC text, whatever the
+  // database session's time zone (a time zone in the text is ignored by a ::timestamp cast).
+  const [row] = await db.$queryRaw<{ failures: number }[]>`
+    INSERT INTO "AuthThrottle" ("key", "failures", "resetAt") VALUES (${key}, 1, ${resetAt.toISOString()}::timestamp(3))
+    ON CONFLICT ("key") DO UPDATE SET
+      "failures" = CASE WHEN "AuthThrottle"."resetAt" <= ${now.toISOString()}::timestamp(3) THEN 1 ELSE "AuthThrottle"."failures" + 1 END,
+      "resetAt" = CASE WHEN "AuthThrottle"."resetAt" <= ${now.toISOString()}::timestamp(3) THEN EXCLUDED."resetAt" ELSE "AuthThrottle"."resetAt" END
+    RETURNING "failures"`;
+  return (row?.failures ?? 1) <= max;
+}

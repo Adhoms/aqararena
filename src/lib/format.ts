@@ -67,6 +67,7 @@ export const HOURS_NOUN: CountNoun = { one: "ساعة", two: "ساعتين", few
 export const UNITS_NOUN: CountNoun = { one: "وحدة", two: "وحدتين", few: "وحدات" };
 export const HOLDS_NOUN: CountNoun = { one: "حجز", two: "حجزين", few: "حجوزات" };
 export const OFFERS_NOUN: CountNoun = { one: "عرض", two: "عرضين", few: "عروض" };
+export const DAYS_NOUN: CountNoun = { one: "يوم", two: "يومين", few: "أيام" };
 
 /**
  * A number with its noun, by the Arabic rule: 1 alone ("ساعة"), 2 as the dual ("ساعتين"), 3 to 10

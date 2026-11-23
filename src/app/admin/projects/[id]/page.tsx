@@ -111,7 +111,7 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
       </div>
       <NewAreaForm />
       <TypologyList projectId={project.id} items={project.typologies} currency={project.currency} />
-      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} heldTotal={heldTotal} currency={project.currency} />
+      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} heldTotal={heldTotal} currency={project.currency} zones={project.zones} />
       <PaymentPlanList projectId={project.id} items={project.paymentPlans} typologies={project.typologies} currency={project.currency} />
       <ZoneList projectId={project.id} items={project.zones} />
       <MediaList projectId={project.id} items={project.media} />

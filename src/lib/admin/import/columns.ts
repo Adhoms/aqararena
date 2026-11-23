@@ -161,6 +161,7 @@ export const SHEETS: SheetDef[] = [
       { key: "price", header: "سعر الوحدة (بعملة المشروع)", aliases: ["سعر الوحدة (جنيه)"], type: "number", width: 20, help: "اختياري. فاضي = يظهر سعر النموذج بس" },
       { key: "view", header: "الإطلالة", type: "choice", choices: CHOICES.unitViews },
       { key: "orientation", header: "الاتجاه", type: "choice", choices: CHOICES.orientations },
+      { key: "zone", header: "منطقة الماستر بلان", type: "ref", help: "اختياري: اسم المنطقة المختصر أو الكامل زي ما هو على الماستر بلان" },
     ],
   },
 ];

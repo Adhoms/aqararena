@@ -13,7 +13,7 @@ import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } 
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
 import { toStepRows } from "@/lib/catalog/plan-steps";
 import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
-import { findTwinUnit } from "@/lib/units";
+import { findTwinUnit, zoneOfProject } from "@/lib/units";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
 import { releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
 import { projectLeavesSales } from "@/lib/sales/scope";
@@ -198,6 +198,7 @@ export async function saveUnit(_: FormState, data: FormData): Promise<FormState>
   const typologyId = f.id("typologyId");
   const values = readUnit(f);
   if (!typologyId) f.errors.typologyId = "اختر النموذج";
+  if (projectId && (await zoneOfProject(projectId, values.zoneId)) === false) f.errors.zoneId = "المنطقة دي مش في الماستر بلان بتاع المشروع";
   if (!f.ok || !projectId || !typologyId) return f.result();
   // The unit type must be one of this project's.
   const typology = await db.typology.findFirst({ where: { id: typologyId, projectId }, select: { id: true } });

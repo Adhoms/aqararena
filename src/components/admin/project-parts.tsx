@@ -153,6 +153,7 @@ export function UnitList({
   editing,
   heldTotal = 0,
   currency,
+  zones,
 }: {
   projectId: string;
   /** With each unit's live AqarArena Sales hold, if any (hold-service.ts projectUnitHolds). */
@@ -164,10 +165,13 @@ export function UnitList({
   /** How many live holds the project's units have in all (the list shows only the first units). */
   heldTotal?: number;
   currency: Currency;
+  /** The project's master-plan zones, a unit's place on the plan. */
+  zones: MasterPlanZone[];
 }) {
   if (typologies.length === 0) return null;
   const typologyOptions = typologies.map((t) => ({ value: t.id, label: t.code }));
   const code = new Map(typologies.map((t) => [t.id, t.code]));
+  const zoneShort = new Map(zones.map((z) => [z.id, z.shortAr]));
   const page = `/admin/projects/${projectId}`;
   const name = (u: Unit) => [u.building, u.unitNumber].filter(Boolean).join(" · ");
   const editingHold = editing ? holdText(editing.holds[0]) : undefined;
@@ -185,6 +189,18 @@ export function UnitList({
         <Select name="view" label="الإطلالة" emptyLabel="—" defaultValue={u?.view} options={options.unitViews} />
         <Select name="orientation" label="الاتجاه" emptyLabel="—" defaultValue={u?.orientation} options={options.orientations} />
       </Row>
+      {zones.length > 0 && (
+        <Row>
+          <Select
+            name="zoneId"
+            label="مكانها على الماستر بلان"
+            emptyLabel="—"
+            defaultValue={u?.zoneId}
+            options={zones.map((z) => ({ value: z.id, label: z.nameAr }))}
+            hint="بيتعلّم على عروض الأسعار وصفحة الوحدة في Sales"
+          />
+        </Row>
+      )}
     </>
   );
 
@@ -260,7 +276,10 @@ export function UnitList({
                     <td>
                       <span dir="ltr">{code.get(u.typologyId)}</span>
                     </td>
-                    <td>{u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}</td>
+                    <td>
+                      {u.floor === null ? "—" : u.floor === 0 ? "أرضي" : u.floor}
+                      {u.zoneId && zoneShort.has(u.zoneId) && <span className="block text-xs text-muted">{zoneShort.get(u.zoneId)}</span>}
+                    </td>
                     <td>{money(u.price, currency)}</td>
                     <td>
                       <span className={AVAILABILITY_BADGE[u.availability]}>{options.availability.find((o) => o.value === u.availability)?.label}</span>

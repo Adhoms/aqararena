@@ -184,9 +184,16 @@ function readSheet(wb: ExcelJS.Workbook, def: SheetDef, problems: Problem[]): Sh
 
 /** Keeps only the fields whose column is in the sheet, so a removed column never wipes data. */
 function onlyPresent<T extends Record<string, unknown>>(values: T, present: Set<string>, always: string[] = []): Partial<T> {
-  const source: Record<string, string> = { landAreaM2: "landFeddan", pricePerM2From: "priceFrom" };
+  const source: Record<string, string> = { landAreaM2: "landFeddan", pricePerM2From: "priceFrom", zoneId: "zone" };
   return Object.fromEntries(Object.entries(values).filter(([k]) => always.includes(k) || present.has(source[k] ?? k))) as Partial<T>;
 }
+
+type ZoneRef = { id: string; projectId: string; shortAr: string; shortEn: string; nameAr: string; nameEn: string };
+const ZONE_SELECT = { id: true, projectId: true, shortAr: true, shortEn: true, nameAr: true, nameEn: true } as const;
+
+/** A zone of the project named in a cell (short or full name, Arabic or English). */
+const zoneByName = (zones: ZoneRef[], projectId: string, name: string) =>
+  zones.find((z) => z.projectId === projectId && [z.shortAr, z.shortEn, z.nameAr, z.nameEn].some((n) => norm(n) === norm(name)));
 
 // ─── Import ─────────────────────────────────────────────────────────────
 
@@ -252,13 +259,14 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   if (SHEETS.every((d) => sheets[d.key].rows.length === 0)) return fail("الملف فاضي: مالقيناش صفوف في شيتات المطورين أو المشروعات أو النماذج أو أنظمة السداد أو الوحدات.");
 
   // What is already on the site.
-  const [developers, areas, projects, typologies, plans, units] = await Promise.all([
+  const [developers, areas, projects, typologies, plans, units, zones] = await Promise.all([
     db.developer.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.area.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true, published: true, developer: { select: { slug: true } } } }),
     db.typology.findMany({ select: { id: true, code: true, projectId: true } }),
     db.paymentPlan.findMany({ orderBy: { createdAt: "asc" }, select: PLAN_MATCH_SELECT }),
     db.unit.findMany({ select: { id: true, building: true, unitNumber: true, typology: { select: { projectId: true } } } }),
+    db.masterPlanZone.findMany({ select: ZONE_SELECT }),
   ]);
   // How a unit is recognised: same project, building and unit number.
   const unitKey = (project: string, building: string | null, number: string) => `${project}|${norm(building ?? "")}|${norm(number)}`;
@@ -409,6 +417,13 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       const code = refs.typology;
       if (!code) say("كود النموذج", "هذا الحقل مطلوب");
       else if (proj && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
+      // The zone must be one of the project's own, so only a project already on the site can have one.
+      if (proj && refs.zone) {
+        const zone = proj.existingId ? zoneByName(zones, proj.existingId, refs.zone) : undefined;
+        if (!proj.existingId) say("منطقة الماستر بلان", "المشروع لسه جديد ومالوش ماستر بلان");
+        else if (!zone) say("منطقة الماستر بلان", `مالقيناش منطقة اسمها «${refs.zone}» في الماستر بلان`);
+        values.zoneId = zone?.id ?? null;
+      }
       if (!proj || !code || !values.unitNumber) continue;
       const key = unitKey(proj.slug, values.building, values.unitNumber);
       if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المشروع والمبنى والرقم)");
@@ -711,7 +726,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
         area: { select: { nameAr: true } },
         typologies: {
           orderBy: { code: "asc" },
-          include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }] } },
+          include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }], include: { zone: { select: { shortAr: true } } } } },
         },
         paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } }, steps: { orderBy: { sortOrder: "asc" } } } },
       },
@@ -797,6 +812,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
           price: num(u.price),
           view: label(CHOICES.unitViews, u.view),
           orientation: label(CHOICES.orientations, u.orientation),
+          zone: u.zone?.shortAr ?? null,
         })),
       ),
     ),
@@ -833,9 +849,10 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
   const { rows, present } = readSheet(wb, def, problems);
   if (!rows.length && !problems.length) return fail("الشيت فاضي.");
 
-  const [types, existing] = await Promise.all([
+  const [types, existing, zones] = await Promise.all([
     db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { id: true, code: true, priceFrom: true } }),
     db.unit.findMany({ where: { typology: { projectId } }, select: { id: true, building: true, unitNumber: true } }),
+    db.masterPlanZone.findMany({ where: { projectId }, select: ZONE_SELECT }),
   ]);
   const typeByCode = new Map(types.map((t) => [t.code.toLowerCase(), t]));
   const idByKey = new Map(existing.filter((u) => u.unitNumber).map((u) => [unitKey(u.building, u.unitNumber!), u.id]));
@@ -855,6 +872,11 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
     else if (!type) say("كود النموذج", `مالقيناش نموذج بالكود «${refs.typology}» في المشروع ده`);
     const priceProblem = type ? unitPriceProblem(values.price, Number(type.priceFrom)) : null;
     if (priceProblem) say(def.columns.find((c) => c.key === "price")?.header ?? "price", priceProblem);
+    if (refs.zone) {
+      const zone = zoneByName(zones, projectId, refs.zone);
+      if (!zone) say("منطقة الماستر بلان", `مالقيناش منطقة اسمها «${refs.zone}» في الماستر بلان`);
+      values.zoneId = zone?.id ?? null;
+    }
     if (!type || !values.unitNumber) continue;
     const key = unitKey(values.building, values.unitNumber);
     if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المبنى والرقم)");
@@ -903,7 +925,7 @@ export async function buildProjectUnitsWorkbook(projectId: string): Promise<Arra
     db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { code: true }, orderBy: { code: "asc" } }),
     db.unit.findMany({
       where: { typology: { projectId } },
-      include: { typology: { select: { code: true } } },
+      include: { typology: { select: { code: true } }, zone: { select: { shortAr: true } } },
       orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }],
     }),
   ]);
@@ -957,6 +979,7 @@ export async function buildProjectUnitsWorkbook(projectId: string): Promise<Arra
       price: num(u.price),
       view: label(CHOICES.unitViews, u.view),
       orientation: label(CHOICES.orientations, u.orientation),
+      zone: u.zone?.shortAr ?? null,
     });
   }
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer;

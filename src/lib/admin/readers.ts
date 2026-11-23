@@ -143,5 +143,7 @@ export function readUnit(f: FormReader) {
     orientation: f.oneOf("orientation", ORIENTATIONS),
     price: f.number("price", { min: 0 }),
     availability: f.oneOf("availability", UNIT_AVAILABILITY, { required: true }) ?? "AVAILABLE",
+    /** Checked against the unit's project by the caller (zoneOfProject). */
+    zoneId: f.id("zoneId"),
   };
 }

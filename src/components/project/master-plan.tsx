@@ -16,7 +16,8 @@ type Props = {
 
 /**
  * Clickable master plan. Each zone is a button placed over the plan; picking one shows its
- * details beside the plan. With a real plan image the zones sit on top of the tiled image.
+ * details beside the plan. With a real plan image the zones sit on top of the tiled image. Zones are
+ * measured from the left, as the admin enters them, so they stay put on Arabic pages.
  */
 export function MasterPlan({ zones, panels, labels, image }: Props) {
   const [active, setActive] = useState(zones[0]?.id);
@@ -45,7 +46,7 @@ export function MasterPlan({ zones, panels, labels, image }: Props) {
                 type="button"
                 aria-pressed={selected}
                 onClick={() => setActive(z.id)}
-                style={{ insetInlineStart: `${z.shape.x}%`, top: `${z.shape.y}%`, width: `${z.shape.w}%`, height: `${z.shape.h}%` }}
+                style={{ left: `${z.shape.x}%`, top: `${z.shape.y}%`, width: `${z.shape.w}%`, height: `${z.shape.h}%` }}
                 className={`absolute flex items-center justify-center rounded-2xl p-2 text-center text-sm font-medium transition-colors ${
                   selected ? "border-2 border-brass-light bg-brand text-white" : `border ${idle}`
                 }`}

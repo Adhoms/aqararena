@@ -44,7 +44,6 @@ const nextConfig: NextConfig = {
   // The routes that print PDFs need @sparticuz/chromium's packed browser, which it loads by path at
   // run time, so the file tracer can't see it. Keys are route globs (brackets escaped).
   outputFileTracingIncludes: {
-    "/api/pdf-check": ["./node_modules/@sparticuz/chromium/bin/**"],
     "/sales/offers/\\[id\\]/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
   partialPrefetching: true,

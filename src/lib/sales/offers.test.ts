@@ -6,6 +6,8 @@ import {
   canDecideOffer,
   canSeeOffer,
   canShareOffer,
+  canShareOfferNow,
+  parsePct,
   clientBanner,
   discountDecision,
   offerState,
@@ -132,5 +134,36 @@ test("the new-offer form", () => {
   assert.equal(f.ok, true);
   const bad = form({ clientName: "", clientPhone: "12", clientEmail: "x@", language: "fr", validityDays: "40", discountPct: "3" });
   readOfferForm(bad);
-  assert.deepEqual(Object.keys(bad.errors).sort(), ["clientEmail", "clientName", "clientPhone", "language", "planId", "validityDays"]);
+  assert.deepEqual(Object.keys(bad.errors).sort(), ["clientEmail", "clientName", "clientPhone", "language", "planId", "unitId", "validityDays"]);
+  const badUnit = form({ unitId: "../x", planId: "cplan0000000000001", clientName: "x", language: "ar", validityDays: "7" });
+  readOfferForm(badUnit);
+  assert.deepEqual(Object.keys(badUnit.errors), ["unitId"]);
+});
+
+test("a percentage as typed: Western or Arabic-Indic digits, a dot or the Arabic decimal separator", () => {
+  assert.deepEqual(parsePct("2.5"), { value: 2.5, decimals: 1 });
+  assert.deepEqual(parsePct(" 12 "), { value: 12, decimals: 0 });
+  assert.deepEqual(parsePct("\u0662\u066B\u0665\u0660"), { value: 2.5, decimals: 2 });
+  assert.deepEqual(parsePct("1.255"), { value: 1.255, decimals: 3 });
+  for (const bad of ["1,5", "0x2", "1e1", "-1", "+2", "2.", ".5", "2 5", "Infinity", "NaN", "\u0662,\u0665"]) assert.equal(parsePct(bad), null, bad);
+});
+
+test("discount fields refuse separators and hex instead of reading them as other numbers", () => {
+  for (const [typed, message] of [["1,5", /من 0 لـ 20/], ["0x2", /من 0 لـ 20/], ["1.255", /رقمين/], ["20.01", /من 0 لـ 20/], ["-1", /من 0 لـ 20/]] as const) {
+    const f = form({ offerValidityDays: "7", agentDiscountPct: typed, leadDiscountPct: "20" });
+    readOfferSettings(f);
+    assert.match(f.errors.agentDiscountPct ?? "", message, typed);
+  }
+  const arabic = form({ offerValidityDays: "7", agentDiscountPct: "\u0661\u066B\u0665", leadDiscountPct: "\u0663" });
+  assert.deepEqual(readOfferSettings(arabic), { offerValidityDays: 7, agentDiscountPct: 1.5, leadDiscountPct: 3 });
+  assert.equal(arabic.ok, true);
+  const empty = form({ offerValidityDays: "7", agentDiscountPct: "", leadDiscountPct: "" });
+  assert.deepEqual(readOfferSettings(empty), { offerValidityDays: 7, agentDiscountPct: 0, leadDiscountPct: 0 });
+});
+
+test("an offer is sent only while it is worth sending", () => {
+  assert.equal(canShareOfferNow(agent, offer(), "VALID"), true);
+  assert.equal(canShareOfferNow(agent, offer(), "PRICE_CHANGED"), true);
+  for (const state of ["EXPIRED", "UNIT_TAKEN", "CANCELLED", "PENDING"] as const) assert.equal(canShareOfferNow(agent, offer(), state), false, state);
+  assert.equal(canShareOfferNow(lead, offer(), "VALID"), false);
 });

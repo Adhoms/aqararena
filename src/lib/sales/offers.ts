@@ -76,6 +76,16 @@ export function offerState(f: OfferStateFacts, now = new Date()): OfferState {
   return "VALID";
 }
 
+/**
+ * States an offer may still be sent in: valid, or valid with a price that moved since (the client gets
+ * the offer as issued; the salesperson sees «السعر اتغيّر»). Expired, cancelled or on a unit that is
+ * sold or held by a colleague, it stays where it is.
+ */
+export const SHAREABLE_STATES: readonly OfferState[] = ["VALID", "PRICE_CHANGED"];
+
+/** The salesperson may send this offer now: theirs, issued, and in a state worth sending. */
+export const canShareOfferNow = (actor: OfferActor, offer: OfferFacts, state: OfferState) => canShareOffer(actor, offer) && SHAREABLE_STATES.includes(state);
+
 export type ClientBanner = "CANCELLED" | "SOLD" | "EXPIRED" | null;
 
 /**
@@ -89,18 +99,33 @@ export function clientBanner(f: { status: OfferStatusValue; validUntil: Date; un
   return null;
 }
 
+/**
+ * A percentage as typed: digits (Western or Arabic-Indic) with "." or the Arabic decimal separator.
+ * No thousands separators, signs, exponents or hex: "1,5" or "0x2" is not 2 or 15 by accident.
+ */
+export function parsePct(raw: string): { value: number; decimals: number } | null {
+  const text = raw
+    .trim()
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/\u066B/g, ".");
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(text);
+  return m ? { value: Number(text), decimals: m[2]?.length ?? 0 } : null;
+}
+
 /** A discount field: 0 to 20 with at most two decimals. Empty reads as null. */
 function readDiscount(f: FormReader, name: string): number | null {
-  const v = f.number(name, { min: 0, max: DISCOUNT_CAP });
-  if (f.errors[name]) {
-    f.errors[name] = `اكتب نسبة من 0 لـ ${DISCOUNT_CAP}`;
-    return null;
-  }
-  if (v !== null && Math.abs(v * 100 - Math.round(v * 100)) > 1e-6) {
+  const raw = f.raw(name);
+  if (!raw) return null;
+  const pct = parsePct(raw);
+  if (pct && pct.decimals > 2) {
     f.errors[name] = "رقمين بعد العلامة بالكتير";
     return null;
   }
-  return v;
+  if (!pct || pct.value > DISCOUNT_CAP) {
+    f.errors[name] = `اكتب نسبة من 0 لـ ${DISCOUNT_CAP}`;
+    return null;
+  }
+  return pct.value;
 }
 
 function readValidity(f: FormReader, name: string): number | null {
@@ -121,6 +146,7 @@ export function readOfferSettings(f: FormReader) {
 /** The new-offer form. The unit, plan and limits are checked by the service against the database. */
 export function readOfferForm(f: FormReader) {
   const unitId = f.id("unitId");
+  if (!unitId) f.errors.unitId = "الوحدة مش معروفة، افتح العرض من صفحة الوحدة";
   const planId = f.id("planId");
   if (!planId) f.errors.planId = "اختار خطة السداد";
   const clientName = f.requiredText("clientName", 100);

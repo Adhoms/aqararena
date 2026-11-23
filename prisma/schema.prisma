@@ -782,6 +782,9 @@ model SalesOffer {
   /// Percent off the unit price, 0–20.
   discountPct    Decimal        @default(0) @db.Decimal(4, 2)
   status         OfferStatus
+  /// Set once the offer goes out (at once, or on a team lead's approval) and never cleared: «ملفي» counts
+  /// the offers a salesperson issued, including those cancelled later, but not those rejected while pending.
+  wasIssued      Boolean        @default(false)
   approvedById   String?
   approvedBy     SalesAccount?  @relation("OfferApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   approvedAt     DateTime?

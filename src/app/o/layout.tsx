@@ -8,8 +8,8 @@ import "./offer.css";
 const plexArabic = IBM_Plex_Sans_Arabic({ variable: "--font-plex-arabic", subsets: ["arabic", "latin"], weight: ["400", "500", "600"] });
 const alexandria = Alexandria({ variable: "--font-alexandria", subsets: ["arabic", "latin"], weight: ["300", "400", "500"] });
 
-// Every offer is read from the database per request, and the page waits for it (no streamed shell),
-// so a link that doesn't open an offer answers with a real 404.
+// Every offer is read from the database per request, and the page waits for it: no Suspense, no
+// placeholder, so a link that doesn't open an offer never flashes an empty sheet first.
 export const instant = false;
 
 export const metadata: Metadata = {

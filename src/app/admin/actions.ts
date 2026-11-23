@@ -241,8 +241,8 @@ export async function savePaymentPlan(_: FormState, data: FormData): Promise<For
   if (!f.ok || !projectId) return f.result();
   const rows = toStepRows(steps);
   // One statement: the plan and its steps change together.
-  if (id) await db.paymentPlan.update({ where: { id, projectId }, data: { ...values, steps: { deleteMany: {}, create: rows } } });
-  else await db.paymentPlan.create({ data: { ...values, projectId, steps: { create: rows } } });
+  if (id) await db.paymentPlan.update({ where: { id, projectId }, data: { ...values, steps: { deleteMany: {}, createMany: { data: rows } } } });
+  else await db.paymentPlan.create({ data: { ...values, projectId, steps: { createMany: { data: rows } } } });
   await touchPrices(projectId);
   published();
   return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };

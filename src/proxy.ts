@@ -36,6 +36,9 @@ export function proxy(request: NextRequest) {
     return;
   }
 
+  // A client's price offer (/o/[token]) carries its own language; it is never moved under /ar or /en.
+  if (firstSegment === "o") return;
+
   const saved = request.cookies.get(LOCALE_COOKIE)?.value;
   const locale = saved && hasLocale(saved) ? saved : defaultLocale;
 

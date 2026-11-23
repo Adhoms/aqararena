@@ -18,7 +18,18 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   cacheComponents: true,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // A client's offer is never indexed, and its link (the token is the only key) never leaves in a
+      // Referer. Listed after the site-wide entry, so this Referrer-Policy wins for /o.
+      {
+        source: "/o/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+    ];
   },
   async redirects() {
     // The developers' landing page moved; old links and search results keep working.

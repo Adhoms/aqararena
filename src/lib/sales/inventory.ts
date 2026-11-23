@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Currency, SubType } from "@/lib/property";
 import { stepsOf } from "@/lib/catalog/plan-steps";
+import type { ZoneBox } from "@/components/sales/marked-plan";
 import { budgetFigure, fitsBudget, plansForType, type SalesPlan } from "./budget";
 import { releaseExpired, salesHoldWhere } from "./hold-service";
 import { effectiveHoldHours, salesState, SALES_STATE_RANK, type HoldActor, type SalesState } from "./holds";
@@ -243,8 +244,10 @@ export type SalesUnitDetail = {
   /** The type's floor plans; until those can be uploaded per type, the project's. */
   floorPlans: { url: string; caption: string | null }[];
   floorPlansOfType: boolean;
-  /** The master plan image. Units aren't linked to zones, so it can't be marked. */
+  /** The master plan image, marked when the unit has a zone. */
   masterPlan: string | null;
+  /** Where the unit is on the master plan, if the admin or the developer set it. */
+  zone: ZoneBox | null;
   hold: UnitHoldView | null;
 };
 
@@ -268,6 +271,7 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
       price: true,
       availability: true,
       typologyId: true,
+      zone: { select: { xPct: true, yPct: true, widthPct: true, heightPct: true, nameAr: true } },
       typology: {
         select: {
           code: true,
@@ -305,6 +309,7 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
   const t = unit.typology;
   const p = t.project;
   const hold = unit.holds[0];
+  const z = unit.zone;
   const seesNote = hold !== undefined && (hold.salesAccountId === viewer.id || viewer.role === "LEAD");
   const typePlans = t.media.map((m) => ({ url: m.url, caption: m.captionAr }));
   const projectPlans = p.media.filter((m) => m.kind !== "MASTER_PLAN").map((m) => ({ url: m.url, caption: m.captionAr }));
@@ -334,6 +339,7 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
     floorPlans: typePlans.length ? typePlans : projectPlans,
     floorPlansOfType: typePlans.length > 0,
     masterPlan: p.masterPlanUrl ?? p.media.find((m) => m.kind === "MASTER_PLAN")?.url ?? null,
+    zone: z ? { x: Number(z.xPct), y: Number(z.yPct), w: Number(z.widthPct), h: Number(z.heightPct), label: z.nameAr } : null,
     hold: hold ? { id: hold.id, salesAccountId: hold.salesAccountId, holder: hold.salesAccount.nameAr, expiresAt: hold.expiresAt, clientNote: seesNote ? hold.clientNote : null } : null,
   };
 }

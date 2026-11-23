@@ -6,6 +6,7 @@ import ar from "@/app/[lang]/dictionaries/ar.json";
 import { Panel } from "@/components/admin/fields";
 import { PaymentCalculator } from "@/components/project/payment-calculator";
 import { HoldPanel } from "@/components/sales/hold-panel";
+import { MarkedPlan } from "@/components/sales/marked-plan";
 import { Money } from "@/components/sales/money";
 import { SalesShell } from "@/components/sales/sales-shell";
 import { StateBadge } from "@/components/sales/state-badge";
@@ -186,10 +187,18 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
 
           {unit.masterPlan && (
             <Panel title="الماستر بلان">
-              <p className="-mt-2 mb-4 text-xs text-muted">مكان الوحدة مش متعلّم على الماستر بلان.</p>
+              <p className="-mt-2 mb-4 text-xs text-muted">
+                {unit.zone ? <>الوحدة في «{unit.zone.label}»، متعلّمة على الماستر بلان.</> : "مكان الوحدة مش متحدد على الماستر بلان."}
+              </p>
               <a href={unit.masterPlan} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-line bg-plan">
-                {/* eslint-disable-next-line @next/next/no-img-element -- uploaded plan, up to 4000 px, as on the project page */}
-                <img src={unit.masterPlan} alt={`الماستر بلان: ${unit.project.nameAr}`} loading="lazy" decoding="async" className="max-h-[70vh] w-full object-contain" />
+                {/* The frame hugs the height-capped image, so the zone lands where the admin measured it. */}
+                <MarkedPlan
+                  image={unit.masterPlan}
+                  zone={unit.zone}
+                  alt={`الماستر بلان: ${unit.project.nameAr}`}
+                  className="relative mx-auto w-fit"
+                  imgClassName="block h-auto max-h-[70vh] w-auto max-w-full"
+                />
                 <span className="sr-only">(بتفتح في تبويب جديد)</span>
               </a>
             </Panel>

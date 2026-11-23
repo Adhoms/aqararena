@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { useRouter } from "next/navigation";
 import { saveSubmission } from "@/app/portal/actions";
 import { checkFile, uploadFile } from "@/components/admin/upload";
-import { SchedulePreview } from "@/components/admin/schedule-field";
+import { SCHEDULE_INPUT, ScheduleHint, SchedulePreview, previewShowsError } from "@/components/admin/schedule-field";
 import { IMAGE_TYPES } from "@/lib/admin/upload-config";
 import { moneyAr } from "@/lib/format";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "@/lib/portal/draft-types";
@@ -82,8 +82,9 @@ function Field({
   if (def.type === "schedule") {
     control = (
       <>
-        <textarea className="admin-input font-mono" rows={2} dir="ltr" value={text} aria-invalid={invalid} onChange={(e) => onChange(e.target.value)} />
+        <textarea {...SCHEDULE_INPUT} value={text} aria-invalid={invalid} onChange={(e) => onChange(e.target.value)} />
         <SchedulePreview text={text} />
+        <ScheduleHint />
       </>
     );
   } else if (def.type === "textarea") {
@@ -118,7 +119,8 @@ function Field({
       {label}
       {control}
       {def.hint && <span className="text-xs text-muted">{def.hint}</span>}
-      {error && <span className="text-xs text-red-700 dark:text-red-300">{error}</span>}
+      {/* A schedule's mistake is already in its live check. */}
+      {error && !(def.type === "schedule" && previewShowsError(text)) && <span className="text-xs text-red-700 dark:text-red-300">{error}</span>}
     </label>
   );
 }

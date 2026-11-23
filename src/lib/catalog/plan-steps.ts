@@ -1,3 +1,6 @@
+import { countAr, formatCountAr, type CountNoun } from "@/lib/format";
+import type { InstallmentFrequency } from "@/lib/property";
+
 // A plan's custom payment schedule (spec section 4) and the short notation developers type it in,
 // the same in the admin, the portal and Excel:
 //
@@ -14,10 +17,18 @@ export type PlanStepInput = { monthOffset: number; pct: number; kind: StepKind }
 
 export const MAX_STEP_MONTH = 360;
 export const MAX_STEPS = 400;
+/** The longest schedule text read; longer text is refused before any work. */
+export const MAX_SCHEDULE_LENGTH = 5000;
 
-/** Help under the schedule field, in the admin and the portal. */
-export const SCHEDULE_HINT =
-  "اختياري، لو الخطة مش أقساط متساوية. اكتب الشهر:النسبة مفصولين بفاصلة، و«من-لحد/كل:النسبة» لدفعات متساوية، و«صيانة» قبل دفعات الصيانة. مثال: 0:5, 3:5, 6-96/3:90, صيانة 9-33/12:100. لو كتبته، المقدم والسنين بيتحسبوا منه.";
+/** Help under the schedule field, in the admin and the portal. The example is Latin text: show it in `<bdi dir="ltr">`. */
+export const SCHEDULE_HINT = {
+  before: "اختياري، لو الخطة مش أقساط متساوية. اكتب الشهر:النسبة مفصولين بفاصلة، و«من-لحد/كل:النسبة» لدفعات متساوية، و«صيانة» قبل دفعات الصيانة. مثال:",
+  example: "0:5, 3:5, 6-96/3:90, صيانة 9-33/12:100",
+  after: "لو كتبته، المقدم والسنين ونوع الأقساط بيتحسبوا منه.",
+};
+
+const PAYMENTS: CountNoun = { one: "دفعة", two: "دفعتين", few: "دفعات" };
+const MONTHS: CountNoun = { one: "شهر", two: "شهرين", few: "شهور" };
 
 const SCALE = 1_000_000;
 const HUNDRED = 100 * SCALE;
@@ -39,21 +50,30 @@ export const formatPct = (pct: number) => String(Number(pct.toFixed(6)));
 export const sortSteps = (steps: PlanStepInput[]) =>
   [...steps].sort((a, b) => (a.kind === b.kind ? a.monthOffset - b.monthOffset : a.kind === "PAYMENT" ? -1 : 1));
 
-/** Western digits and "." for decimals; Arabic commas, semicolons and new lines separate entries. */
+/**
+ * Western digits, "." for decimals, "%" and "-" as typed on any keyboard; Arabic commas, semicolons and
+ * new lines separate entries. Direction marks (pasted from Arabic text) are dropped.
+ */
 const normalise = (text: string) =>
   text
+    .replace(/[‎‏؜‪-‮⁦-⁩﻿]/g, "")
+    .replace(/ /g, " ")
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
     .replace(/٫/g, ".")
+    .replace(/٪/g, "%")
+    .replace(/[–—]/g, "-")
     .replace(/[،؛;\r\n]/g, ",");
 
-const ENTRY = /^(?:(صيانة|maintenance)\s*)?(\d+)(?:\s*-\s*(\d+)\s*\/\s*(\d+))?\s*:\s*(\d+(?:\.\d+)?)\s*%?$/i;
+const ENTRY = /^(?:((?:ال)?صيان[ةه]|maintenance)\s*)?(\d+)(?:\s*-\s*(\d+)\s*\/\s*(\d+))?\s*:\s*(\d+(?:\.\d+)?)\s*%?$/i;
 
 export type StepsResult = { steps: PlanStepInput[]; error: string | null };
 
 /** Reads the notation. Empty text is no custom schedule; any mistake is explained in Arabic. */
 export function parseSteps(text: string): StepsResult {
   const fail = (error: string): StepsResult => ({ steps: [], error });
+  if (text.length > MAX_SCHEDULE_LENGTH) return fail(`الجدول أطول من ${formatCountAr(MAX_SCHEDULE_LENGTH)} حرف`);
+  const tooMany = `الجدول فيه أكتر من ${formatCountAr(MAX_STEPS)} دفعة`;
   const steps: PlanStepInput[] = [];
   for (const raw of normalise(text).split(",")) {
     const entry = raw.trim();
@@ -65,15 +85,21 @@ export function parseSteps(text: string): StepsResult {
     const from = Number(m[2]);
     const pct = Number(m[5]);
     if (m[3] === undefined) {
+      if (steps.length + 1 > MAX_STEPS) return fail(tooMany);
       steps.push({ monthOffset: from, pct, kind });
       continue;
     }
     const to = Number(m[3]);
     const every = Number(m[4]);
-    if (every < 1 || to <= from || (to - from) % every !== 0) return fail(`«${entry}»: من شهر ${from} لشهر ${to} كل ${every} شهور مش بتيجي مظبوطة`);
+    if (to > MAX_STEP_MONTH) return fail(`الشهر ${to} في «${entry}» برّه المدى (من 0 لـ ${MAX_STEP_MONTH})`);
+    if (every < 1) return fail(`«${entry}»: الفاصل بين الدفعات لازم يبقى شهر أو أكتر`);
+    if (to <= from || (to - from) % every !== 0)
+      return fail(`«${entry}»: من شهر ${formatCountAr(from)} لشهر ${formatCountAr(to)} كل ${countAr(every, MONTHS)} مش بتيجي مظبوطة`);
     const count = (to - from) / every + 1;
-    if (count > MAX_STEPS) return fail(`«${entry}» فيها دفعات كتير`);
-    spreadEvenly(pct, count).forEach((p, i) => steps.push({ monthOffset: from + i * every, pct: p, kind }));
+    if (steps.length + count > MAX_STEPS) return fail(`«${entry}» فيها ${countAr(count, PAYMENTS)}، والجدول كله ميزيدش عن ${formatCountAr(MAX_STEPS)} دفعة`);
+    const shares = spreadEvenly(pct, count);
+    if (shares.some((p) => units(p) <= 0)) return fail(`«${entry}»: النسبة صغيرة على ${countAr(count, PAYMENTS)}`);
+    shares.forEach((p, i) => steps.push({ monthOffset: from + i * every, pct: p, kind }));
   }
   const sorted = sortSteps(steps);
   const error = checkSteps(sorted);
@@ -83,7 +109,7 @@ export function parseSteps(text: string): StepsResult {
 /** Why these steps can't be saved, or null. No steps at all is fine: the plan has no custom schedule. */
 export function checkSteps(steps: PlanStepInput[]): string | null {
   if (steps.length === 0) return null;
-  if (steps.length > MAX_STEPS) return `الجدول فيه أكتر من ${MAX_STEPS} دفعة`;
+  if (steps.length > MAX_STEPS) return `الجدول فيه أكتر من ${formatCountAr(MAX_STEPS)} دفعة`;
   const seen = new Set<string>();
   const sums: Record<StepKind, number> = { PAYMENT: 0, MAINTENANCE: 0 };
   for (const s of steps) {
@@ -100,7 +126,11 @@ export function checkSteps(steps: PlanStepInput[]): string | null {
   return null;
 }
 
-/** One kind's steps (sorted by month) as entries; three or more even steps at a steady gap become a range. */
+/**
+ * One kind's steps (sorted by month) as entries, in one pass: a run at a steady gap whose shares are
+ * all equal, except perhaps a last one that takes the rounding (what spreadEvenly makes), becomes a
+ * range when it has three steps or more.
+ */
 function entries(list: PlanStepInput[]): string[] {
   const out: string[] = [];
   let i = 0;
@@ -108,21 +138,24 @@ function entries(list: PlanStepInput[]): string[] {
     let taken = 1;
     if (i + 2 < list.length) {
       const gap = list[i + 1].monthOffset - list[i].monthOffset;
-      let end = i + 1;
-      while (end + 1 < list.length && list[end + 1].monthOffset - list[end].monthOffset === gap) end++;
-      for (; end >= i + 2; end--) {
-        const run = list.slice(i, end + 1);
+      const share = units(list[i].pct);
+      let end = i;
+      while (end + 1 < list.length && list[end + 1].monthOffset - list[end].monthOffset === gap && units(list[end + 1].pct) === share) end++;
+      taken = end - i + 1;
+      // The step after the equal ones may be the run's last, holding the rounding.
+      if (end + 1 < list.length && list[end + 1].monthOffset - list[end].monthOffset === gap) {
+        const run = list.slice(i, end + 2);
         const even = spreadEvenly(pctOf(sumUnits(run)), run.length);
-        if (even.every((p, k) => units(p) === units(run[k].pct))) {
-          taken = run.length;
-          break;
-        }
+        if (even.every((p, k) => units(p) === units(run[k].pct))) taken = run.length;
       }
     }
     if (taken >= 3) {
       const run = list.slice(i, i + taken);
       out.push(`${run[0].monthOffset}-${run[taken - 1].monthOffset}/${run[1].monthOffset - run[0].monthOffset}:${formatPct(pctOf(sumUnits(run)))}`);
-    } else out.push(`${list[i].monthOffset}:${formatPct(list[i].pct)}`);
+    } else {
+      taken = 1;
+      out.push(`${list[i].monthOffset}:${formatPct(list[i].pct)}`);
+    }
     i += taken;
   }
   return out;
@@ -136,16 +169,34 @@ export function formatSteps(steps: PlanStepInput[]): string {
   return [...pay, ...care].join(", ");
 }
 
+const GAP_FREQUENCY: Record<number, InstallmentFrequency> = { 1: "MONTHLY", 3: "QUARTERLY", 6: "SEMI_ANNUAL", 12: "ANNUAL" };
+
+/** The installment frequency the schedule mostly follows: its most common gap of 1, 3, 6 or 12 months (the shorter on a tie). */
+function frequencyOf(pay: PlanStepInput[]): InstallmentFrequency | null {
+  const gaps = new Map<number, number>();
+  for (let i = 1; i < pay.length; i++) {
+    const gap = pay[i].monthOffset - pay[i - 1].monthOffset;
+    if (GAP_FREQUENCY[gap]) gaps.set(gap, (gaps.get(gap) ?? 0) + 1);
+  }
+  const best = [...gaps].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
+  return best ? GAP_FREQUENCY[best[0]] : null;
+}
+
 /**
  * A stepped plan's headline terms, stored on the plan so cards, filters, the budget search and the
- * calculator keep working: the down payment is what is due at month 0, the term the last payment's
- * month in years (rounded up), and no separate delivery payment.
+ * calculator keep working:
+ * - the down payment is the share of the first payment, whatever its month: what the buyer must have
+ *   to start ("3:50, 13:50" asks for 50% first, not 0% down);
+ * - the term is the last payment's month in years, rounded up;
+ * - the frequency is the schedule's most common gap (null when none is 1, 3, 6 or 12 months);
+ * - there is no separate delivery payment.
  */
 export function termsFromSteps(steps: PlanStepInput[]) {
-  const pay = steps.filter((s) => s.kind === "PAYMENT");
-  const down = pctOf(sumUnits(pay.filter((s) => s.monthOffset === 0)));
+  const pay = sortSteps(steps.filter((s) => s.kind === "PAYMENT"));
+  const first = pay[0]?.monthOffset ?? 0;
+  const down = pctOf(sumUnits(pay.filter((s) => s.monthOffset === first)));
   const last = Math.max(0, ...pay.map((s) => s.monthOffset));
-  return { downPaymentPct: Math.round(down * 100) / 100, deliveryPaymentPct: 0, years: Math.ceil(last / 12) };
+  return { downPaymentPct: Math.round(down * 100) / 100, deliveryPaymentPct: 0, years: Math.ceil(last / 12), frequency: frequencyOf(pay) };
 }
 
 /** Rows for `PlanStep`, in order. */

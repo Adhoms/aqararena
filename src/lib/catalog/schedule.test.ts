@@ -45,11 +45,30 @@ test("the sample offer: 27,454,000 on 5% + 5% + 31 quarterly installments, 10% m
   assert.equal(s.rows.reduce((sum, r) => sum + r.amount, 0), 27_454_000);
   assert.equal(s.rows.reduce((sum, r) => sum + r.maintenance, 0), 2_745_400);
   assert.equal(s.rows.find((r) => r.monthOffset === 33)!.maintenance, 915_134, "the last part takes the rounding");
+  assert.deepEqual(s.rows.slice(2, 32).map((r) => r.amount), Array(30).fill(797_052), "every installment but the last is the same");
+  assert.equal(s.rows.find((r) => r.monthOffset === 21)!.maintenance, 915_133);
+  assert.deepEqual(
+    s.rows.filter((r) => r.maintenance > 0).map((r) => [r.installment, r.monthOffset]),
+    [[3, 9], [7, 21], [11, 33]],
+    "maintenance rides on installments 3, 7 and 11",
+  );
 });
 
 test("split: each part rounded, the last takes the rest", () => {
   assert.deepEqual(splitAmount(100, [33.333333, 33.333333, 33.333334]), [33, 33, 34]);
   assert.deepEqual(splitAmount(1_000_001, [50, 50]), [500_001, 500_000]);
+});
+
+test("split: a last part pushed below zero falls back to rounding the running total", () => {
+  // Six parts of 1.5 each round up to 2, which would leave the last one -2.
+  const parts = splitAmount(10, [15, 15, 15, 15, 15, 15, 10]);
+  assert.deepEqual(parts, [2, 1, 2, 1, 2, 1, 1]);
+  assert.equal(parts.reduce((a, b) => a + b, 0), 10);
+  assert.ok(parts.every((p) => p >= 0));
+  // Many tiny parts: every one stays within a pound of its share, and the total is exact.
+  const many = splitAmount(1_000, [...Array(399).fill(0.25), 0.25]);
+  assert.equal(many.reduce((a, b) => a + b, 0), 1_000);
+  assert.ok(many.every((p) => p >= 2 && p <= 3), JSON.stringify(many.slice(-3)));
 });
 
 test("a plan without steps: down payment, equal installments, delivery payment at handover", () => {
@@ -100,6 +119,13 @@ test("a fingerprint changes with any term or step", () => {
   assert.notEqual(planFingerprint(base), planFingerprint({ ...base, maintenancePct: 8 }));
   assert.notEqual(planFingerprint(base), planFingerprint({ ...base, steps: parseSteps("0:10, 24:90").steps }));
   assert.notEqual(planFingerprint(base), planFingerprint({ ...base, typologyId: "t1" }));
+});
+
+test("a stepped plan's fingerprint ignores its derived terms", () => {
+  const base = { ...plan({ steps: parseSteps("0:10, 12:90").steps }), typologyId: null };
+  assert.equal(planFingerprint(base), planFingerprint({ ...base, downPaymentPct: 12, years: 3, frequency: "MONTHLY", deliveryPaymentPct: 5 }));
+  const flat = { ...plan(), typologyId: null };
+  assert.notEqual(planFingerprint(flat), planFingerprint({ ...flat, frequency: "MONTHLY" }), "a plan without steps is its terms");
 });
 
 test("rows split into pages", () => {

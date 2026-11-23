@@ -51,6 +51,33 @@ test("mistakes are explained", () => {
   assert.match(parseSteps("0:99.1234567, 1:0.8765433").error!, /6 أرقام/);
   assert.match(parseSteps("0:50, 400:50").error!, /برّه المدى/);
   assert.match(parseSteps("صيانة 12:100").error!, /مجموع الدفعات 0%/);
+  assert.match(parseSteps("0:10, 6-96/0:90").error!, /شهر أو أكتر/);
+  assert.match(parseSteps("0:10, 6-95/3:90").error!, /كل ٣ شهور/);
+  assert.match(parseSteps("0:10, 6-95/1:90, 96:0").error!, /مش فاهم|لازم تبقى أكبر من صفر/);
+});
+
+test("the work is capped before anything is checked", () => {
+  assert.match(parseSteps("0:100, ".repeat(1000)).error!, /أطول من/);
+  assert.match(parseSteps("0:10, 1-100000000/1:90").error!, /برّه المدى/);
+  assert.match(parseSteps("0-360/1:100, صيانة 0-360/1:100").error!, /ميزيدش عن ٤٠٠ دفعة/);
+  assert.match(parseSteps(Array.from({ length: 401 }, (_, i) => `${i % 361}:0.1`).join(",")).error!, /أكتر من ٤٠٠ دفعة/);
+});
+
+test("a share too small to spread is refused", () => {
+  assert.match(parseSteps("0:99.99999, 1-6/1:0.00001").error!, /النسبة صغيرة على ٦ دفعات/);
+});
+
+test("common Arabic typing: ٪, dashes, «الصيانة», «صيانه» and direction marks", () => {
+  const plain = parseSteps("0:10, 3-12/3:90, صيانة 12:100").steps;
+  for (const text of [
+    "٠:١٠٪، ٣\u2013١٢/٣:٩٠٪، الصيانة ١٢:١٠٠٪",
+    "0:10, 3\u201412/3:90, صيانه 12:100",
+    "\u200F0:10\u200E, \u202B3-12/3:90\u202C, \u2067الصيانه 12:100\u2069\u061C",
+  ]) {
+    const r = parseSteps(text);
+    assert.equal(r.error, null, text);
+    assert.deepEqual(r.steps, plain);
+  }
 });
 
 test("checkSteps accepts what parseSteps makes", () => {
@@ -60,7 +87,7 @@ test("checkSteps accepts what parseSteps makes", () => {
 
 test("written back in the shortest form, and read again to the same steps", () => {
   assert.equal(formatSteps(parseSteps(SAMPLE).steps), SAMPLE);
-  for (const text of ["0:10, 12:40, 24:50", "0:20, 1-12/1:30, 24:50", "0:100", "0:10, 3:30, 6:60, صيانة 12:100"]) {
+  for (const text of ["0:10, 12:40, 24:50", "0:20, 1-12/1:30, 24:50", "0:100", "0:10, 3:30, 6:60, صيانة 12:100", "0:5, 3-12/3:40, 15-24/3:55", "0:1, 1-360/1:99"]) {
     const steps = parseSteps(text).steps;
     assert.equal(formatSteps(steps), text);
     assert.deepEqual(parseSteps(formatSteps(steps)).steps, steps);
@@ -68,9 +95,17 @@ test("written back in the shortest form, and read again to the same steps", () =
 });
 
 test("the plan's headline terms come from its steps", () => {
-  assert.deepEqual(termsFromSteps(parseSteps(SAMPLE).steps), { downPaymentPct: 5, deliveryPaymentPct: 0, years: 8 });
-  assert.deepEqual(termsFromSteps(parseSteps("0:100").steps), { downPaymentPct: 100, deliveryPaymentPct: 0, years: 0 });
-  assert.deepEqual(termsFromSteps(parseSteps("3:50, 13:50").steps), { downPaymentPct: 0, deliveryPaymentPct: 0, years: 2 });
+  assert.deepEqual(termsFromSteps(parseSteps(SAMPLE).steps), { downPaymentPct: 5, deliveryPaymentPct: 0, years: 8, frequency: "QUARTERLY" });
+  assert.deepEqual(termsFromSteps(parseSteps("0:100").steps), { downPaymentPct: 100, deliveryPaymentPct: 0, years: 0, frequency: null });
+  // Nothing at contract: the first payment is what the buyer needs to start, so it counts as the down payment.
+  assert.deepEqual(termsFromSteps(parseSteps("3:50, 13:50").steps), { downPaymentPct: 50, deliveryPaymentPct: 0, years: 2, frequency: null });
+});
+
+test("the frequency is the schedule's most common gap", () => {
+  assert.equal(termsFromSteps(parseSteps("0:10, 1-12/1:60, 18-36/6:30").steps).frequency, "MONTHLY");
+  assert.equal(termsFromSteps(parseSteps("0:10, 6-48/6:80, 60:10").steps).frequency, "SEMI_ANNUAL");
+  assert.equal(termsFromSteps(parseSteps("0:20, 12-60/12:80").steps).frequency, "ANNUAL");
+  assert.equal(termsFromSteps(parseSteps("0:10, 3:10, 6:10, 18:10, 30:60").steps).frequency, "QUARTERLY", "a tie goes to the shorter gap");
 });
 
 test("rows for the database keep the order", () => {

@@ -328,9 +328,9 @@ export function PaymentPlanList({
       fields={(p) => (
         <>
           <Row cols={4}>
-            <TextField name="downPaymentPct" type="number" label="المقدم % *" defaultValue={dec(p?.downPaymentPct)} hint="مش لازم لو فيه جدول مخصص" />
-            <TextField name="years" type="number" label="عدد السنوات *" defaultValue={p?.years} hint="0 = كاش، ومش لازم لو فيه جدول مخصص" />
-            <Select name="frequency" label="الأقساط *" defaultValue={p?.frequency ?? "QUARTERLY"} options={options.frequency} />
+            <TextField name="downPaymentPct" type="number" label="المقدم %" defaultValue={dec(p?.downPaymentPct)} hint="مطلوب لو مفيش جدول مخصص" />
+            <TextField name="years" type="number" label="عدد السنوات" defaultValue={p?.years} hint="0 = كاش. مطلوب لو مفيش جدول مخصص" />
+            <Select name="frequency" label="الأقساط" defaultValue={p?.frequency ?? "QUARTERLY"} options={options.frequency} hint="بيتحسب من الجدول المخصص لو فيه" />
             <TextField name="deliveryPaymentPct" type="number" label="دفعة الاستلام %" defaultValue={dec(p?.deliveryPaymentPct)} />
           </Row>
           <ScheduleField name="steps" defaultValue={p ? formatSteps(stepsOf(p.steps)) : ""} />

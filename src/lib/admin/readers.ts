@@ -11,7 +11,7 @@ import {
   UNIT_AVAILABILITY,
   UNIT_VIEWS,
 } from "@/lib/property";
-import { parseSteps, termsFromSteps } from "@/lib/catalog/plan-steps";
+import { MAX_SCHEDULE_LENGTH, parseSteps, termsFromSteps } from "@/lib/catalog/plan-steps";
 
 // The fields of each record, read and checked from a form. Shared by the admin forms
 // (app/admin/actions.ts) and the Excel import (lib/admin/import), so both accept exactly
@@ -100,25 +100,30 @@ export function readTypology(f: FormReader) {
 
 /**
  * A payment plan. With a custom schedule in `steps` (the notation in catalog/plan-steps.ts), the down
- * payment, years and delivery payment are taken from the steps, so they needn't be typed.
+ * payment, years, frequency and delivery payment are taken from the steps, so they needn't be typed.
  */
 export function readPaymentPlan(f: FormReader) {
-  const parsed = parseSteps(f.text("steps", { max: 5000 }) ?? "");
-  if (parsed.error) f.errors.steps = parsed.error;
+  const parsed = parseSteps(f.text("steps", { max: MAX_SCHEDULE_LENGTH }) ?? "");
+  if (parsed.error) f.errors.steps ??= parsed.error;
   const terms = parsed.steps.length ? termsFromSteps(parsed.steps) : null;
-  const down = f.pct("downPaymentPct", { required: !terms });
+  // The terms are needed only for a plan without a schedule; a schedule with a mistake shows that mistake alone.
+  const needTerms = !terms && f.raw("steps") === "";
+  const down = f.pct("downPaymentPct", { required: needTerms });
   const delivery = f.pct("deliveryPaymentPct") ?? 0;
   if (!terms && down !== null && down + delivery > 100) f.errors.deliveryPaymentPct = "المقدم + دفعة الاستلام أكثر من 100%";
-  const years = f.int("years", { required: !terms, min: 0, max: 30 });
+  const years = f.int("years", { required: needTerms, min: 0, max: 30 });
+  const frequency = f.oneOf("frequency", INSTALLMENT_FREQUENCIES, { required: needTerms });
+  const maintenancePct = f.pct("maintenancePct");
+  if (parsed.steps.some((s) => s.kind === "MAINTENANCE") && !maintenancePct) f.errors.maintenancePct ??= "فيه دفعات صيانة، اكتب وديعة الصيانة %";
   return {
     nameAr: f.text("nameAr", { max: 200 }),
     nameEn: f.text("nameEn", { max: 200 }),
     downPaymentPct: terms?.downPaymentPct ?? down ?? 0,
     deliveryPaymentPct: terms ? terms.deliveryPaymentPct : delivery,
     years: terms?.years ?? years ?? 0,
-    frequency: f.oneOf("frequency", INSTALLMENT_FREQUENCIES, { required: true }) ?? "QUARTERLY",
+    frequency: terms?.frequency ?? frequency ?? "QUARTERLY",
     cashDiscountPct: f.pct("cashDiscountPct"),
-    maintenancePct: f.pct("maintenancePct"),
+    maintenancePct,
     garageFee: f.number("garageFee", { min: 0 }),
     clubFee: f.number("clubFee", { min: 0 }),
     validUntil: f.date("validUntil"),

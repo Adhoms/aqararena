@@ -41,10 +41,30 @@ export type Schedule = {
 /** Splits a whole amount by shares that add up to 100: each rounded, the last takes what is left. */
 export function splitAmount(total: number, pcts: number[]): number[] {
   let given = 0;
-  return pcts.map((p, i) => {
+  const parts = pcts.map((p, i) => {
     if (i === pcts.length - 1) return total - given;
     const a = Math.round((total * p) / 100);
     given += a;
+    return a;
+  });
+  // Each rounding moves the last part by at most half a pound, so it can't drift further than that
+  // from its own share, nor below zero. If it would (many parts and a tiny last share), round the
+  // running total instead: every part then stays within a pound of its share.
+  const last = parts.length - 1;
+  const exactLast = (total * (pcts[last] ?? 0)) / 100;
+  if (last >= 0 && (parts[last] < 0 || Math.abs(parts[last] - exactLast) > last / 2 + 1)) return cumulativeSplit(total, pcts);
+  return parts;
+}
+
+/** Rounds the running share: part i is round(total × (p1+…+pi)) minus what came before; the last takes the rest. */
+function cumulativeSplit(total: number, pcts: number[]): number[] {
+  let share = 0;
+  let given = 0;
+  return pcts.map((p, i) => {
+    share += p;
+    const upTo = i === pcts.length - 1 ? total : Math.round((total * share) / 100);
+    const a = upTo - given;
+    given = upTo;
     return a;
   });
 }
@@ -148,14 +168,16 @@ export function monthsBetween(fromIso: string, toIso: string): number {
   return Math.max(0, (ty - fy) * 12 + (tm - fm));
 }
 
-/** Everything about a plan that changes an offer's figures. An offer whose plan no longer matches any current plan shows «السعر اتغيّر». */
+/**
+ * Everything about a plan that changes an offer's figures. An offer whose plan no longer matches any
+ * current plan shows «السعر اتغيّر». A stepped plan is paid by its steps: its headline terms are only
+ * derived from them, so they are left out.
+ */
 export function planFingerprint(plan: SchedulePlan & { typologyId: string | null }): string {
+  const stepped = plan.steps.length > 0;
   return JSON.stringify([
     plan.typologyId,
-    plan.downPaymentPct,
-    plan.deliveryPaymentPct,
-    plan.years,
-    plan.frequency,
+    ...(stepped ? [] : [plan.downPaymentPct, plan.deliveryPaymentPct, plan.years, plan.frequency]),
     plan.cashDiscountPct ?? 0,
     plan.maintenancePct ?? 0,
     sortSteps(plan.steps).map((s) => [s.kind, s.monthOffset, formatPct(s.pct)]),

@@ -115,16 +115,20 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
                 ))}
             </dl>
             <div className="flex flex-wrap items-center gap-3 border-t border-divider pt-5">
-              {/* Not built yet: plain text styled as a muted button, so it can't be focused or pressed. */}
-              {["عرض سعر", "إضافة للمقارنة"].map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-full border border-dashed border-line-strong px-4 text-sm text-muted select-none sm:min-h-9"
-                >
-                  {label}
-                  <span className="admin-badge">قريبًا</span>
+              {unit.state === "AVAILABLE" || (unit.state === "HELD" && unit.hold?.salesAccountId === me.id) ? (
+                <Link href={`/sales/units/${unit.id}/offer`} className="press admin-btn min-h-11 sm:min-h-9">
+                  عرض سعر
+                </Link>
+              ) : (
+                <span className="inline-flex min-h-11 items-center text-sm text-muted sm:min-h-9">
+                  {unit.state === "HELD" ? "مينفعش عرض سعر وهي محجوزة لزميل" : "مينفعش عرض سعر على وحدة مش متاحة"}
                 </span>
-              ))}
+              )}
+              {/* Not built yet: plain text styled as a muted button, so it can't be focused or pressed. */}
+              <span className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-full border border-dashed border-line-strong px-4 text-sm text-muted select-none sm:min-h-9">
+                إضافة للمقارنة
+                <span className="admin-badge">قريبًا</span>
+              </span>
               <a
                 href={`/ar/projects/${unit.project.slug}`}
                 target="_blank"

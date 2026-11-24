@@ -36,7 +36,9 @@ type Labels = {
 
 type Props = {
   units: Unit[];
-  plans: PaymentPlan[];
+  /** A plan's own maintenance % (Sales has one per plan) wins over `maintenancePct`. */
+  plans: (PaymentPlan & { maintenancePct?: number })[];
+  /** The project's maintenance %, for plans without their own (the public site). */
   maintenancePct?: number;
   locale: Locale;
   /** The project's currency; every figure is in it. */
@@ -60,12 +62,13 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, curren
   const unit = units.find((u) => u.code === unitCode) ?? units[0];
   const plan = plans[planIndex] ?? plans[0];
   if (!unit || !plan) return null;
+  const maintenancePctOf = plan.maintenancePct ?? maintenancePct;
 
   const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale, currency);
   const { price, custom, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
     unit.price,
     plan,
-    maintenancePct,
+    maintenancePctOf,
   );
 
   const parts = (
@@ -91,7 +94,7 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, curren
           [labels.firstYear, money(firstYear, 1000)],
         ] as [string, string][])
       : []),
-    ...(maintenance ? ([[fill(labels.maintenance, { pct: maintenancePct ?? 0 }), money(maintenance, 1000)]] as [string, string][]) : []),
+    ...(maintenance ? ([[fill(labels.maintenance, { pct: maintenancePctOf ?? 0 }), money(maintenance, 1000)]] as [string, string][]) : []),
   ];
 
   const select =

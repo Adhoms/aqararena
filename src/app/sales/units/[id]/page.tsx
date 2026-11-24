@@ -144,8 +144,8 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
           {plans.length > 0 ? (
             <PaymentCalculator
               units={[{ code: unit.id, name: unit.label, price: unit.price }]}
+              // Each plan with its own maintenance %, as on the offer made from it.
               plans={plans}
-              maintenancePct={plans.find((p) => p.maintenancePct !== undefined)?.maintenancePct}
               locale="ar"
               currency={unit.project.currency}
               labels={{

@@ -125,7 +125,9 @@ async function render(url: string, deadline: number): Promise<Uint8Array> {
     const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || undefined;
     await page.setRequestInterception(true);
     page.on("request", (request) => guard(request, origin, bypass));
-    await page.goto(url, { waitUntil: "networkidle0", timeout: Math.min(NAVIGATION_TIMEOUT_MS, left()) });
+    const response = await page.goto(url, { waitUntil: "networkidle0", timeout: Math.min(NAVIGATION_TIMEOUT_MS, left()) });
+    // Never print an error or not-found page as if it were the document.
+    if (!response?.ok()) throw new Error(`The page answered ${response?.status() ?? "nothing"}, not printed`);
     // Images below the first screen are lazy and would never be requested: load them all now.
     await page.evaluate(async (settleMs) => {
       const images = Array.from(document.images);
@@ -176,7 +178,15 @@ let inLine = 0;
  * The PDF of `url`, sized by the page's own @page rule. Waits for images and fonts. Rejects with
  * PdfBusyError when a render is running and another already waits, or after MAX_WAIT_MS of waiting.
  */
-export function renderPdf(url: string): Promise<Uint8Array> {
+export async function renderPdf(url: string): Promise<Uint8Array> {
+  return (await renderPdfIf(url, async () => true))!;
+}
+
+/**
+ * renderPdf, asking `stillNeeded` once this render's turn comes: a request that waited behind another
+ * may find the PDF made by then, and resolves null without starting a browser.
+ */
+export function renderPdfIf(url: string, stillNeeded: () => Promise<boolean>): Promise<Uint8Array | null> {
   if (inLine >= MAX_IN_LINE) return Promise.reject(new PdfBusyError());
   // Taken now, so the wait counts against the budget.
   const deadline = Date.now() + RENDER_BUDGET_MS;
@@ -195,9 +205,10 @@ export function renderPdf(url: string): Promise<Uint8Array> {
       reject(new PdfBusyError());
     }, MAX_WAIT_MS);
   });
-  const job = queue.then(() => {
+  const job = queue.then(async () => {
     clearTimeout(timer);
     if (gaveUp) throw new PdfBusyError();
+    if (!(await stillNeeded())) return null;
     return render(url, deadline);
   });
   queue = job.catch(() => undefined).finally(leave);

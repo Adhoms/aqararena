@@ -1,5 +1,5 @@
 import { PdfBusyError } from "@/lib/sales/pdf";
-import { ensureOfferPdf, offerFileName, requestOrigin } from "@/lib/sales/offer-pdf";
+import { offerFileName, offerPdf, requestOrigin, type OfferPdf } from "@/lib/sales/offer-pdf";
 import { loadOffer } from "@/lib/sales/offer-service";
 import { SHAREABLE_STATES } from "@/lib/sales/offers";
 import { currentSalesAccount } from "@/lib/sales/session";
@@ -28,18 +28,23 @@ export async function GET(_request: Request, ctx: RouteContext<"/sales/offers/[i
   if (!offer || offer.status !== "ISSUED" || !offer.token) return new Response("Not found", { status: 404, headers: { "Cache-Control": "private, no-store" } });
   // An expired, cancelled or sold offer is shown with its banner on the page, never as a clean PDF.
   if (!SHAREABLE_STATES.includes(offer.state)) return toPage(offer.token);
-  let url: string | null = null;
+  let pdf: OfferPdf | null = null;
   try {
-    url = await ensureOfferPdf({ id: offer.id, token: offer.token, pdfUrl: offer.pdfUrl }, requestOrigin());
+    pdf = await offerPdf({ id: offer.id, token: offer.token, pdfUrl: offer.pdfUrl }, requestOrigin());
   } catch (e) {
     if (e instanceof PdfBusyError) return toPage(offer.token, true);
     console.error("[offer-pdf]", e);
   }
-  if (!url) return toPage(offer.token);
-  const file = await fetch(url, { cache: "no-store" }).catch(() => null);
-  if (!file?.ok || !file.body) return toPage(offer.token);
+  if (!pdf) return toPage(offer.token);
+  // Just made: send those bytes. Made before: fetch the stored file.
+  let body: BodyInit | null = pdf.bytes ? Buffer.from(pdf.bytes) : null;
+  if (!body) {
+    const file = await fetch(pdf.url, { cache: "no-store" }).catch(() => null);
+    if (!file?.ok || !file.body) return toPage(offer.token);
+    body = file.body;
+  }
   const name = offerFileName(offer.snap?.unit.label ?? "unit", offer.snap?.project.nameEn ?? "");
-  return new Response(file.body, {
+  return new Response(body, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(name)}`,

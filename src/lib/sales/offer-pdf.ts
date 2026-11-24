@@ -44,9 +44,9 @@ export async function offerPdf(offer: { id: string; token: string; pdfUrl: strin
   if (!bytes) return madeMeanwhile ? { url: madeMeanwhile, bytes: null } : null;
   // A random name: the file's address says nothing about the offer and can't be guessed.
   const { url } = await put(`offers/${randomUUID()}.pdf`, Buffer.from(bytes), { access: "public", contentType: "application/pdf", addRandomSuffix: false });
-  const { count } = await db.salesOffer.updateMany({ where: { id: offer.id, pdfUrl: null }, data: { pdfUrl: url } });
+  const { count } = await db.salesOffer.updateMany({ where: { id: offer.id, status: "ISSUED", pdfUrl: null }, data: { pdfUrl: url } });
   if (count) return { url, bytes };
-  // Another request stored one at the same moment: keep theirs.
+  // Another request stored one at the same moment (keep theirs), or the offer was cancelled meanwhile.
   await del(url).catch(() => undefined);
   const theirs = await storedPdf(offer.id);
   return theirs ? { url: theirs, bytes: null } : null;

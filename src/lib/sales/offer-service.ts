@@ -1,4 +1,5 @@
 import "server-only";
+import { del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { FEDDAN_M2 } from "@/lib/admin/readers";
@@ -409,12 +410,27 @@ export async function cancelOffer(actor: OfferActor, offerId: string, now = new 
   if (!canCancelOffer(actor, offer)) return { ok: false, message: "العرض ده متلغي بالفعل" };
   // An offer that never went out gets a new token as it ends, so its link never opens for anyone.
   // Each branch is conditioned on the status read, so a parallel approval is never undone silently.
+  // The clean PDF goes with it: the row is locked so a PDF stored at the same moment is either seen
+  // here and deleted, or not stored at all (offerPdf stores only on an issued offer).
   const pending = offer.status === "PENDING_APPROVAL";
-  const { count } = await db.salesOffer.updateMany({
-    where: { id: offerId, ...salesOfferWhere(actor.developerId), status: offer.status },
-    data: { status: "CANCELLED", cancelledById: actor.id, cancelledAt: now, ...(pending && { token: newOfferToken() }) },
-  });
+  let count = 0;
+  let oldPdf: string | null = null;
+  try {
+    ({ count, oldPdf } = await db.$transaction(async (tx) => {
+      await limitLockWait(tx);
+      const [row] = await tx.$queryRaw<{ pdfUrl: string | null }[]>`SELECT "pdfUrl" FROM "SalesOffer" WHERE "id" = ${offerId} FOR UPDATE`;
+      const { count } = await tx.salesOffer.updateMany({
+        where: { id: offerId, ...salesOfferWhere(actor.developerId), status: offer.status },
+        data: { status: "CANCELLED", cancelledById: actor.id, cancelledAt: now, pdfUrl: null, ...(pending && { token: newOfferToken() }) },
+      });
+      return { count, oldPdf: row?.pdfUrl ?? null };
+    }, TX_OPTIONS));
+  } catch (e) {
+    if (isBusy(e)) return { ok: false, message: BUSY.message };
+    throw e;
+  }
   if (!count) return pending ? DECIDED : { ok: false, message: "العرض ده متلغي بالفعل" };
+  if (oldPdf && process.env.BLOB_READ_WRITE_TOKEN) await del(oldPdf).catch(() => undefined);
   return { ok: true, message: pending && offer.salesAccountId !== actor.id ? "اترفض ✓" : "اتلغى ✓" };
 }
 

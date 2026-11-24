@@ -19,7 +19,10 @@
   .offer-sheet {
     container-type: inline-size;
     position: relative;
-    overflow: hidden;
+    /* clip, not hidden: a sheet with the 16:10 ratio still grows with its content when the screen is
+       narrower than the sheet's content needs (tablets), as a box that is no scroll container keeps
+       its content-based minimum height. On paper the height is fixed below. */
+    overflow: clip;
     width: 100%;
     max-width: 1120px;
     margin-inline: auto;
@@ -95,7 +98,7 @@
   .offer-table tbody tr:nth-child(even) > * {
     background: rgb(16 38 33 / 0.035);
   }
-  .offer-table tfoot td {
+  .offer-table tfoot tr > * {
     background: var(--color-brass-soft);
     font-weight: 600;
   }

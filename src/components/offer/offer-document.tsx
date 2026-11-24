@@ -1,16 +1,17 @@
 import { LogoMark } from "@/components/brand-mark";
-import { PrintButton } from "@/components/share-button";
 import { fill, telHref, websiteHref, whatsappHref } from "@/lib/format";
 import type { PublicOffer } from "@/lib/sales/offer-service";
 import { offerCtx, type OfferCtx } from "./context";
-import { MasterPlanSheet, scheduleSheets, ScheduleSheet, UnitSheet } from "./offer-sheets";
+import { PrintOffer } from "./print-offer";
+import { MasterPlanSheet, namedRows, scheduleSheets, ScheduleSheet, UnitSheet } from "./offer-sheets";
 import { Fact, Filled, Ltr, Sheet } from "./sheet";
 
 /** The client's offer: the sheets of spec section 7, and a toolbar that isn't printed. */
 export function OfferDocument({ offer }: { offer: PublicOffer }) {
   const ctx = offerCtx(offer);
   const { c, snap } = ctx;
-  const schedulePages = scheduleSheets(snap.schedule.rows);
+  const schedulePages = scheduleSheets(namedRows(ctx));
+  const banner = offer.banner ? c.banners[offer.banner] : null;
   return (
     <main lang={offer.language} dir={offer.language === "ar" ? "rtl" : "ltr"} className="offer-doc offer-stack flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
       <div className="no-print mx-auto flex w-full max-w-[1120px] flex-wrap items-center justify-between gap-3">
@@ -18,15 +19,17 @@ export function OfferDocument({ offer }: { offer: PublicOffer }) {
           {c.title} · {ctx.pick(snap.developer.nameAr, snap.developer.nameEn)}
         </p>
         <div className="flex flex-wrap gap-2.5">
-          {offer.pdfUrl && (
+          {/* The stored PDF is the offer as it went out, without a banner: never once it no longer holds. */}
+          {offer.pdfUrl && !banner && (
             <a href={offer.pdfUrl} className="press inline-flex min-h-11 items-center rounded-full bg-surface px-5 text-[15px] text-ink no-underline shadow-[0_0_0_1px_var(--color-line-strong)] hover:text-ink">
               {c.download}
             </a>
           )}
-          <PrintButton label={c.print} className="press inline-flex min-h-11 items-center rounded-full bg-brand px-5 text-[15px] font-medium text-white hover:bg-brand-2" />
+          <PrintOffer label={c.print} className="press inline-flex min-h-11 items-center rounded-full bg-brand px-5 text-[15px] font-medium text-white hover:bg-brand-2" />
         </div>
       </div>
-      <CoverSheet ctx={ctx} banner={offer.banner ? c.banners[offer.banner] : null} />
+      {banner && <p className="no-print mx-auto m-0 w-full max-w-[1120px] rounded-2xl bg-brass-soft px-5 py-3 text-brass-dark">{banner}</p>}
+      <CoverSheet ctx={ctx} banner={banner} />
       <ProjectSheet ctx={ctx} />
       <MasterPlanSheet ctx={ctx} />
       <UnitSheet ctx={ctx} />
@@ -38,14 +41,15 @@ export function OfferDocument({ offer }: { offer: PublicOffer }) {
   );
 }
 
-function DeveloperLogo({ ctx, className }: { ctx: OfferCtx; className: string }) {
+/** The developer's logo on a white tile, or its name. `beside`: the name is written next to it, so the logo is decoration. */
+function DeveloperLogo({ ctx, className, beside = false }: { ctx: OfferCtx; className: string; beside?: boolean }) {
   const d = ctx.snap.developer;
   const name = ctx.pick(d.nameAr, d.nameEn);
   if (!d.logoUrl) return <span className="t-lg font-display font-normal">{name}</span>;
   return (
     <span className={`flex flex-none items-center justify-center bg-white ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- uploaded logo of any size and format */}
-      <img src={d.logoUrl} alt={name} loading="eager" className="h-full w-full object-contain" />
+      <img src={d.logoUrl} alt={beside ? "" : name} loading={beside ? "lazy" : "eager"} className="h-full w-full object-contain" />
     </span>
   );
 }
@@ -57,7 +61,7 @@ function CoverSheet({ ctx, banner }: { ctx: OfferCtx; banner: string | null }) {
   return (
     <Sheet label={c.title} className={`grid bg-deep text-white ${photo ? "md:grid-cols-[1.35fr_1fr]" : ""}`}>
       {banner && (
-        <p role="status" className="t-sm order-first m-0 bg-brass-light px-[4cqw] py-[0.9cqw] text-center font-medium text-deep md:absolute md:inset-x-0 md:top-0 md:z-10">
+        <p className="t-sm order-first m-0 bg-brass-light px-[4cqw] py-[0.9cqw] text-center font-medium text-deep md:absolute md:inset-x-0 md:top-0 md:z-10">
           {banner}
         </p>
       )}
@@ -87,7 +91,7 @@ function CoverSheet({ ctx, banner }: { ctx: OfferCtx; banner: string | null }) {
         </dl>
       </div>
       {photo && (
-        // eslint-disable-next-line @next/next/no-img-element -- uploaded photo; eager so it prints
+        // eslint-disable-next-line @next/next/no-img-element -- uploaded photo on the first sheet
         <img src={photo} alt="" loading="eager" className="order-first h-48 w-full object-cover md:order-none md:h-full" />
       )}
     </Sheet>
@@ -108,8 +112,8 @@ function ProjectSheet({ ctx }: { ctx: OfferCtx }) {
   return (
     <Sheet label={name} className={`grid grid-cols-1 ${p.photo ? "md:grid-cols-[1.1fr_1fr]" : ""}`}>
       {p.photo && (
-        // eslint-disable-next-line @next/next/no-img-element -- uploaded photo; eager so it prints
-        <img src={p.photo} alt={name} loading="eager" className="h-56 w-full object-cover md:h-full" />
+        // eslint-disable-next-line @next/next/no-img-element -- uploaded photo; lazy on screen, loaded before printing
+        <img src={p.photo} alt={name} loading="lazy" className="h-56 w-full object-cover md:h-full" />
       )}
       <div className="flex min-h-0 flex-col justify-center gap-[2.2cqw] p-[4.5cqw]">
         <div className="flex flex-col gap-[0.6cqw]">
@@ -175,7 +179,7 @@ function ContactSheet({ ctx }: { ctx: OfferCtx }) {
         </dl>
         <dl className={card}>
           <div className="flex items-center gap-[1.6cqw]">
-            {d.logoUrl && <DeveloperLogo ctx={ctx} className="h-[5cqw] min-h-11 w-[13cqw] min-w-28 rounded-[1cqw] p-[0.7cqw]" />}
+            {d.logoUrl && <DeveloperLogo ctx={ctx} beside className="h-[5cqw] min-h-11 w-[13cqw] min-w-28 rounded-[1cqw] p-[0.7cqw]" />}
             <span className="t-lg font-display font-normal">{ctx.pick(d.nameAr, d.nameEn)}</span>
           </div>
           <ContactLine label={c.contact.hotline} value={d.hotline} href={telHref(d.hotline ?? undefined)} />

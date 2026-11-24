@@ -1,13 +1,21 @@
 import type { ReactNode } from "react";
 import { MarkedPlan } from "@/components/sales/marked-plan";
 import { currencyAr, fill } from "@/lib/format";
-import { addMonths, pageRows, type ScheduleRow } from "@/lib/catalog/schedule";
+import { addMonths, monthsBetween, pageRows, type ScheduleRow } from "@/lib/catalog/schedule";
+import { INSTALLMENTS_PER_YEAR } from "@/lib/property";
 import { scheduleDate } from "@/lib/sales/offer-copy";
+import type { OfferLanguage } from "@/lib/sales/offers";
 import type { OfferCtx } from "./context";
 import { Amount, Fact, Filled, Ltr, Sheet } from "./sheet";
 
 // The offer's middle sheets (spec section 7): the master plan with the unit's zone, the unit with its
 // price and floor plan, and the payment schedule over as many sheets as it needs.
+
+/** The payment due at handover, on plans laid out from their terms. */
+const DELIVERY_PAYMENT: Record<OfferLanguage, string> = { ar: "دفعة الاستلام", en: "Delivery payment" };
+
+/** The client pays less than the unit's price: a cash discount, the offer's own discount, or both. */
+export const isDiscounted = (snap: OfferCtx["snap"]) => (snap.plan.cash && (snap.plan.cashDiscountPct ?? 0) > 0) || snap.discountPct > 0;
 
 /** The plan's name as the client reads it. */
 const planName = (ctx: OfferCtx) =>
@@ -34,9 +42,7 @@ export function MasterPlanSheet({ ctx }: { ctx: OfferCtx }) {
           image={p.masterPlan}
           zone={zone}
           alt={`${c.masterPlan}: ${ctx.pick(p.nameAr, p.nameEn)}`}
-          loading="eager"
-          className="relative mx-auto w-fit max-w-full overflow-hidden rounded-[1.2cqw]"
-          imgClassName="block h-auto max-h-[70vh] w-auto max-w-full md:max-h-[49cqw]"
+          className="overflow-hidden rounded-[1.2cqw] md:[--plan-max-h:49cqw]"
         />
       </div>
     </Sheet>
@@ -79,7 +85,7 @@ export function UnitSheet({ ctx }: { ctx: OfferCtx }) {
     [c.unit.finishing, ctx.label("finishing", u.finishing)],
   ];
   const cash = snap.plan.cash && snap.plan.cashDiscountPct ? snap.plan.cashDiscountPct : 0;
-  const discounted = cash > 0 || snap.discountPct > 0;
+  const discounted = isDiscounted(snap);
   return (
     <Sheet label={c.unit.title} className={`grid grid-cols-1 ${u.floorPlan ? "md:grid-cols-[1.15fr_1fr]" : ""}`}>
       <div className="flex min-h-0 flex-col gap-[2.2cqw] p-[4cqw]">
@@ -150,8 +156,8 @@ export function UnitSheet({ ctx }: { ctx: OfferCtx }) {
       </div>
       {u.floorPlan && (
         <figure className="m-0 flex min-h-0 flex-col gap-[1cqw] bg-white p-[3cqw]">
-          {/* eslint-disable-next-line @next/next/no-img-element -- uploaded floor plan; eager so it prints */}
-          <img src={u.floorPlan} alt={c.unit.floorPlan} loading="eager" className="pic-edge max-h-[70vh] min-h-0 w-full flex-1 rounded-[0.8cqw] object-contain md:max-h-none" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- uploaded floor plan; lazy on screen, loaded before printing */}
+          <img src={u.floorPlan} alt={c.unit.floorPlan} loading="lazy" className="pic-edge max-h-[70vh] min-h-0 w-full flex-1 rounded-[0.8cqw] object-contain md:max-h-none" />
           <figcaption className="t-xs text-muted">
             {c.unit.floorPlan} · <Ltr>{u.typeCode}</Ltr>
           </figcaption>
@@ -163,37 +169,67 @@ export function UnitSheet({ ctx }: { ctx: OfferCtx }) {
 
 /**
  * Rows per schedule sheet, measured on a 297 mm sheet: the first also has the plan's totals, and the
- * last one the totals row and the cheque count, which still fit under a full sheet of rows.
+ * last one the totals row and the cheque count, which fit under a full sheet of rows with room to spare.
  */
 export const FIRST_SHEET_ROWS = 13;
-export const NEXT_SHEET_ROWS = 17;
+export const NEXT_SHEET_ROWS = 16;
 
 /**
- * The schedule's rows by sheet: up to FIRST_SHEET_ROWS on the first, the rest shared evenly over as
- * few sheets as hold them (34 rows: 13, 11, 10 rather than 13, 17, 4).
+ * The schedule's rows by sheet: as few sheets as hold them, the rows shared as evenly as the first
+ * sheet's smaller size allows (14 rows: 7 and 7, not 13 and 1; 34 rows: 12, 11, 11).
  */
-export function scheduleSheets(rows: ScheduleRow[]): ScheduleRow[][] {
-  const rest = rows.length - FIRST_SHEET_ROWS;
-  if (rest <= 0) return [rows];
-  const size = Math.ceil(rest / Math.ceil(rest / NEXT_SHEET_ROWS));
-  return pageRows(rows, FIRST_SHEET_ROWS, size);
+export function scheduleSheets<T>(rows: T[]): T[][] {
+  if (rows.length <= FIRST_SHEET_ROWS) return [rows];
+  const sheets = 1 + Math.ceil((rows.length - FIRST_SHEET_ROWS) / NEXT_SHEET_ROWS);
+  const first = Math.min(FIRST_SHEET_ROWS, Math.ceil(rows.length / sheets));
+  return pageRows(rows, first, Math.ceil((rows.length - first) / (sheets - 1)));
 }
 
-export function ScheduleSheet({ ctx, rows, first, last, page, pages }: { ctx: OfferCtx; rows: ScheduleRow[]; first: boolean; last: boolean; page: number; pages: number }) {
+export type NamedRow = { row: ScheduleRow; name: string };
+
+/**
+ * Each schedule row with its name: the down payment (or the cash payment), the installments numbered
+ * in order, the payment due at handover, and maintenance on its own. The snapshot doesn't mark the
+ * handover payment, so on a plan laid out from its terms it is the row in the handover month that is
+ * off the installments' rhythm, or larger than an installment, or after the last one.
+ */
+export function namedRows(ctx: OfferCtx): NamedRow[] {
+  const { snap, c } = ctx;
+  const rows = snap.schedule.rows;
+  const every = 12 / INSTALLMENTS_PER_YEAR[snap.plan.frequency];
+  const handover = snap.plan.cash || snap.plan.custom ? -1 : monthsBetween(ctx.issuedIso, snap.project.deliveryDate);
+  const regular = rows.filter((r) => r.installment && r.monthOffset !== handover && r.monthOffset % every === 0).map((r) => r.pct);
+  const installmentPct = regular.length ? regular.sort((a, b) => a - b)[Math.floor(regular.length / 2)] : null;
+  const isHandover = (r: ScheduleRow) =>
+    r.monthOffset === handover &&
+    r.monthOffset > 0 &&
+    r.amount > 0 &&
+    (r.monthOffset % every !== 0 || r.monthOffset > snap.plan.years * 12 || (installmentPct !== null && r.pct > installmentPct + 1e-6));
+  let n = 0;
+  return rows.map((row) => {
+    let name: string;
+    if (row.installment === null) name = c.maintenanceOnly;
+    else if (row.installment === 0) name = snap.plan.cash ? c.cashPayment : c.downPayment;
+    else if (isHandover(row)) name = DELIVERY_PAYMENT[ctx.language];
+    else name = fill(c.installment, { n: ctx.num(++n) });
+    return { row, name };
+  });
+}
+
+export function ScheduleSheet({ ctx, rows, first, last, page, pages }: { ctx: OfferCtx; rows: NamedRow[]; first: boolean; last: boolean; page: number; pages: number }) {
   const { snap, c } = ctx;
   const s = snap.schedule;
   const col = c.columns;
   const currency = ctx.language === "ar" ? currencyAr(snap.currency) : snap.currency;
-  const name = (r: ScheduleRow) =>
-    r.installment === null ? c.maintenanceOnly : r.installment === 0 ? (snap.plan.cash ? c.cashPayment : c.downPayment) : fill(c.installment, { n: ctx.num(r.installment) });
   const title = first ? c.schedule : c.continued;
   const n = (v: number) => <Ltr>{ctx.num(v)}</Ltr>;
   const p = (v: number) => <Ltr>{ctx.pct(v)}</Ltr>;
   return (
     <Sheet label={pages > 1 ? `${title} (${page}/${pages})` : title} className="flex flex-col gap-[1.6cqw] p-[3.5cqw]">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-[3cqw] gap-y-[0.4cqw]">
-        <h2 className="t-lg t-display m-0">{title}</h2>
-        <p className="t-sm m-0 text-muted">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-[3cqw] gap-y-[0.4cqw] md:flex-nowrap">
+        <h2 className="t-lg t-display m-0 shrink-0">{title}</h2>
+        {/* One line on a sheet, whatever the project's name: a second line would push the last row off the page. */}
+        <p className="t-sm m-0 min-w-0 text-muted md:truncate">
           <Ltr>{snap.unit.label}</Ltr> · {ctx.pick(snap.project.nameAr, snap.project.nameEn)} · {planName(ctx)}
           {pages > 1 && (
             <>
@@ -205,7 +241,7 @@ export function ScheduleSheet({ ctx, rows, first, last, page, pages }: { ctx: Of
       </div>
       {first && (
         <dl className="m-0 grid grid-cols-2 gap-[1.2cqw] rounded-[1.4cqw] bg-ground p-[1.6cqw_2.2cqw] sm:grid-cols-4">
-          <Fact label={snap.discountPct > 0 || snap.plan.cash ? c.netPrice : c.price}>
+          <Fact label={isDiscounted(snap) ? c.netPrice : c.price}>
             <Amount ctx={ctx} value={s.price} />
           </Fact>
           <Fact label={c.maintenanceOnly}>{s.maintenance > 0 ? <Amount ctx={ctx} value={s.maintenance} /> : "—"}</Fact>
@@ -231,10 +267,10 @@ export function ScheduleSheet({ ctx, rows, first, last, page, pages }: { ctx: Of
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map(({ row: r, name }) => (
               <tr key={r.monthOffset}>
                 <th scope="row" className="font-medium">
-                  {name(r)}
+                  {name}
                 </th>
                 <td>{scheduleDate(addMonths(ctx.issuedIso, r.monthOffset), ctx.language)}</td>
                 <td>{r.amount ? n(r.amount) : "—"}</td>
@@ -248,7 +284,7 @@ export function ScheduleSheet({ ctx, rows, first, last, page, pages }: { ctx: Of
           {last && (
             <tfoot>
               <tr>
-                <td>{c.totals}</td>
+                <th scope="row">{c.totals}</th>
                 <td />
                 <td>{n(s.price)}</td>
                 <td>{p(100)}</td>

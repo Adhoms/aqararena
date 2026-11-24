@@ -1,6 +1,7 @@
 import ar from "@/app/[lang]/dictionaries/ar.json";
 import en from "@/app/[lang]/dictionaries/en.json";
 import { formatNumber } from "@/lib/format";
+import { isSubType, type SubType } from "@/lib/property";
 import { cairoDate } from "@/lib/catalog/schedule";
 import { subTypeSingular } from "@/lib/sales/labels";
 import { OFFER_COPY, offerDate, type OfferCopy } from "@/lib/sales/offer-copy";
@@ -8,7 +9,7 @@ import type { PublicOffer, PublicSnapshot } from "@/lib/sales/offer-service";
 import type { OfferLanguage } from "@/lib/sales/offers";
 
 /** One unit's type in English, singular (the site's dictionary names categories, in the plural). */
-const SUB_TYPE_EN: Record<string, string> = {
+const SUB_TYPE_EN: Record<SubType, string> = {
   APARTMENT: "Apartment",
   STUDIO: "Studio",
   DUPLEX: "Duplex",
@@ -66,6 +67,6 @@ export function offerCtx(offer: Pick<PublicOffer, "snap" | "language" | "issuedA
     validUntil: offerDate(offer.validUntil, language),
     pick: (a, e) => (language === "ar" ? a || e : e || a) ?? "",
     label: (list, value) => (value ? ((dict[list] as Record<string, string>)[value] ?? value) : "—"),
-    subType: (value) => (language === "ar" ? subTypeSingular(value) : (SUB_TYPE_EN[value] ?? value)),
+    subType: (value) => (language === "ar" ? subTypeSingular(value) : isSubType(value) ? SUB_TYPE_EN[value] : value),
   };
 }

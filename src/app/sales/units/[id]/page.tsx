@@ -200,8 +200,6 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
                   image={unit.masterPlan}
                   zone={unit.zone}
                   alt={`الماستر بلان: ${unit.project.nameAr}`}
-                  className="relative mx-auto w-fit"
-                  imgClassName="block h-auto max-h-[70vh] w-auto max-w-full"
                 />
                 <span className="sr-only">(بتفتح في تبويب جديد)</span>
               </a>

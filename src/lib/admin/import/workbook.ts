@@ -191,9 +191,32 @@ function onlyPresent<T extends Record<string, unknown>>(values: T, present: Set<
 type ZoneRef = { id: string; projectId: string; shortAr: string; shortEn: string; nameAr: string; nameEn: string };
 const ZONE_SELECT = { id: true, projectId: true, shortAr: true, shortEn: true, nameAr: true, nameEn: true } as const;
 
-/** A zone of the project named in a cell (short or full name, Arabic or English). */
-const zoneByName = (zones: ZoneRef[], projectId: string, name: string) =>
-  zones.find((z) => z.projectId === projectId && [z.shortAr, z.shortEn, z.nameAr, z.nameEn].some((n) => norm(n) === norm(name)));
+/** The zones of the project a cell's name matches (short or full name, Arabic or English). */
+const zonesNamed = (zones: Omit<ZoneRef, "id">[], projectId: string, name: string) =>
+  zones.filter((z) => z.projectId === projectId && [z.shortAr, z.shortEn, z.nameAr, z.nameEn].some((n) => n && norm(n) === norm(name)));
+
+const ZONE_COLUMN = "منطقة الماستر بلان";
+
+/**
+ * The zone of the project named in a cell, or the problem with the name: none of its zones has it, or
+ * more than one does (two zones with the same short name, say), so the unit could land in either.
+ */
+function zoneByName(zones: ZoneRef[], projectId: string, name: string): { zone: ZoneRef } | { problem: string } {
+  const found = zonesNamed(zones, projectId, name) as ZoneRef[];
+  if (found.length === 1) return { zone: found[0] };
+  if (!found.length) return { problem: `مالقيناش منطقة اسمها «${name}» في الماستر بلان` };
+  return { problem: `«${name}» اسم لأكتر من منطقة في الماستر بلان. اكتب الاسم الكامل للمنطقة` };
+}
+
+/**
+ * The name a template writes for a unit's zone, one that matches no other zone of its project, so the
+ * file imports back to the same zone: the Arabic short name, else the full Arabic name, else an English one.
+ */
+function zoneCell(zone: Omit<ZoneRef, "id"> | null, projectZones: Omit<ZoneRef, "id">[]): string | null {
+  if (!zone) return null;
+  const names = [zone.shortAr, zone.nameAr, zone.shortEn, zone.nameEn].filter(Boolean);
+  return names.find((n) => zonesNamed(projectZones, zone.projectId, n).length === 1) ?? zone.nameAr;
+}
 
 // ─── Import ─────────────────────────────────────────────────────────────
 
@@ -429,10 +452,10 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       else if (proj && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
       // The zone must be one of the project's own, so only a project already on the site can have one.
       if (proj && refs.zone) {
-        const zone = proj.existingId ? zoneByName(zones, proj.existingId, refs.zone) : undefined;
-        if (!proj.existingId) say("منطقة الماستر بلان", "المشروع لسه جديد ومالوش ماستر بلان");
-        else if (!zone) say("منطقة الماستر بلان", `مالقيناش منطقة اسمها «${refs.zone}» في الماستر بلان`);
-        values.zoneId = zone?.id ?? null;
+        const found = proj.existingId ? zoneByName(zones, proj.existingId, refs.zone) : undefined;
+        if (!found) say(ZONE_COLUMN, "المشروع لسه جديد ومالوش ماستر بلان");
+        else if ("problem" in found) say(ZONE_COLUMN, found.problem);
+        values.zoneId = found && "zone" in found ? found.zone.id : null;
       }
       if (!proj || !code || !values.unitNumber) continue;
       const key = unitKey(proj.slug, values.building, values.unitNumber);
@@ -745,8 +768,9 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
         area: { select: { nameAr: true } },
         typologies: {
           orderBy: { code: "asc" },
-          include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }], include: { zone: { select: { shortAr: true } } } } },
+          include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }], include: { zone: { select: ZONE_SELECT } } } },
         },
+        zones: { select: ZONE_SELECT },
         paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } }, steps: { orderBy: { sortOrder: "asc" } } } },
       },
     }),
@@ -831,7 +855,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
           price: num(u.price),
           view: label(CHOICES.unitViews, u.view),
           orientation: label(CHOICES.orientations, u.orientation),
-          zone: u.zone?.shortAr ?? null,
+          zone: zoneCell(u.zone, p.zones),
         })),
       ),
     ),
@@ -892,9 +916,9 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
     const priceProblem = type ? unitPriceProblem(values.price, Number(type.priceFrom)) : null;
     if (priceProblem) say(def.columns.find((c) => c.key === "price")?.header ?? "price", priceProblem);
     if (refs.zone) {
-      const zone = zoneByName(zones, projectId, refs.zone);
-      if (!zone) say("منطقة الماستر بلان", `مالقيناش منطقة اسمها «${refs.zone}» في الماستر بلان`);
-      values.zoneId = zone?.id ?? null;
+      const found = zoneByName(zones, projectId, refs.zone);
+      if ("problem" in found) say(ZONE_COLUMN, found.problem);
+      values.zoneId = "zone" in found ? found.zone.id : null;
     }
     if (!type || !values.unitNumber) continue;
     const key = unitKey(values.building, values.unitNumber);
@@ -940,13 +964,14 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
 /** One project's units as a workbook the developer edits and uploads back. */
 export async function buildProjectUnitsWorkbook(projectId: string): Promise<ArrayBuffer> {
   const def = projectUnitsDef();
-  const [types, units] = await Promise.all([
+  const [types, units, zones] = await Promise.all([
     db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { code: true }, orderBy: { code: "asc" } }),
     db.unit.findMany({
       where: { typology: { projectId } },
-      include: { typology: { select: { code: true } }, zone: { select: { shortAr: true } } },
+      include: { typology: { select: { code: true } }, zone: { select: ZONE_SELECT } },
       orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }],
     }),
+    db.masterPlanZone.findMany({ where: { projectId }, select: ZONE_SELECT }),
   ]);
   const wb = new ExcelJS.Workbook();
   wb.creator = "AqarArena";
@@ -998,7 +1023,7 @@ export async function buildProjectUnitsWorkbook(projectId: string): Promise<Arra
       price: num(u.price),
       view: label(CHOICES.unitViews, u.view),
       orientation: label(CHOICES.orientations, u.orientation),
-      zone: u.zone?.shortAr ?? null,
+      zone: zoneCell(u.zone, zones),
     });
   }
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer;

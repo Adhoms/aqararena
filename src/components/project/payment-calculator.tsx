@@ -36,9 +36,9 @@ type Labels = {
 
 type Props = {
   units: Unit[];
-  /** A plan's own maintenance % (Sales has one per plan) wins over `maintenancePct`. */
-  plans: (PaymentPlan & { maintenancePct?: number })[];
-  /** The project's maintenance %, for plans without their own (the public site). */
+  /** A plan's own maintenance % (every plan from the database has one, 0 for none) wins over `maintenancePct`. */
+  plans: PaymentPlan[];
+  /** The project's maintenance %, for plans without their own (the demo data). */
   maintenancePct?: number;
   locale: Locale;
   /** The project's currency; every figure is in it. */

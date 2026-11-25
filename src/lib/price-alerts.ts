@@ -6,6 +6,9 @@ import { sendEmails, type Mail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
 import { formatMoney } from "@/lib/format";
 import type { Currency } from "@/lib/property";
+import { monthlyFor } from "@/lib/catalog/summary";
+import { stepsOf } from "@/lib/catalog/plan-steps";
+import type { PaymentPlan } from "@/lib/catalog/types";
 
 // Price alerts: visitors leave their name and email (phone optional) on a project, confirm by
 // email, and hear from us when its prices or payment plans change. "Changed" means the figures
@@ -32,20 +35,41 @@ export const newToken = () => randomBytes(24).toString("base64url");
 export async function priceSnapshot(projectId: string, client: Prisma.TransactionClient | typeof db = db): Promise<PriceSnapshot | null> {
   const [types, plans] = await Promise.all([
     client.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { priceFrom: true, buaM2: true } }),
-    client.paymentPlan.findMany({ where: { projectId, isActive: true }, select: { downPaymentPct: true, deliveryPaymentPct: true, years: true, cashDiscountPct: true } }),
+    client.paymentPlan.findMany({
+      where: { projectId, isActive: true },
+      select: {
+        downPaymentPct: true,
+        deliveryPaymentPct: true,
+        years: true,
+        frequency: true,
+        cashDiscountPct: true,
+        steps: { orderBy: { sortOrder: "asc" }, select: { monthOffset: true, pct: true, kind: true } },
+      },
+    }),
   ]);
   if (!types.length) return null;
   const prices = types.map((t) => Number(t.priceFrom));
   const start = Math.min(...prices);
   const perM2 = types.map((t) => Number(t.priceFrom) / Number(t.buaM2)).reduce((a, b) => a + b, 0) / types.length;
-  const installments = plans.filter((p) => p.years > 0);
-  const monthlyFor = (p: (typeof plans)[number]) => (start * (100 - Number(p.downPaymentPct) - Number(p.deliveryPaymentPct))) / 100 / (p.years * 12);
+  // As the catalog reads them, so a plan with a custom schedule gives the monthly figure its steps give.
+  const installments = plans
+    .filter((p) => p.years > 0)
+    .map(
+      (p): PaymentPlan => ({
+        name: { ar: "", en: "" },
+        downPaymentPct: Number(p.downPaymentPct),
+        deliveryPaymentPct: Number(p.deliveryPaymentPct),
+        years: p.years,
+        frequency: p.frequency,
+        ...(p.steps.length > 0 && { steps: stepsOf(p.steps) }),
+      }),
+    );
   return {
     start: Math.round(start),
     perM2: Math.round(perM2 / 50) * 50,
-    down: installments.length ? Math.min(...installments.map((p) => Number(p.downPaymentPct))) : 100,
+    down: installments.length ? Math.min(...installments.map((p) => p.downPaymentPct)) : 100,
     years: installments.length ? Math.max(...installments.map((p) => p.years)) : 0,
-    monthly: installments.length ? Math.round(Math.min(...installments.map(monthlyFor)) / 100) * 100 : 0,
+    monthly: installments.length ? Math.round(Math.min(...installments.map((p) => monthlyFor(start, p))) / 100) * 100 : 0,
     cash: Math.max(0, ...plans.map((p) => Number(p.cashDiscountPct ?? 0))),
   };
 }

@@ -109,6 +109,8 @@ function toProject(p: ProjectRow): Project {
       years: plan.years,
       frequency: plan.frequency,
       cashDiscountPct: num(plan.cashDiscountPct),
+      // Each plan with its own maintenance %, as Sales and the offers made from it use (none is 0).
+      maintenancePct: num(plan.maintenancePct) ?? 0,
       ...(plan.steps.length > 0 && { steps: stepsOf(plan.steps) }),
     })),
     fees: { maintenancePct: num(p.paymentPlans.find((plan) => plan.maintenancePct !== null)?.maintenancePct) },

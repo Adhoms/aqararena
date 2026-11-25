@@ -94,6 +94,8 @@ export type PaymentPlan = {
   years: number;
   frequency: InstallmentFrequency;
   cashDiscountPct?: number;
+  /** The plan's own maintenance deposit %, when it comes from the database (the demo data has it in `fees`). */
+  maintenancePct?: number;
   /** A custom schedule (catalog/plan-steps.ts). The terms above are then derived from it, and the figures come from the steps. */
   steps?: PlanStepInput[];
 };

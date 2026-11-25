@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -21,6 +22,12 @@ import { requireSales, type SalesUser } from "@/lib/sales/session";
 const actor = (me: SalesUser): OfferActor => ({ id: me.id, role: me.role, developerId: me.developer.id });
 const GONE: FormState = { ok: false, message: "العرض ده مش موجود" };
 const EMAILS_PER_HOUR = 20;
+/** All of one company's salespeople together. */
+const COMPANY_EMAILS_PER_HOUR = 100;
+/** To one address, from anyone: a client is never flooded with offers. */
+const RECIPIENT_EMAILS_PER_HOUR = 3;
+/** The address as a throttle key: hashed, so the address itself is never stored there. */
+const recipientKey = (email: string) => createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 32);
 const isId = (v: string) => /^[a-z0-9]{10,40}$/i.test(v);
 /** One address, nothing that would make it a list of them. */
 const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
@@ -74,7 +81,8 @@ export async function recordShareAction(offerId: string, channel: Exclude<ShareC
 
 /**
  * Emails the offer to the client from the site's address, with the PDF attached when server PDFs are on
- * (otherwise the link); replies go to the salesperson. At most EMAILS_PER_HOUR an hour per salesperson.
+ * (otherwise the link); replies go to the salesperson. At most EMAILS_PER_HOUR an hour per salesperson,
+ * COMPANY_EMAILS_PER_HOUR per developer and RECIPIENT_EMAILS_PER_HOUR to one address.
  */
 export async function emailOfferAction(_: FormState, data: FormData): Promise<FormState> {
   const me = await requireSales();
@@ -90,8 +98,15 @@ export async function emailOfferAction(_: FormState, data: FormData): Promise<Fo
   const snap = offer.snap;
   if (!offer.canShare || !offer.token || !snap) return { ok: false, message: "العرض ده مينفعش يتبعت دلوقتي" };
   if (!emailEnabled()) return { ok: false, message: "الإيميل مش متفعّل على الموقع لسه. ابعت العرض على واتساب أو تليجرام، أو انسخ الرابط" };
+  // The address first, so a refused one uses up nothing of the salesperson's or the company's hour.
+  if (!(await withinRate(`offer-email-to:${recipientKey(to)}`, RECIPIENT_EMAILS_PER_HOUR, 60))) {
+    return { ok: false, message: "اتبعت للإيميل ده عروض كتير في الساعة دي. جرّب بعد شوية، أو ابعت على واتساب" };
+  }
   if (!(await withinRate(`offer-email:${me.id}`, EMAILS_PER_HOUR, 60))) {
     return { ok: false, message: `بعتّ ${EMAILS_PER_HOUR} إيميل في الساعة دي. جرّب بعد شوية، أو ابعت على واتساب` };
+  }
+  if (!(await withinRate(`offer-email-dev:${me.developer.id}`, COMPANY_EMAILS_PER_HOUR, 60))) {
+    return { ok: false, message: "شركتك بعتت إيميلات كتير في الساعة دي. جرّب بعد شوية، أو ابعت على واتساب" };
   }
   let pdf: string | null = null;
   try {
@@ -125,6 +140,8 @@ export async function emailOfferAction(_: FormState, data: FormData): Promise<Fo
     attachments: pdf ? [{ filename: offerFileName(unit, snap.project.nameEn), path: pdf }] : undefined,
   });
   if (!sent) return { ok: false, message: "الإيميل مااتبعتش. جرّب تاني، أو ابعت الرابط على واتساب" };
+  // For spotting abuse in the logs: the company, the offer and the address's domain, never the address.
+  console.info("[offer-email]", { developer: me.developer.id, offer: offer.id, domain: to.slice(to.lastIndexOf("@") + 1).toLowerCase() });
   await recordShare(actor(me), offer.id, "EMAIL");
   await db.salesOffer.updateMany({ where: { id: offer.id, salesAccountId: me.id, developerId: me.developer.id }, data: { clientEmail: to } });
   revalidatePath(`/sales/offers/${offer.id}`);

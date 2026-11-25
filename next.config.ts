@@ -20,13 +20,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      // A client's offer is never indexed, and its link (the token is the only key) never leaves in a
-      // Referer. Listed after the site-wide entry, so this Referrer-Policy wins for /o.
+      // A client's offer is never indexed, never kept by a browser or shared cache (it changes when it is
+      // cancelled or expires, and the token is the only key), and its link never leaves in a Referer.
+      // Listed after the site-wide entry, so this Referrer-Policy wins for /o.
       {
         source: "/o/:path*",
         headers: [
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
           { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "private, no-store" },
         ],
       },
     ];

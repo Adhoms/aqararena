@@ -262,7 +262,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   const [developers, areas, projects, typologies, plans, units, zones] = await Promise.all([
     db.developer.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.area.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
-    db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true, published: true, developer: { select: { slug: true } } } }),
+    db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true, published: true, currency: true, developer: { select: { slug: true } } } }),
     db.typology.findMany({ select: { id: true, code: true, projectId: true } }),
     db.paymentPlan.findMany({ orderBy: { createdAt: "asc" }, select: PLAN_MATCH_SELECT }),
     db.unit.findMany({ select: { id: true, building: true, unitNumber: true, typology: { select: { projectId: true } } } }),
@@ -324,8 +324,10 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
 
   // Projects
   const projRows: { slug: string; devSlug: string; areaId: string; values: ReturnType<typeof readProject>; present: Set<string> }[] = [];
+  // Existing projects whose currency the sheet changes, for the check before saving.
+  const currencyChanges: { name: string; from: string; to: string }[] = [];
   {
-    const { def, rows, present } = sheets.projects;
+    const { def, rows, present: sheetPresent } = sheets.projects;
     const seen = new Set<string>();
     for (const { row, cells } of rows) {
       const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
@@ -342,6 +344,14 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       seen.add(values.slug);
       const ref: ProjRef = projBySlug.get(values.slug) ?? { slug: values.slug, codes: new Set() };
       projBySlug.set(values.slug, ref);
+      // A blank currency cell keeps an existing project's currency (only a new project starts in pounds),
+      // so the column is left out of this row's update.
+      const present = new Set(sheetPresent);
+      if (ref.existingId && !data.get("currency")) present.delete("currency");
+      const was = ref.existingId ? projects.find((p) => p.id === ref.existingId) : undefined;
+      if (was && present.has("currency") && was.currency !== values.currency) {
+        currencyChanges.push({ name: was.nameAr, from: was.currency, to: values.currency });
+      }
       projs.add(ref, values.nameAr, values.nameEn, values.slug);
       counts.projects[ref.existingId ? "update" : "create"]++;
       if (dev && areaId) projRows.push({ slug: values.slug, devSlug: dev.slug, areaId, values, present });
@@ -460,7 +470,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
     units: unitStatuses,
   });
   if (!save) {
-    const warning = holdsLeavingWarning(await heldLeaving(leaving));
+    const warning = [currencyWarning(currencyChanges), holdsLeavingWarning(await heldLeaving(leaving))].filter(Boolean).join(" ") || undefined;
     return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts, warning };
   }
   const scope = scopeOfSave(unitStatuses.flatMap((u) => (u.existingId ? [u.existingId] : [])), leaving);
@@ -576,6 +586,15 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   }
 
   return { ok: true, saved: true, message: summary("تم الاستيراد ✓ ") + (released ? ` · اتلغى ${countAr(released, HOLDS_NOUN)} في AqarArena Sales` : ""), problems, counts };
+}
+
+const CURRENCY_NAME: Record<string, string> = Object.fromEntries(CHOICES.currency.map((c) => [c.value, c.label]));
+
+/** The projects whose currency an import changes: their price history and price alerts start again. */
+function currencyWarning(changes: { name: string; from: string; to: string }[]) {
+  if (!changes.length) return undefined;
+  const list = changes.map((c) => `«${c.name}» (${CURRENCY_NAME[c.from] ?? c.from} ← ${CURRENCY_NAME[c.to] ?? c.to})`).join("، ");
+  return `الملف ده هيغيّر عملة: ${list}. سجل أسعارها وتنبيهات الأسعار هيبدأوا من جديد.`;
 }
 
 /** How many of the units an import takes out of Sales have a live hold. */

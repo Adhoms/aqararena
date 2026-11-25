@@ -93,7 +93,7 @@ export const SHEETS: SheetDef[] = [
       { key: "launchDate", header: "تاريخ الإطلاق", type: "date" },
       { key: "categories", header: "أنواع المساحات", type: "choices", choices: CHOICES.categories, width: 24, help: "أكثر من نوع؟ افصل بفاصلة: سكني، تجاري" },
       { key: "bookingFee", header: "مبلغ الحجز (بعملة المشروع)", aliases: ["مبلغ الحجز (جنيه)"], type: "number" },
-      { key: "currency", header: "العملة", type: "choice", choices: CHOICES.currency, help: "فاضي = جنيه. كل أسعار المشروع وخططه وعروضه بالعملة دي، ومفيش تحويل" },
+      { key: "currency", header: "العملة", type: "choice", choices: CHOICES.currency, help: "فاضي = جنيه للمشروع الجديد، والمشروع الموجود بيفضل بعملته. كل أسعار المشروع وخططه وعروضه بالعملة دي، ومفيش تحويل" },
       { key: "landFeddan", header: "مساحة الأرض (فدان)", type: "number" },
       { key: "footprintPct", header: "نسبة المباني %", type: "number" },
       { key: "unitsCount", header: "عدد الوحدات", type: "number" },

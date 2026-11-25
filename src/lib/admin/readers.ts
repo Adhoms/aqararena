@@ -62,9 +62,10 @@ export function readProject(f: FormReader) {
     progressPct: f.int("progressPct", { min: 0, max: 100 }),
     pricesUpdatedAt: f.date("pricesUpdatedAt"),
     bookingFee: f.number("bookingFee", { min: 0 }),
-    // Not required: an Excel sheet without the column still creates projects in pounds. Without it, an
-    // existing project keeps its currency (the import writes only the columns present, and a portal
-    // draft saved before the setting existed keeps the live one: lib/portal/drafts.ts).
+    // Not required: an Excel sheet without the column, or with a blank cell, still creates projects in
+    // pounds. An existing project keeps its currency then (the import leaves the column out of that
+    // row's update: lib/admin/import/workbook.ts, and a portal draft saved before the setting existed
+    // keeps the live one: lib/portal/drafts.ts).
     currency: f.oneOf("currency", CURRENCIES) ?? "EGP",
     landAreaM2: landFeddan === null ? null : Math.round(landFeddan * FEDDAN_M2 * 100) / 100,
     footprintPct: f.pct("footprintPct"),

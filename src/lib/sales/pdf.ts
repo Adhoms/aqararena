@@ -1,6 +1,7 @@
 import "server-only";
 import type { ChildProcess } from "node:child_process";
 import type { Browser, HTTPRequest } from "puppeteer-core";
+import { BLOB_HOST_SUFFIX } from "@/lib/admin/upload-config";
 
 // Prints a page of this site to PDF with a headless Chromium (spec section 7). On Vercel the browser
 // is @sparticuz/chromium. Locally, CHROME_PATH points at the installed Google Chrome; never a
@@ -33,6 +34,16 @@ const UNSAFE_ARGS = new Set(["--disable-web-security", "--allow-running-insecure
 /** Analytics beacons: nothing to print, and they'd keep the network busy. */
 const BLOCKED_PATHS = ["/_vercel/insights", "/_vercel/speed-insights"];
 const BYPASS_HEADER = "x-vercel-protection-bypass";
+/** The map tiles' host (components/map/project-map.tsx), in case a printed page ever shows a map. */
+const TILE_HOSTS = new Set(["tiles.openfreemap.org"]);
+
+/**
+ * The hosts the printing browser may load from besides the page's own origin: uploaded files on
+ * Vercel Blob, and the map tiles. Over https only, so a plain http: link, an IP address or a private
+ * or link-local name (a cloud metadata service, say) is never fetched from the server.
+ */
+const allowedElsewhere = (target: URL) =>
+  target.protocol === "https:" && !target.port && (target.hostname.endsWith(BLOB_HOST_SUFFIX) || TILE_HOSTS.has(target.hostname));
 
 /** Another PDF is being made and this one would wait too long: callers fall back to the print button. */
 export class PdfBusyError extends Error {
@@ -90,7 +101,8 @@ function originOf(url: string) {
 }
 
 /**
- * Lets the page load what it needs and nothing else. Only requests to the page's own origin get the
+ * Lets the page load what it needs and nothing else: its own origin, Vercel Blob and the map tiles
+ * (allowedElsewhere); every other request is aborted. Only requests to the page's own origin get the
  * Vercel protection-bypass secret: logos, master plans and map tiles live on other hosts. A redirect
  * can keep the headers set on the request it came from, so requests to other hosts go out with the
  * header taken off, and a redirect from the page's origin to another host is stopped.
@@ -105,7 +117,7 @@ function guard(request: HTTPRequest, origin: string, bypass: string | undefined)
   }
   // data: and blob: are the page's own inline content, never fetched from anywhere.
   if (target.protocol === "data:" || target.protocol === "blob:") return void request.continue();
-  if (target.protocol !== "https:" && target.protocol !== "http:") return void request.abort();
+  if (target.origin !== origin && !allowedElsewhere(target)) return void request.abort();
   if (BLOCKED_PATHS.some((path) => target.pathname.startsWith(path))) return void request.abort();
   if (!bypass) return void request.continue();
   if (target.origin === origin) return void request.continue({ headers: { ...request.headers(), [BYPASS_HEADER]: bypass } });

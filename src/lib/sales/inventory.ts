@@ -156,9 +156,16 @@ export async function searchUnits(
   };
   const units = await db.unit.findMany({
     where,
-    // Cheapest first within each state, so a capped scan keeps the cheapest units: the unit's own price,
-    // then (for units without one) the type's starting price.
-    orderBy: [{ availability: "asc" }, { price: { sort: "asc", nulls: "last" } }, { typology: { priceFrom: "asc" } }, { id: "asc" }],
+    // Cheapest first within each state and currency, so a capped scan keeps the cheapest units: the unit's
+    // own price, then (for units without one) the type's starting price. Prices in pounds and dollars are
+    // never compared: pounds first (EGP comes before USD in the Currency enum, which orders the column).
+    orderBy: [
+      { availability: "asc" },
+      { typology: { project: { currency: "asc" } } },
+      { price: { sort: "asc", nulls: "last" } },
+      { typology: { priceFrom: "asc" } },
+      { id: "asc" },
+    ],
     take: SCAN_LIMIT + 1,
     select: {
       id: true,

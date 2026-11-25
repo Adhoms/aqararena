@@ -33,20 +33,19 @@ export const newToken = () => randomBytes(24).toString("base64url");
 
 /** Today's figures for a project, or null when it has no priced units yet. */
 export async function priceSnapshot(projectId: string, client: Prisma.TransactionClient | typeof db = db): Promise<PriceSnapshot | null> {
-  const [types, plans] = await Promise.all([
-    client.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { priceFrom: true, buaM2: true } }),
-    client.paymentPlan.findMany({
-      where: { projectId, isActive: true },
-      select: {
-        downPaymentPct: true,
-        deliveryPaymentPct: true,
-        years: true,
-        frequency: true,
-        cashDiscountPct: true,
-        steps: { orderBy: { sortOrder: "asc" }, select: { monthOffset: true, pct: true, kind: true } },
-      },
-    }),
-  ]);
+  // One query after the other: `client` may be a transaction, whose one connection takes no parallel queries.
+  const types = await client.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { priceFrom: true, buaM2: true } });
+  const plans = await client.paymentPlan.findMany({
+    where: { projectId, isActive: true },
+    select: {
+      downPaymentPct: true,
+      deliveryPaymentPct: true,
+      years: true,
+      frequency: true,
+      cashDiscountPct: true,
+      steps: { orderBy: { sortOrder: "asc" }, select: { monthOffset: true, pct: true, kind: true } },
+    },
+  });
   if (!types.length) return null;
   const prices = types.map((t) => Number(t.priceFrom));
   const start = Math.min(...prices);

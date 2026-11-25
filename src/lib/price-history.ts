@@ -17,14 +17,13 @@ const today = () => new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z
 export async function recordPriceHistory(projectIds: string[], client: Prisma.TransactionClient | typeof db = db) {
   const day = today();
   for (const projectId of new Set(projectIds)) {
-    const [types, history] = await Promise.all([
-      client.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { id: true, priceFrom: true, buaM2: true } }),
-      client.priceHistory.findMany({
-        where: { projectId, recordedAt: { lt: day } },
-        orderBy: { recordedAt: "desc" },
-        select: { typologyId: true, pricePerM2: true },
-      }),
-    ]);
+    // One query after the other: `client` may be a transaction, whose one connection takes no parallel queries.
+    const types = await client.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { id: true, priceFrom: true, buaM2: true } });
+    const history = await client.priceHistory.findMany({
+      where: { projectId, recordedAt: { lt: day } },
+      orderBy: { recordedAt: "desc" },
+      select: { typologyId: true, pricePerM2: true },
+    });
     // The newest earlier figure for each unit type and for the project.
     const earlier = new Map<string | null, number>();
     for (const row of history) if (!earlier.has(row.typologyId)) earlier.set(row.typologyId, Number(row.pricePerM2));

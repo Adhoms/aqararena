@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Check, Copy, FilePdf, ShareNetwork, TelegramLogo, WhatsappLogo } from "@phosphor-icons/react";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Check, CircleNotch, Copy, FilePdf, ShareNetwork, TelegramLogo, WhatsappLogo } from "@phosphor-icons/react";
 import { AdminForm } from "@/components/admin/admin-form";
 import { emailOfferAction, recordShareAction } from "@/app/sales/offer-actions";
 
@@ -13,6 +13,13 @@ const input = "admin-input min-h-11 text-base sm:min-h-10 sm:text-sm";
 const noop = () => () => undefined;
 /** Whether this browser has a share sheet (phones, some desktops); false while rendering on the server. */
 const useCanShare = () => useSyncExternalStore(noop, () => typeof navigator.share === "function", () => false);
+/**
+ * How long a tap waits for the PDF before the share sheet opens with the link alone: the sheet must open
+ * soon after the tap, or the browser refuses it.
+ */
+const PDF_WAIT_MS = 4_000;
+/** Tells the PDF route this is the share button's fetch: it answers 204/409 instead of sending it to /o. */
+const PREFETCH_HEADER = { "X-Offer-Prefetch": "1" };
 
 function NewTab() {
   return <span className="sr-only">(بتفتح برّه الصفحة)</span>;
@@ -53,38 +60,46 @@ export function SharePanel({
 }) {
   const canShare = useCanShare();
   const [file, setFile] = useState<File | null>(null);
+  const [fetching, setFetching] = useState(false);
   const [copied, setCopied] = useState(false);
   const [note, setNote] = useState("");
   const link = useRef<HTMLInputElement>(null);
 
-  // The share sheet must open straight from the tap, so the PDF is fetched ahead, and only where files
-  // can be shared. The route answers with the offer page instead when it can't make a PDF now: only a
-  // real PDF is kept.
-  useEffect(() => {
-    if (!pdfHref || typeof navigator.canShare !== "function") return;
-    let gone = false;
-    fetch(pdfHref, { credentials: "same-origin" })
-      .then((r) => (r.ok && r.headers.get("content-type")?.startsWith("application/pdf") ? r.blob() : null))
-      .then((blob) => {
-        if (!blob || gone) return;
-        const f = new File([blob], fileName, { type: "application/pdf" });
-        if (navigator.canShare({ files: [f] })) setFile(f);
-      })
-      .catch(() => undefined);
-    return () => {
-      gone = true;
-    };
-  }, [pdfHref, fileName]);
+  /**
+   * The PDF as a file the share sheet takes, fetched on the first tap only (never on page load: making
+   * it can take a while, and most offers go out on WhatsApp), and only where files can be shared. Null
+   * when the route has no PDF now (it answers 204 or 409 to this fetch) or it takes too long.
+   */
+  const pdfFile = async (): Promise<File | null> => {
+    if (file) return file;
+    if (!pdfHref || typeof navigator.canShare !== "function") return null;
+    setFetching(true);
+    try {
+      const r = await fetch(pdfHref, { credentials: "same-origin", headers: PREFETCH_HEADER, signal: AbortSignal.timeout(PDF_WAIT_MS) });
+      if (r.status !== 200 || !r.headers.get("content-type")?.startsWith("application/pdf")) return null;
+      const f = new File([await r.blob()], fileName, { type: "application/pdf" });
+      if (!navigator.canShare({ files: [f] })) return null;
+      setFile(f);
+      return f;
+    } catch {
+      return null;
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const shareSheet = async () => {
     setNote("");
+    const f = await pdfFile();
     try {
       // With the file when there is one; the link always, so the client can open it on any phone.
-      await navigator.share(file ? { files: [file], title, text: `${message}\n${url}` } : { title, text: message, url });
+      await navigator.share(f ? { files: [f], title, text: `${message}\n${url}` } : { title, text: message, url });
       void recordShareAction(offerId, "DEVICE");
     } catch (e) {
-      // Closed without sharing is not an error worth showing.
-      if (!(e instanceof DOMException && e.name === "AbortError")) setNote("الموبايل ماقدرش يفتح المشاركة. جرّب واتساب أو انسخ الرابط.");
+      // Closed without sharing is not an error worth showing. A browser that took the wait for the PDF
+      // as the tap being over refuses the sheet: the file is kept, so the next tap opens it at once.
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setNote(f && e instanceof DOMException && e.name === "NotAllowedError" ? "الملف جاهز، اضغط «مشاركة الملف» تاني." : "الموبايل ماقدرش يفتح المشاركة. جرّب واتساب أو انسخ الرابط.");
     }
   };
 
@@ -124,8 +139,9 @@ export function SharePanel({
           تليجرام
         </Share>
         {canShare && (
-          <button type="button" className={button} onClick={shareSheet}>
-            <ShareNetwork size={20} aria-hidden="true" /> {file ? "مشاركة الملف" : "مشاركة"}
+          <button type="button" className={button} onClick={shareSheet} disabled={fetching} aria-busy={fetching || undefined}>
+            {fetching ? <CircleNotch size={20} aria-hidden="true" className="animate-spin" /> : <ShareNetwork size={20} aria-hidden="true" />}{" "}
+            {fetching ? "بنجهّز الملف…" : file ? "مشاركة الملف" : "مشاركة"}
           </button>
         )}
         {pdfHref ? (

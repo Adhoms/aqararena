@@ -1,6 +1,6 @@
 import type { Dictionary } from "@/app/[lang]/dictionaries";
 import type { Locale } from "@/i18n/config";
-import { summarize, type Developer, type MarketInsights, type Project } from "@/lib/catalog";
+import { currencyOf, inEgp, summarize, type Developer, type MarketInsights, type Project } from "@/lib/catalog";
 import { fill, formatMillions } from "@/lib/format";
 import { normalizeSearch } from "@/lib/search-text";
 import type { MapPoint } from "./project-map";
@@ -24,8 +24,9 @@ export function toMapPoints(projects: Project[], developers: Developer[], insigh
         district: p.district[locale] || undefined,
         // Land area, not price, on the pin: prices differ per unit. The card shows the starting price.
         size: p.landFeddan ? fill(dict.projectPage.feddan, { n: p.landFeddan }) : undefined,
-        price: Number.isFinite(s.startingPrice) ? `${dict.common.startingFrom} ${formatMillions(s.startingPrice, locale)}` : undefined,
-        priceValue: Number.isFinite(s.startingPrice) ? s.startingPrice : undefined,
+        price: Number.isFinite(s.startingPrice) ? `${dict.common.startingFrom} ${formatMillions(s.startingPrice, locale, currencyOf(p))}` : undefined,
+        // A group's "from …" compares pounds only.
+        priceValue: inEgp(p) && Number.isFinite(s.startingPrice) ? s.startingPrice : undefined,
         down: `${dict.common.lowestDown} ${s.minDownPct}%`,
         delivery: p.deliveryYear,
         category: p.categories[0],

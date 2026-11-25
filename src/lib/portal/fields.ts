@@ -5,7 +5,7 @@ import { options } from "@/lib/admin/labels";
 // editor (to draw the form) and by the admin review page (to label the differences).
 // Field keys are the same names the admin forms use, so lib/admin/readers.ts can check them.
 
-export type FieldType = "text" | "textarea" | "number" | "date" | "url" | "image" | "choice" | "choices" | "area";
+export type FieldType = "text" | "textarea" | "number" | "date" | "url" | "image" | "choice" | "choices" | "area" | "schedule";
 
 export type FieldDef = {
   key: string;
@@ -40,7 +40,8 @@ export const PROJECT_FIELDS: { title: string; fields: FieldDef[] }[] = [
       { key: "deliveryDate", label: "موعد التسليم", type: "date", required: true },
       { key: "launchDate", label: "تاريخ الإطلاق", type: "date" },
       { key: "progressPct", label: "نسبة الإنشاء %", type: "number" },
-      { key: "bookingFee", label: "مبلغ الحجز (جنيه)", type: "number", hint: "مبلغ جدية الحجز عند الإطلاق" },
+      { key: "bookingFee", label: "مبلغ الحجز (بعملة المشروع)", type: "number", hint: "مبلغ جدية الحجز عند الإطلاق" },
+      { key: "currency", label: "العملة", type: "choice", required: true, choices: CHOICES.currency, hint: "كل أسعار المشروع بالعملة دي" },
     ],
   },
   {
@@ -63,7 +64,7 @@ export const TYPOLOGY_FIELDS: FieldDef[] = [
   { key: "category", label: "الفئة", type: "choice", required: true, choices: CHOICES.categories },
   { key: "finishing", label: "التشطيب", type: "choice", required: true, choices: CHOICES.finishing },
   { key: "buaM2", label: "المساحة (م²)", type: "number", required: true },
-  { key: "priceFrom", label: "السعر يبدأ من (جنيه)", type: "number", required: true },
+  { key: "priceFrom", label: "السعر يبدأ من (بعملة المشروع)", type: "number", required: true },
   { key: "bedrooms", label: "غرف النوم", type: "number" },
   { key: "bathrooms", label: "الحمامات", type: "number" },
   { key: "gardenM2", label: "حديقة (م²)", type: "number" },
@@ -73,14 +74,16 @@ export const TYPOLOGY_FIELDS: FieldDef[] = [
 ];
 
 export const PLAN_FIELDS: FieldDef[] = [
-  { key: "downPaymentPct", label: "المقدم %", type: "number", required: true },
-  { key: "years", label: "عدد السنوات", type: "number", required: true, hint: "0 = كاش" },
+  { key: "downPaymentPct", label: "المقدم %", type: "number", hint: "مطلوب لو مفيش جدول مخصص" },
+  { key: "years", label: "عدد السنوات", type: "number", hint: "0 = كاش. مطلوب لو مفيش جدول مخصص" },
   { key: "frequency", label: "الأقساط", type: "choice", required: true, choices: CHOICES.frequency },
+  // The editor draws this one with its live check and its help (components/admin/schedule-field.tsx).
+  { key: "steps", label: "جدول سداد مخصص", type: "schedule", dir: "ltr", span: 4 },
   { key: "deliveryPaymentPct", label: "دفعة الاستلام %", type: "number" },
   { key: "cashDiscountPct", label: "خصم الكاش %", type: "number" },
   { key: "maintenancePct", label: "وديعة الصيانة %", type: "number" },
-  { key: "garageFee", label: "الجراج (جنيه)", type: "number" },
-  { key: "clubFee", label: "النادي (جنيه)", type: "number" },
+  { key: "garageFee", label: "الجراج (بعملة المشروع)", type: "number" },
+  { key: "clubFee", label: "النادي (بعملة المشروع)", type: "number" },
   { key: "validUntil", label: "ساري حتى", type: "date" },
   { key: "typologyCode", label: "يخص نموذج", type: "text", dir: "ltr", hint: "كود النموذج، أو فاضي لكل النماذج" },
   { key: "nameAr", label: "اسم النظام بالعربية", type: "text" },

@@ -11,8 +11,9 @@ import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { deleteIfUnused } from "@/lib/admin/blob";
 import { clearFailures, clientIp, lockedMessage, lockedMinutes, recordFailure } from "@/lib/throttle";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit } from "@/lib/admin/readers";
-import { recordPriceHistory } from "@/lib/price-history";
-import { findTwinUnit } from "@/lib/units";
+import { toStepRows } from "@/lib/catalog/plan-steps";
+import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
+import { findTwinUnit, zoneOfProject } from "@/lib/units";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
 import { releaseHoldsOfUnavailable, releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
 import { projectLeavesSales } from "@/lib/sales/scope";
@@ -130,8 +131,10 @@ export async function saveProject(_: FormState, data: FormData): Promise<FormSta
   try {
     if (id) {
       released = await db.$transaction(async (tx) => {
-        const before = await tx.project.findUnique({ where: { id }, select: { developerId: true, published: true } });
+        const before = await tx.project.findUnique({ where: { id }, select: { developerId: true, published: true, currency: true } });
         await tx.project.update({ where: { id }, data: { ...values, ...relations } });
+        // Prices in another currency: the price history and the alert figures start again.
+        if (before && before.currency !== values.currency) await restartPriceTracking([id], tx);
         // Moved to another developer or unpublished: its units leave that developer's Sales, and lose their holds.
         const leaves = before && projectLeavesSales({ developer: before.developerId, published: before.published }, { developer: developerId, published: values.published });
         return leaves ? releaseHoldsOutOfSales(tx, { typology: { projectId: id } }) : 0;
@@ -195,6 +198,7 @@ export async function saveUnit(_: FormState, data: FormData): Promise<FormState>
   const typologyId = f.id("typologyId");
   const values = readUnit(f);
   if (!typologyId) f.errors.typologyId = "اختر النموذج";
+  if (projectId && (await zoneOfProject(projectId, values.zoneId)) === false) f.errors.zoneId = "المنطقة دي مش في الماستر بلان بتاع المشروع";
   if (!f.ok || !projectId || !typologyId) return f.result();
   // The unit type must be one of this project's.
   const typology = await db.typology.findFirst({ where: { id: typologyId, projectId }, select: { id: true } });
@@ -233,10 +237,13 @@ export async function savePaymentPlan(_: FormState, data: FormData): Promise<For
   const f = new FormReader(data);
   const id = f.id("id");
   const projectId = f.id("projectId");
-  const values = { ...readPaymentPlan(f), typologyId: f.id("typologyId") };
+  const { steps, ...plan } = readPaymentPlan(f);
+  const values = { ...plan, typologyId: f.id("typologyId") };
   if (!f.ok || !projectId) return f.result();
-  if (id) await db.paymentPlan.update({ where: { id, projectId }, data: values });
-  else await db.paymentPlan.create({ data: { ...values, projectId } });
+  const rows = toStepRows(steps);
+  // One statement: the plan and its steps change together.
+  if (id) await db.paymentPlan.update({ where: { id, projectId }, data: { ...values, steps: { deleteMany: {}, createMany: { data: rows } } } });
+  else await db.paymentPlan.create({ data: { ...values, projectId, steps: { createMany: { data: rows } } } });
   await touchPrices(projectId);
   published();
   return id ? SAVED : { ok: true, message: "تمت الإضافة ✓" };

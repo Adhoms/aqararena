@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon, Container } from "@/components/ui";
-import { getMarketInsights } from "@/lib/catalog";
-import { fill, formatMillions, formatNumber } from "@/lib/format";
+import { countProjectsByArea, getMarketInsights } from "@/lib/catalog";
+import { fill, formatMillionsEgp, formatNumber } from "@/lib/format";
 import { AREA_SLUGS } from "@/lib/property";
 import { pageAlternates } from "@/lib/site";
 import { getDictionary, getLocale } from "../dictionaries";
@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Every area as a large-type row: name, short description, its figures, and a link to its page. */
 export default async function AreasPage() {
-  const [locale, dict, insights] = await Promise.all([getLocale(), getDictionary(), getMarketInsights()]);
+  const [locale, dict, insights, counts] = await Promise.all([getLocale(), getDictionary(), getMarketInsights(), countProjectsByArea()]);
   const a = dict.areasPage;
   const byArea = new Map(insights.areas.map((x) => [x.area, x]));
 
@@ -26,7 +26,9 @@ export default async function AreasPage() {
       </div>
       <ol>
         {AREA_SLUGS.map((slug) => {
+          // Every project counts; the price figures are pounds only (none when the area has no project in pounds).
           const stats = byArea.get(slug);
+          const count = counts[slug] ?? 0;
           return (
             <li key={slug} className="border-t border-line">
               <Link
@@ -38,13 +40,16 @@ export default async function AreasPage() {
                 </span>
                 <span className="max-w-[56ch] text-sm text-body">{a.intro[slug]}</span>
                 <span className="flex items-center gap-6">
-                  {stats ? (
+                  {count > 0 ? (
                     <span className="flex flex-col text-end">
-                      <span className="font-display text-xl">
-                        {formatNumber(stats.avgPricePerM2, locale)} <span className="text-xs text-muted">{dict.insights.perM2}</span>
-                      </span>
+                      {stats && (
+                        <span className="font-display text-xl">
+                          {formatNumber(stats.avgPricePerM2, locale)} <span className="text-xs text-muted">{dict.insights.perM2}</span>
+                        </span>
+                      )}
                       <span className="text-[13px] text-muted">
-                        {fill(dict.insights.projects, { n: stats.projects })} · {dict.common.startingFrom} {formatMillions(stats.lowestStartingPrice, locale)}
+                        {fill(dict.insights.projects, { n: count })}
+                        {stats && ` · ${dict.common.startingFrom} ${formatMillionsEgp(stats.lowestStartingPrice, locale)}`}
                       </span>
                     </span>
                   ) : (

@@ -72,7 +72,14 @@ export function ProjectForm({
             <TextField name="progressPct" type="number" label="نسبة الإنشاء %" defaultValue={p?.progressPct} />
           </Row>
           <Row cols={4}>
-            <TextField name="bookingFee" type="number" label="مبلغ الحجز (جنيه)" defaultValue={dec(p?.bookingFee)} hint="مبلغ جدية الحجز عند الإطلاق" />
+            <Select
+              name="currency"
+              label="العملة *"
+              defaultValue={p?.currency ?? "EGP"}
+              options={options.currency}
+              hint="كل أسعار المشروع وخططه وعروضه بالعملة دي. تغييرها مش بيحوّل الأرقام."
+            />
+            <TextField name="bookingFee" type="number" label="مبلغ الحجز (بعملة المشروع)" defaultValue={dec(p?.bookingFee)} hint="مبلغ جدية الحجز عند الإطلاق" />
             <TextField
               name="pricesUpdatedAt"
               type="date"

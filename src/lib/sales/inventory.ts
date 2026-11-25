@@ -1,7 +1,9 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import type { SubType } from "@/lib/property";
+import type { Currency, SubType } from "@/lib/property";
+import { stepsOf } from "@/lib/catalog/plan-steps";
+import type { ZoneBox } from "@/components/sales/marked-plan";
 import { budgetFigure, fitsBudget, plansForType, type SalesPlan } from "./budget";
 import { releaseExpired, salesHoldWhere } from "./hold-service";
 import { effectiveHoldHours, salesState, SALES_STATE_RANK, type HoldActor, type SalesState } from "./holds";
@@ -24,6 +26,7 @@ const todayCairo = () => new Date(new Intl.DateTimeFormat("en-CA", { timeZone: "
 export type SalesProject = {
   id: string;
   nameAr: string;
+  currency: Currency;
   types: { id: string; code: string; nameAr: string | null; subType: SubType; bedrooms: number | null }[];
   /** Units free to hold: AVAILABLE and without a live hold (the search shows held units as their own state). */
   available: number;
@@ -36,7 +39,7 @@ export async function salesProjects(developerId: string, now = new Date()): Prom
   const projects = await db.project.findMany({
     where: { typologies: { some: types } },
     orderBy: { nameAr: "asc" },
-    select: { id: true, nameAr: true, typologies: { where: types, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, subType: true, bedrooms: true } } },
+    select: { id: true, nameAr: true, currency: true, typologies: { where: types, orderBy: { priceFrom: "asc" }, select: { id: true, code: true, nameAr: true, subType: true, bedrooms: true } } },
   });
   const typeIds = projects.flatMap((p) => p.typologies.map((t) => t.id));
   const [counts, held] = typeIds.length
@@ -62,7 +65,7 @@ export async function salesProjects(developerId: string, now = new Date()): Prom
     const t = totals.get(projectOf.get(h.typologyId)!);
     if (t) t.available -= h._count._all;
   }
-  return projects.map((p) => ({ id: p.id, nameAr: p.nameAr, types: p.typologies, ...(totals.get(p.id) ?? { available: 0, total: 0 }) }));
+  return projects.map((p) => ({ id: p.id, nameAr: p.nameAr, currency: p.currency, types: p.typologies, ...(totals.get(p.id) ?? { available: 0, total: 0 }) }));
 }
 
 /** Active plans that haven't passed their end date, by project, for the developer's published projects (all of them, or `projectIds`). */
@@ -76,6 +79,7 @@ export async function salesPlans(developerId: string, projectIds?: string[]): Pr
           OR: [{ validUntil: null }, { validUntil: { gte: todayCairo() } }],
         },
         orderBy: { createdAt: "asc" },
+        include: { steps: { orderBy: { sortOrder: "asc" } } },
       })
     : [];
   const byProject = new Map<string, SalesPlan[]>();
@@ -90,6 +94,7 @@ export async function salesPlans(developerId: string, projectIds?: string[]): Pr
       frequency: p.frequency,
       cashDiscountPct: dec(p.cashDiscountPct) ?? undefined,
       maintenancePct: dec(p.maintenancePct) ?? undefined,
+      ...(p.steps.length > 0 && { steps: stepsOf(p.steps) }),
     };
     byProject.set(p.projectId, [...(byProject.get(p.projectId) ?? []), plan]);
   }
@@ -107,6 +112,8 @@ export type SalesUnitRow = {
   floor: number | null;
   view: string | null;
   price: number;
+  /** The project's currency, for every amount of the row. */
+  currency: Currency;
   /** The down payment or monthly installment that met the budget (null for a total-price budget or none). */
   figure: number | null;
   state: SalesState;
@@ -128,7 +135,12 @@ export async function searchUnits(
   };
   const held = salesHoldWhere(me.developerId, now);
   const where: Prisma.UnitWhereInput = {
-    AND: [salesUnitWhere(me.developerId), { typology }],
+    AND: [
+      salesUnitWhere(me.developerId),
+      { typology },
+      // A budget is in one currency: it only matches projects priced in it.
+      ...(s.budget ? [{ typology: { project: { currency: s.cur ?? "EGP" } } }] : []),
+    ],
     ...(s.floorMin !== undefined || s.floorMax !== undefined ? { floor: { gte: s.floorMin, lte: s.floorMax } } : {}),
     ...(s.view ? { view: s.view } : {}),
     // Held and available are told apart by a live hold, in the database, so the scan limit never cuts them short.
@@ -144,9 +156,16 @@ export async function searchUnits(
   };
   const units = await db.unit.findMany({
     where,
-    // Cheapest first within each state, so a capped scan keeps the cheapest units: the unit's own price,
-    // then (for units without one) the type's starting price.
-    orderBy: [{ availability: "asc" }, { price: { sort: "asc", nulls: "last" } }, { typology: { priceFrom: "asc" } }, { id: "asc" }],
+    // Cheapest first within each state and currency, so a capped scan keeps the cheapest units: the unit's
+    // own price, then (for units without one) the type's starting price. Prices in pounds and dollars are
+    // never compared: pounds first (EGP comes before USD in the Currency enum, which orders the column).
+    orderBy: [
+      { availability: "asc" },
+      { typology: { project: { currency: "asc" } } },
+      { price: { sort: "asc", nulls: "last" } },
+      { typology: { priceFrom: "asc" } },
+      { id: "asc" },
+    ],
     take: SCAN_LIMIT + 1,
     select: {
       id: true,
@@ -157,7 +176,7 @@ export async function searchUnits(
       price: true,
       availability: true,
       typologyId: true,
-      typology: { select: { code: true, nameAr: true, subType: true, bedrooms: true, priceFrom: true, project: { select: { id: true, nameAr: true } } } },
+      typology: { select: { code: true, nameAr: true, subType: true, bedrooms: true, priceFrom: true, project: { select: { id: true, nameAr: true, currency: true } } } },
       holds: { where: held, take: 1, select: { salesAccountId: true, expiresAt: true, salesAccount: { select: { nameAr: true } } } },
     },
   });
@@ -185,6 +204,7 @@ export async function searchUnits(
       floor: u.floor,
       view: u.view,
       price,
+      currency: u.typology.project.currency,
       figure,
       state,
       hold: hold ? { name: hold.salesAccount.nameAr, expiresAt: hold.expiresAt, mine: hold.salesAccountId === me.id } : null,
@@ -193,6 +213,8 @@ export async function searchUnits(
   rows.sort(
     (a, b) =>
       SALES_STATE_RANK[a.state] - SALES_STATE_RANK[b.state] ||
+      // Prices are only compared within a currency: pounds first.
+      Number(a.currency !== "EGP") - Number(b.currency !== "EGP") ||
       a.price - b.price ||
       a.projectName.localeCompare(b.projectName, "ar") ||
       a.label.localeCompare(b.label, "en", { numeric: true }),
@@ -225,12 +247,14 @@ export type SalesUnitDetail = {
     bedrooms: number | null;
     bathrooms: number | null;
   };
-  project: { id: string; nameAr: string; slug: string; deliveryYear: number; holdHours: number };
+  project: { id: string; nameAr: string; slug: string; deliveryYear: number; holdHours: number; currency: Currency };
   /** The type's floor plans; until those can be uploaded per type, the project's. */
   floorPlans: { url: string; caption: string | null }[];
   floorPlansOfType: boolean;
-  /** The master plan image. Units aren't linked to zones, so it can't be marked. */
+  /** The master plan image, marked when the unit has a zone. */
   masterPlan: string | null;
+  /** Where the unit is on the master plan, if the admin or the developer set it. */
+  zone: ZoneBox | null;
   hold: UnitHoldView | null;
 };
 
@@ -254,6 +278,7 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
       price: true,
       availability: true,
       typologyId: true,
+      zone: { select: { xPct: true, yPct: true, widthPct: true, heightPct: true, nameAr: true } },
       typology: {
         select: {
           code: true,
@@ -276,6 +301,7 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
               slug: true,
               deliveryDate: true,
               holdHours: true,
+              currency: true,
               masterPlanUrl: true,
               developer: { select: { holdHours: true } },
               media: { where: { kind: { in: ["MASTER_PLAN", "FLOOR_PLAN_2D", "LAYOUT_SKETCH"] } }, orderBy: { sortOrder: "asc" }, select: { kind: true, url: true, captionAr: true } },
@@ -290,6 +316,7 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
   const t = unit.typology;
   const p = t.project;
   const hold = unit.holds[0];
+  const z = unit.zone;
   const seesNote = hold !== undefined && (hold.salesAccountId === viewer.id || viewer.role === "LEAD");
   const typePlans = t.media.map((m) => ({ url: m.url, caption: m.captionAr }));
   const projectPlans = p.media.filter((m) => m.kind !== "MASTER_PLAN").map((m) => ({ url: m.url, caption: m.captionAr }));
@@ -315,10 +342,11 @@ export async function loadSalesUnit(viewer: HoldActor, unitId: string, now = new
       bedrooms: t.bedrooms,
       bathrooms: t.bathrooms,
     },
-    project: { id: p.id, nameAr: p.nameAr, slug: p.slug, deliveryYear: p.deliveryDate.getUTCFullYear(), holdHours: effectiveHoldHours(p.holdHours, p.developer.holdHours) },
+    project: { id: p.id, nameAr: p.nameAr, slug: p.slug, deliveryYear: p.deliveryDate.getUTCFullYear(), holdHours: effectiveHoldHours(p.holdHours, p.developer.holdHours), currency: p.currency },
     floorPlans: typePlans.length ? typePlans : projectPlans,
     floorPlansOfType: typePlans.length > 0,
     masterPlan: p.masterPlanUrl ?? p.media.find((m) => m.kind === "MASTER_PLAN")?.url ?? null,
+    zone: z ? { x: Number(z.xPct), y: Number(z.yPct), w: Number(z.widthPct), h: Number(z.heightPct), label: z.nameAr } : null,
     hold: hold ? { id: hold.id, salesAccountId: hold.salesAccountId, holder: hold.salesAccount.nameAr, expiresAt: hold.expiresAt, clientNote: seesNote ? hold.clientNote : null } : null,
   };
 }

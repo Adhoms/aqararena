@@ -1,9 +1,14 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { sendEmails, type Mail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
 import { formatMoney } from "@/lib/format";
+import type { Currency } from "@/lib/property";
+import { monthlyFor } from "@/lib/catalog/summary";
+import { stepsOf } from "@/lib/catalog/plan-steps";
+import type { PaymentPlan } from "@/lib/catalog/types";
 
 // Price alerts: visitors leave their name and email (phone optional) on a project, confirm by
 // email, and hear from us when its prices or payment plans change. "Changed" means the figures
@@ -27,23 +32,43 @@ export type PriceSnapshot = {
 export const newToken = () => randomBytes(24).toString("base64url");
 
 /** Today's figures for a project, or null when it has no priced units yet. */
-export async function priceSnapshot(projectId: string): Promise<PriceSnapshot | null> {
-  const [types, plans] = await Promise.all([
-    db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { priceFrom: true, buaM2: true } }),
-    db.paymentPlan.findMany({ where: { projectId, isActive: true }, select: { downPaymentPct: true, deliveryPaymentPct: true, years: true, cashDiscountPct: true } }),
-  ]);
+export async function priceSnapshot(projectId: string, client: Prisma.TransactionClient | typeof db = db): Promise<PriceSnapshot | null> {
+  // One query after the other: `client` may be a transaction, whose one connection takes no parallel queries.
+  const types = await client.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { priceFrom: true, buaM2: true } });
+  const plans = await client.paymentPlan.findMany({
+    where: { projectId, isActive: true },
+    select: {
+      downPaymentPct: true,
+      deliveryPaymentPct: true,
+      years: true,
+      frequency: true,
+      cashDiscountPct: true,
+      steps: { orderBy: { sortOrder: "asc" }, select: { monthOffset: true, pct: true, kind: true } },
+    },
+  });
   if (!types.length) return null;
   const prices = types.map((t) => Number(t.priceFrom));
   const start = Math.min(...prices);
   const perM2 = types.map((t) => Number(t.priceFrom) / Number(t.buaM2)).reduce((a, b) => a + b, 0) / types.length;
-  const installments = plans.filter((p) => p.years > 0);
-  const monthlyFor = (p: (typeof plans)[number]) => (start * (100 - Number(p.downPaymentPct) - Number(p.deliveryPaymentPct))) / 100 / (p.years * 12);
+  // As the catalog reads them, so a plan with a custom schedule gives the monthly figure its steps give.
+  const installments = plans
+    .filter((p) => p.years > 0)
+    .map(
+      (p): PaymentPlan => ({
+        name: { ar: "", en: "" },
+        downPaymentPct: Number(p.downPaymentPct),
+        deliveryPaymentPct: Number(p.deliveryPaymentPct),
+        years: p.years,
+        frequency: p.frequency,
+        ...(p.steps.length > 0 && { steps: stepsOf(p.steps) }),
+      }),
+    );
   return {
     start: Math.round(start),
     perM2: Math.round(perM2 / 50) * 50,
-    down: installments.length ? Math.min(...installments.map((p) => Number(p.downPaymentPct))) : 100,
+    down: installments.length ? Math.min(...installments.map((p) => p.downPaymentPct)) : 100,
     years: installments.length ? Math.max(...installments.map((p) => p.years)) : 0,
-    monthly: installments.length ? Math.round(Math.min(...installments.map(monthlyFor)) / 100) * 100 : 0,
+    monthly: installments.length ? Math.round(Math.min(...installments.map((p) => monthlyFor(start, p))) / 100) * 100 : 0,
     cash: Math.max(0, ...plans.map((p) => Number(p.cashDiscountPct ?? 0))),
   };
 }
@@ -86,10 +111,10 @@ const LABELS = {
   en: { start: "Prices from", perM2: "Average price per m²", down: "Lowest down payment", years: "Longest installment plan", monthly: "Lowest monthly installment", cash: "Cash discount" },
 } as const;
 
-function show(key: (typeof KEYS)[number], value: number, locale: "ar" | "en") {
+function show(key: (typeof KEYS)[number], value: number, locale: "ar" | "en", currency: Currency) {
   if (key === "down" || key === "cash") return `${value}%`;
   if (key === "years") return locale === "ar" ? `${value} سنين` : `${value} years`;
-  return value ? formatMoney(value, locale) : "-";
+  return value ? formatMoney(value, locale, currency) : "-";
 }
 
 export const alertLink = (locale: string, token: string, off = false) => `${SITE_URL}/${locale === "en" ? "en" : "ar"}/alerts/${token}${off ? "?off=1" : ""}`;
@@ -99,7 +124,7 @@ export const alertLink = (locale: string, token: string, off = false) => `${SITE
  * new figures. Returns how many emails went out. Does nothing for unpublished projects.
  */
 export async function sendPriceAlerts(projectId: string): Promise<number> {
-  const project = await db.project.findUnique({ where: { id: projectId }, select: { slug: true, nameAr: true, nameEn: true, published: true, alertSnapshot: true } });
+  const project = await db.project.findUnique({ where: { id: projectId }, select: { slug: true, nameAr: true, nameEn: true, currency: true, published: true, alertSnapshot: true } });
   if (!project) return 0;
   const now = await priceSnapshot(projectId);
   if (!now) return 0;
@@ -115,7 +140,7 @@ export async function sendPriceAlerts(projectId: string): Promise<number> {
   const mails: Mail[] = subscribers.map((s) => {
     const locale = s.locale === "en" ? "en" : "ar";
     const name = locale === "en" ? project.nameEn : project.nameAr;
-    const lines = changes.map((c) => `${LABELS[locale][c.key]}: ${show(c.key, c.from, locale)} ← ${show(c.key, c.to, locale)}`);
+    const lines = changes.map((c) => `${LABELS[locale][c.key]}: ${show(c.key, c.from, locale, project.currency)} ← ${show(c.key, c.to, locale, project.currency)}`);
     const page = `${SITE_URL}/${locale}/projects/${project.slug}#prices`;
     const off = alertLink(locale, s.token, true);
     const text =

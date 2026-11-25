@@ -20,7 +20,7 @@ export function normalizePhone(input: string): string {
     .trim();
 }
 
-const isDialable = (n: string) => /^\+?[\d\s-]+$/.test(n) && n.replace(/\D/g, "").length >= 8 && n.replace(/\D/g, "").length <= 15;
+export const isDialable = (n: string) => /^\+?[\d\s-]+$/.test(n) && n.replace(/\D/g, "").length >= 8 && n.replace(/\D/g, "").length <= 15;
 
 /** Normalises a phone field, records `message` on `name` when it is not dialable, and returns the normalised value. */
 function readPhone(f: FormReader, name: "phone" | "whatsapp", raw: string | null, message: string): string | null {

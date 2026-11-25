@@ -36,7 +36,7 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
       where: { id },
       include: {
         typologies: { orderBy: { priceFrom: "asc" } },
-        paymentPlans: { orderBy: { createdAt: "asc" } },
+        paymentPlans: { orderBy: { createdAt: "asc" }, include: { steps: { orderBy: { sortOrder: "asc" } } } },
         zones: { orderBy: { sortOrder: "asc" } },
         media: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] },
         distances: { orderBy: { sortOrder: "asc" } },
@@ -110,9 +110,9 @@ export default async function EditProjectPage({ params, searchParams }: PageProp
         <ProjectForm project={project} developers={developers} areas={areas} />
       </div>
       <NewAreaForm />
-      <TypologyList projectId={project.id} items={project.typologies} />
-      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} heldTotal={heldTotal} />
-      <PaymentPlanList projectId={project.id} items={project.paymentPlans} typologies={project.typologies} />
+      <TypologyList projectId={project.id} items={project.typologies} currency={project.currency} />
+      <UnitList projectId={project.id} items={units} total={unitsTotal} typologies={project.typologies} editing={editingUnit} heldTotal={heldTotal} currency={project.currency} zones={project.zones} />
+      <PaymentPlanList projectId={project.id} items={project.paymentPlans} typologies={project.typologies} currency={project.currency} />
       <ZoneList projectId={project.id} items={project.zones} />
       <MediaList projectId={project.id} items={project.media} />
       <DistanceList projectId={project.id} items={project.distances} />

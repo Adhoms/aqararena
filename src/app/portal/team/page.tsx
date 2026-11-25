@@ -5,8 +5,9 @@ import { ROLE_LABELS, SALES_ROLES } from "@/lib/sales/fields";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { AdminForm, ConfirmForm } from "@/components/admin/admin-form";
 import { Panel, Row, Select, TextField } from "@/components/admin/fields";
-import { createSalesAccount, resetSalesPassword, saveHoldHours, setSalesStatus, updateSalesAccount } from "../team-actions";
+import { createSalesAccount, resetSalesPassword, saveHoldHours, saveOfferSettings, setSalesStatus, updateSalesAccount } from "../team-actions";
 import { HOLD_HOURS_MAX, HOLD_HOURS_MIN } from "@/lib/sales/holds";
+import { DISCOUNT_CAP, OFFER_VALIDITY_MAX, OFFER_VALIDITY_MIN } from "@/lib/sales/offers";
 import { HOURS_NOUN, countAr, formatCountAr, formatDateAr } from "@/lib/format";
 
 const when = (d: Date | null) => (d ? formatDateAr(d) : "لسه ماخدش");
@@ -35,7 +36,7 @@ export default async function PortalTeamPage() {
   const me = await requireAccount();
   const [team, developer] = await Promise.all([
     db.salesAccount.findMany({ where: { developerId: me.developerId }, orderBy: [{ status: "asc" }, { nameAr: "asc" }] }),
-    db.developer.findUniqueOrThrow({ where: { id: me.developerId }, select: { holdHours: true } }),
+    db.developer.findUniqueOrThrow({ where: { id: me.developerId }, select: { holdHours: true, offerValidityDays: true, agentDiscountPct: true, leadDiscountPct: true } }),
   ]);
 
   return (
@@ -58,6 +59,40 @@ export default async function PortalTeamPage() {
             defaultValue={developer.holdHours}
             hint={`من ${formatCountAr(HOLD_HOURS_MIN)} لـ ${countAr(HOLD_HOURS_MAX, HOURS_NOUN)} (أسبوع). السيلز بيحجز الوحدة المدة دي، ولو ماأكدش الحجز الوحدة بترجع متاحة لوحدها. تقدر تحدد مدة مختلفة لكل مشروع من صفحة مخزونه. بيسري على الحجوزات الجديدة بس.`}
           />
+        </AdminForm>
+      </Panel>
+
+      <Panel title="عروض الأسعار">
+        <AdminForm action={saveOfferSettings}>
+          <Row cols={3}>
+            <TextField
+              name="offerValidityDays"
+              type="number"
+              inputMode="numeric"
+              autoComplete="off"
+              label="صلاحية العرض (أيام) *"
+              defaultValue={developer.offerValidityDays}
+              hint={`من ${formatCountAr(OFFER_VALIDITY_MIN)} لـ ${formatCountAr(OFFER_VALIDITY_MAX)} يوم. السيلز يقدر يقصّرها أو يطوّلها لحد ${formatCountAr(OFFER_VALIDITY_MAX)} يوم لكل عرض.`}
+            />
+            <TextField
+              name="agentDiscountPct"
+              type="number"
+              inputMode="decimal"
+              autoComplete="off"
+              label="أقصى خصم للسيلز %"
+              defaultValue={Number(developer.agentDiscountPct)}
+              hint="العرض بخصم لحد النسبة دي بيطلع على طول. فوقها بيستنى موافقة قائد الفريق."
+            />
+            <TextField
+              name="leadDiscountPct"
+              type="number"
+              inputMode="decimal"
+              autoComplete="off"
+              label="أقصى خصم لقائد الفريق %"
+              defaultValue={Number(developer.leadDiscountPct)}
+              hint={`لحد ${formatCountAr(DISCOUNT_CAP)}%. أي خصم فوق النسبة دي مش هيتقبل في Sales خالص. صفر يعني مفيش خصم على العروض.`}
+            />
+          </Row>
         </AdminForm>
       </Panel>
 

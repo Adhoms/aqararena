@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { leavingSales, nothingLeaves } from "@/lib/admin/import/leaving";
-import { holdInSales, projectLeavesSales, salesUnitWhere, type HoldScopeFacts } from "./scope";
+import { holdInSales, projectLeavesSales, salesOfferWhere, salesUnitWhere, type HoldScopeFacts } from "./scope";
 
 test("Sales shows a developer's units in published projects, of priced types", () => {
   assert.deepEqual(salesUnitWhere("devA"), { typology: { priceFrom: { not: null }, project: { developerId: "devA", published: true } } });
+});
+
+test("Sales reads a developer's own offers, made by its own salespeople", () => {
+  assert.deepEqual(salesOfferWhere("devA"), { developerId: "devA", salesAccount: { developerId: "devA" } });
 });
 
 const facts = (over: Partial<HoldScopeFacts> = {}): HoldScopeFacts => ({ holderDeveloperId: "devA", unitDeveloperId: "devA", published: true, priced: true, ...over });

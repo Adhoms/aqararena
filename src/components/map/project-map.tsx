@@ -24,7 +24,7 @@ export type MapPoint = {
   size?: string;
   /** "يبدأ من 6.50 مليون" */
   price?: string;
-  /** The starting price in EGP, for the "from …" line on grouped pins. */
+  /** The starting price in pounds, for the "from …" line on grouped pins; undefined for other currencies. */
   priceValue?: number;
   down: string;
   delivery: number;
@@ -94,7 +94,7 @@ function clusterElement(group: MapPoint[], labels: Labels, locale: Locale) {
   }).join("");
 
   const prices = group.map((g) => g.priceValue).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-  const from = prices.length ? labels.clusterFrom.replace("{price}", formatMillions(Math.min(...prices), locale)) : "";
+  const from = prices.length ? labels.clusterFrom.replace("{price}", formatMillions(Math.min(...prices), locale, "EGP")) : "";
 
   const el = document.createElement("div");
   const button = document.createElement("button");

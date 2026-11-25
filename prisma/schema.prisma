@@ -127,6 +127,39 @@ enum ZoneKind {
   ADMINISTRATIVE
 }
 
+/// The currency of a project's prices, plans and offers. Nothing is converted: changing it relabels the numbers.
+enum Currency {
+  EGP
+  USD
+}
+
+/// A line of a plan's custom schedule: a share of the unit price, or of the maintenance deposit.
+enum PlanStepKind {
+  PAYMENT
+  MAINTENANCE
+}
+
+/// PENDING_APPROVAL: its discount is above the salesperson's limit and waits for a team lead; it can't
+/// be shared or opened by the client. ISSUED: out. CANCELLED: cancelled, or rejected by a team lead.
+enum OfferStatus {
+  PENDING_APPROVAL
+  ISSUED
+  CANCELLED
+}
+
+/// How an offer was shared. DEVICE: the phone's own share sheet (the PDF file to any app).
+enum OfferChannel {
+  WHATSAPP
+  TELEGRAM
+  EMAIL
+  DEVICE
+}
+
+enum OfferLanguage {
+  ar
+  en
+}
+
 // ─── Locations ──────────────────────────────────────────────────────────
 
 /// Areas nest: e.g. Cairo › New Cairo › Fifth Settlement.
@@ -148,32 +181,39 @@ model Area {
 // ─── Developers & projects ──────────────────────────────────────────────
 
 model Developer {
-  id            String             @id @default(cuid())
-  slug          String             @unique
-  nameAr        String
-  nameEn        String
-  logoUrl       String?
-  coverUrl      String?
-  foundedYear   Int?
-  aboutAr       String?
-  aboutEn       String?
-  website       String?
-  hotline       String?
-  salesPhone    String?
-  whatsapp      String?
-  email         String?
-  hqAddressAr   String?
-  hqAddressEn   String?
-  verified      Boolean            @default(false)
-  plan          DeveloperPlan      @default(BASIC)
+  id                String             @id @default(cuid())
+  slug              String             @unique
+  nameAr            String
+  nameEn            String
+  logoUrl           String?
+  coverUrl          String?
+  foundedYear       Int?
+  aboutAr           String?
+  aboutEn           String?
+  website           String?
+  hotline           String?
+  salesPhone        String?
+  whatsapp          String?
+  email             String?
+  hqAddressAr       String?
+  hqAddressEn       String?
+  verified          Boolean            @default(false)
+  plan              DeveloperPlan      @default(BASIC)
   /// How many hours an AqarArena Sales hold lasts (1–168), set in the portal's «فريق المبيعات». A project can override it.
-  holdHours     Int                @default(48)
-  projects      Project[]
-  accounts      DeveloperAccount[]
-  submissions   Submission[]
-  salesAccounts SalesAccount[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  holdHours         Int                @default(48)
+  /// How many days a Sales price offer stays valid by default (1–30), set in «فريق المبيعات».
+  offerValidityDays Int                @default(7)
+  /// Highest discount (% of the unit price, 0–20) a salesperson gives without a team lead's approval.
+  agentDiscountPct  Decimal            @default(0) @db.Decimal(4, 2)
+  /// Highest discount a team lead gives or approves; anything above is refused in Sales (spec 5.4).
+  leadDiscountPct   Decimal            @default(0) @db.Decimal(4, 2)
+  salesOffers       SalesOffer[]
+  projects          Project[]
+  accounts          DeveloperAccount[]
+  submissions       Submission[]
+  salesAccounts     SalesAccount[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model Project {
@@ -206,7 +246,7 @@ model Project {
   progressPct     Int?
   /// When the developer last confirmed the prices and payment plans.
   pricesUpdatedAt DateTime?     @db.Date
-  /// Refundable amount to reserve a unit at launch (EOI), in EGP.
+  /// Refundable amount to reserve a unit at launch (EOI), in the project's currency.
   bookingFee      Decimal?      @db.Decimal(12, 2)
   /// Amenity keys such as "clubhouse", "underground_parking", "mall", "school".
   amenities       String[]
@@ -216,6 +256,8 @@ model Project {
   published       Boolean       @default(false)
   /// Overrides the developer's hold length for this project only (1–168), e.g. a few hours on launch day. Empty = the developer's.
   holdHours       Int?
+  /// The currency of every price, plan and offer of this project.
+  currency        Currency      @default(EGP)
 
   typologies          Typology[]
   zones               MasterPlanZone[]
@@ -293,10 +335,15 @@ model Unit {
   price        Decimal?         @db.Decimal(14, 2)
   availability UnitAvailability @default(AVAILABLE)
   holds        UnitHold[]
+  /// Where the unit is on the master plan, marked on offers and the Sales unit page. A zone of the same project (checked by the app).
+  zoneId       String?
+  zone         MasterPlanZone?  @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  offers       SalesOffer[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
   @@index([typologyId, availability])
+  @@index([zoneId])
 }
 
 // ─── Master plan & location ─────────────────────────────────────────────
@@ -326,6 +373,7 @@ model MasterPlanZone {
   widthPct       Decimal           @db.Decimal(5, 2)
   heightPct      Decimal           @db.Decimal(5, 2)
   sortOrder      Int               @default(0)
+  units          Unit[]
 
   @@index([projectId])
 }
@@ -388,6 +436,9 @@ model PaymentPlan {
   clubFee            Decimal?             @db.Decimal(12, 2)
   validUntil         DateTime?            @db.Date
   isActive           Boolean              @default(true)
+  /// A custom schedule. Empty: the plan is paid as down payment, equal installments and delivery payment.
+  steps              PlanStep[]
+  salesOffers        SalesOffer[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
@@ -623,6 +674,9 @@ model SalesAccount {
   lastLoginAt        DateTime?
   holds              UnitHold[]    @relation("HoldOwner")
   releasedHolds      UnitHold[]    @relation("HoldReleasedBy")
+  offers             SalesOffer[]  @relation("OfferOwner")
+  approvedOffers     SalesOffer[]  @relation("OfferApprover")
+  cancelledOffers    SalesOffer[]  @relation("OfferCanceller")
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -677,4 +731,73 @@ model UnitHold {
 
   @@index([salesAccountId, status])
   @@index([unitId, status])
+}
+
+/// One line of a plan's custom schedule (spec section 4). Written from the notation in
+/// src/lib/catalog/plan-steps.ts, which checks that payments add up to 100% and maintenance to 100% or nothing.
+model PlanStep {
+  id            String       @id @default(cuid())
+  paymentPlanId String
+  paymentPlan   PaymentPlan  @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
+  /// Months after the contract (0 = at contract), 0–360.
+  monthOffset   Int
+  /// Percent of the unit price (PAYMENT) or of the maintenance deposit (MAINTENANCE), up to 6 decimals.
+  pct           Decimal      @db.Decimal(9, 6)
+  kind          PlanStepKind @default(PAYMENT)
+  sortOrder     Int          @default(0)
+
+  @@unique([paymentPlanId, kind, monthOffset])
+}
+
+/// A salesperson's price offer for one unit on one plan (spec sections 4, 5 and 7). `snapshot` keeps
+/// every figure and text as issued (src/lib/sales/offer-snapshot.ts); /o/[token] shows it to the client.
+model SalesOffer {
+  id             String         @id @default(cuid())
+  /// 24 random bytes, base64url (32 characters): the client's link /o/[token]. Can't be guessed.
+  token          String         @unique
+  developerId    String
+  developer      Developer      @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  salesAccountId String
+  /// NoAction: offers are history, like holds; an account with offers can't be deleted on its own.
+  /// Deleting the developer still works: its cascade removes the accounts and their offers in one
+  /// statement, and NO ACTION is only checked at the end of it.
+  salesAccount   SalesAccount   @relation("OfferOwner", fields: [salesAccountId], references: [id], onDelete: NoAction)
+  /// Null once the unit is deleted; the snapshot keeps what was offered.
+  unitId         String?
+  unit           Unit?          @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  /// Null once the plan is deleted (a portal approval replaces all plans). The snapshot has its fingerprint.
+  paymentPlanId  String?
+  paymentPlan    PaymentPlan?   @relation(fields: [paymentPlanId], references: [id], onDelete: SetNull)
+  /// Who the offer is for, typed by the salesperson until phase 4 adds clients (a clientId joins these then).
+  clientName     String         @db.VarChar(100)
+  clientPhone    String?        @db.VarChar(40)
+  clientEmail    String?        @db.VarChar(200)
+  language       OfferLanguage  @default(ar)
+  currency       Currency
+  /// When the offer went out; for one that needed approval, when the team lead approved it.
+  issuedAt       DateTime       @default(now())
+  validUntil     DateTime
+  snapshot       Json
+  sentVia        OfferChannel[] @default([])
+  /// Percent off the unit price, 0–20.
+  discountPct    Decimal        @default(0) @db.Decimal(4, 2)
+  status         OfferStatus
+  /// Set once the offer goes out (at once, or on a team lead's approval) and never cleared: «ملفي» counts
+  /// the offers a salesperson issued, including those cancelled later, but not those rejected while pending.
+  wasIssued      Boolean        @default(false)
+  approvedById   String?
+  approvedBy     SalesAccount?  @relation("OfferApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+  cancelledById  String?
+  cancelledBy    SalesAccount?  @relation("OfferCanceller", fields: [cancelledById], references: [id], onDelete: SetNull)
+  cancelledAt    DateTime?
+  /// The PDF in Vercel Blob, made once on first request (src/lib/sales/offer-pdf.ts).
+  pdfUrl         String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([salesAccountId, createdAt])
+  @@index([developerId, status])
+  @@index([unitId])
+  @@index([paymentPlanId])
 }

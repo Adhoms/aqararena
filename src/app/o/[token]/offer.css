@@ -1,0 +1,132 @@
+/* The client's offer (spec section 7): landscape 16:10 sheets, the same on screen and on paper. Each
+   sheet is one printed page of 297 x 185.625 mm; on screen it keeps that ratio from tablet width up,
+   and on a phone it grows with its content. Sizes inside a sheet are in container units, so a sheet
+   reads the same at 1120 px on a laptop and at 297 mm (1123 CSS px) on paper. */
+@page {
+  size: 297mm 185.625mm;
+  margin: 0;
+}
+
+/* In the components layer, so a sheet's own utilities (bg-deep, padding…) win over these defaults. */
+@layer components {
+  /* Always the light theme's colours, whatever the visitor's settings: it is a document. */
+  .offer-doc {
+    color-scheme: light;
+    --color-surface: #ffffff;
+    --sheet-radius: 20px;
+  }
+
+  .offer-sheet {
+    container-type: inline-size;
+    position: relative;
+    /* clip, not hidden: a sheet with the 16:10 ratio still grows with its content when the screen is
+       narrower than the sheet's content needs (tablets), as a box that is no scroll container keeps
+       its content-based minimum height. On paper the height is fixed below. */
+    overflow: clip;
+    width: 100%;
+    max-width: 1120px;
+    margin-inline: auto;
+    background: var(--color-surface);
+    border-radius: var(--sheet-radius);
+    /* One quiet edge so a white sheet reads as paper on the page's ground. */
+    box-shadow: 0 0 0 1px rgb(16 38 33 / 0.06);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @media (min-width: 768px) {
+    .offer-sheet {
+      aspect-ratio: 16 / 10;
+    }
+  }
+
+  /* Type that scales with the sheet, never below a readable size on a phone. */
+  .offer-sheet .t-xs {
+    font-size: max(11px, 0.98cqw);
+  }
+  .offer-sheet .t-sm {
+    font-size: max(13px, 1.2cqw);
+  }
+  .offer-sheet .t-md {
+    font-size: max(15px, 1.5cqw);
+  }
+  .offer-sheet .t-lg {
+    font-size: max(19px, 2.2cqw);
+  }
+  .offer-sheet .t-xl {
+    font-size: max(23px, 3.1cqw);
+  }
+  .offer-sheet .t-2xl {
+    font-size: max(32px, 5.4cqw);
+  }
+
+  /* Display lines: tight, as on the public site's headings. */
+  .offer-sheet .t-display {
+    font-family: var(--font-display);
+    font-weight: 300;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+
+  /* Uploaded pictures get the same faint edge, so a white floor plan doesn't melt into the sheet. */
+  .offer-sheet .pic-edge {
+    outline: 1px solid oklch(0 0 0 / 0.08);
+    outline-offset: -1px;
+  }
+
+  /* The schedule: figures in columns, a tone step every other row instead of rules. Square cell
+     fills: rounded cells leave hairline seams between neighbours in PDF viewers. */
+  .offer-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .offer-table th,
+  .offer-table td {
+    padding: max(5px, 0.5cqw) max(8px, 0.9cqw);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .offer-table tr > :first-child {
+    text-align: start;
+  }
+  .offer-table thead th {
+    background: var(--color-deep);
+    color: var(--color-on-dark);
+    font-weight: 500;
+  }
+  .offer-table tbody tr:nth-child(even) > * {
+    background: rgb(16 38 33 / 0.035);
+  }
+  .offer-table tfoot tr > * {
+    background: var(--color-brass-soft);
+    font-weight: 600;
+  }
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  .offer-stack {
+    gap: 0 !important;
+    padding: 0 !important;
+  }
+  .offer-sheet {
+    width: 297mm;
+    max-width: none;
+    height: 185.625mm;
+    aspect-ratio: auto;
+    border-radius: 0;
+    box-shadow: none;
+    break-after: page;
+    break-inside: avoid;
+  }
+  .offer-sheet:last-child {
+    break-after: auto;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

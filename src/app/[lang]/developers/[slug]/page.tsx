@@ -8,7 +8,7 @@ import { ContactStack } from "@/components/contact-list";
 import { Container, Eyebrow } from "@/components/ui";
 import { ProjectCover } from "@/components/project-cover";
 import { DeveloperLogo } from "@/components/developer-logo";
-import { getDeveloper, getProjectsByDeveloper, listDevelopers, summarize } from "@/lib/catalog";
+import { currencyOf, getDeveloper, getProjectsByDeveloper, listDevelopers, summarize } from "@/lib/catalog";
 import { fill, formatMoney } from "@/lib/format";
 import { AREA_SLUGS } from "@/lib/property";
 import { pageAlternates } from "@/lib/site";
@@ -156,7 +156,7 @@ async function DeveloperContent({ params }: { params: PageProps<"/[lang]/develop
                       </span>
                       <span className="mt-1 flex justify-between border-t border-divider pt-2.5 text-sm">
                         <span className="text-muted">{done ? fill(d.deliveredIn, { year: p.deliveryYear }) : dict.common.startingFrom}</span>
-                        {!done && <span className="font-semibold">{formatMoney(summarize(p).startingPrice, locale)}</span>}
+                        {!done && <span className="font-semibold">{formatMoney(summarize(p).startingPrice, locale, currencyOf(p))}</span>}
                       </span>
                     </span>
                   </Link>

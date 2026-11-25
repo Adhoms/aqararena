@@ -1,6 +1,8 @@
+import type { PlanStepInput } from "./plan-steps";
 import type {
   Amenity,
   AreaSlug,
+  Currency,
   Finishing,
   InstallmentFrequency,
   PhotoGroup,
@@ -92,6 +94,10 @@ export type PaymentPlan = {
   years: number;
   frequency: InstallmentFrequency;
   cashDiscountPct?: number;
+  /** The plan's own maintenance deposit %, when it comes from the database (the demo data has it in `fees`). */
+  maintenancePct?: number;
+  /** A custom schedule (catalog/plan-steps.ts). The terms above are then derived from it, and the figures come from the steps. */
+  steps?: PlanStepInput[];
 };
 
 /** A project photo. `url` is set for uploaded photos; the demo data has none and draws art instead. */
@@ -111,8 +117,10 @@ export type Project = {
   launchYear?: number;
   /** ISO date of the launch, when known. */
   launchDate?: string;
-  /** Refundable amount to reserve a unit at launch (EOI), in EGP. */
+  /** Refundable amount to reserve a unit at launch (EOI), in the project's currency. */
   bookingFee?: number;
+  /** The currency of every price of this project; EGP when not set (the demo data). */
+  currency?: Currency;
   /** Official brochure (PDF) from the developer. */
   brochureUrl?: string;
   deliveryYear: number;

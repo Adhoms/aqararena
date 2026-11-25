@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { finishingsOf, isAmenity, isAreaSlug, isSubType, type AreaSlug } from "@/lib/property";
 import type { Developer, Project, Text } from "./types";
 import { needsUnitMatch, type ProjectFilters } from "./filters";
+import { stepsOf } from "./plan-steps";
 
 // Reads developers and projects from PostgreSQL and turns the rows into the plain
 // shapes in ./types.ts, so pages never see Prisma types (Decimal, Date, …).
@@ -19,7 +20,7 @@ const projectInclude = {
   developer: { select: { slug: true } },
   area: { select: { slug: true } },
   typologies: { orderBy: { priceFrom: "asc" } },
-  paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
+  paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" }, include: { steps: { orderBy: { sortOrder: "asc" } } } },
   zones: { orderBy: { sortOrder: "asc" } },
   distances: { orderBy: { sortOrder: "asc" } },
   media: { where: { kind: { in: ["IMAGE", "BROCHURE", "MASTER_PLAN", "FLOOR_PLAN_2D", "LAYOUT_SKETCH"] } }, orderBy: { sortOrder: "asc" } },
@@ -64,6 +65,7 @@ function toProject(p: ProjectRow): Project {
     launchYear: p.launchDate?.getUTCFullYear(),
     launchDate: p.launchDate?.toISOString().slice(0, 10),
     bookingFee: num(p.bookingFee),
+    currency: p.currency,
     brochureUrl: p.media.find((m) => m.kind === "BROCHURE")?.url,
     deliveryYear: p.deliveryDate.getUTCFullYear(),
     progressPct: p.progressPct ?? undefined,
@@ -107,6 +109,9 @@ function toProject(p: ProjectRow): Project {
       years: plan.years,
       frequency: plan.frequency,
       cashDiscountPct: num(plan.cashDiscountPct),
+      // Each plan with its own maintenance %, as Sales and the offers made from it use (none is 0).
+      maintenancePct: num(plan.maintenancePct) ?? 0,
+      ...(plan.steps.length > 0 && { steps: stepsOf(plan.steps) }),
     })),
     fees: { maintenancePct: num(p.paymentPlans.find((plan) => plan.maintenancePct !== null)?.maintenancePct) },
     photos: p.media
@@ -178,6 +183,8 @@ export function filtersToWhere(f: ProjectFilters): Prisma.ProjectWhereInput {
   if (f.deliveryBy) and.push({ deliveryDate: { lte: new Date(Date.UTC(f.deliveryBy, 11, 31)) } });
   if (f.maxDownPct) and.push({ paymentPlans: { some: { isActive: true, years: { gt: 0 }, downPaymentPct: { lte: f.maxDownPct } } } });
   if (f.minYears) and.push({ paymentPlans: { some: { isActive: true, years: { gte: f.minYears } } } });
+  // A price range is in pounds.
+  if (f.minPrice || f.maxPrice) and.push({ currency: "EGP" });
   if (needsUnitMatch(f)) {
     and.push({
       typologies: {

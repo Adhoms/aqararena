@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { saveSubmission } from "@/app/portal/actions";
 import { checkFile, uploadFile } from "@/components/admin/upload";
+import { SCHEDULE_INPUT, ScheduleHint, SchedulePreview, previewError } from "@/components/admin/schedule-field";
 import { IMAGE_TYPES } from "@/lib/admin/upload-config";
+import { moneyAr } from "@/lib/format";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "@/lib/portal/draft-types";
 import {
   DISTANCE_FIELDS,
@@ -16,6 +18,7 @@ import {
   TYPOLOGY_FIELDS,
   type FieldDef,
 } from "@/lib/portal/fields";
+import { isCurrency } from "@/lib/property";
 
 // The portal's editors. Everything lives in the browser until "save draft" or "send for review";
 // the server checks the whole draft with the admin's rules and sends back field errors by path.
@@ -43,6 +46,7 @@ function Field({
 }) {
   const text = typeof value === "string" ? value : "";
   const invalid = error ? true : undefined;
+  const id = useId();
   const label = (
     <span className="font-medium text-ink">
       {def.label}
@@ -76,7 +80,36 @@ function Field({
 
   if (def.type === "image") return <ImageField def={def} value={text} onChange={onChange} error={error} folder={folder} />;
 
-  if (def.type === "textarea") {
+  if (def.type === "schedule") {
+    // Only the title is the label; the check, the hint and the error are tied to the field by
+    // aria-describedby. The server's message is left out only when the live check says the same.
+    const showError = error && error !== previewError(text);
+    return (
+      <div className={`flex flex-col gap-1.5 text-sm ${SPAN[def.span ?? 1]}`}>
+        <label htmlFor={`${id}-input`}>{label}</label>
+        <textarea
+          {...SCHEDULE_INPUT}
+          id={`${id}-input`}
+          value={text}
+          aria-invalid={invalid}
+          aria-describedby={`${id}-preview ${id}-hint${def.hint ? ` ${id}-note` : ""}${showError ? ` ${id}-error` : ""}`}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <SchedulePreview id={`${id}-preview`} text={text} />
+        <ScheduleHint id={`${id}-hint`} />
+        {def.hint && (
+          <span id={`${id}-note`} className="text-xs text-muted">
+            {def.hint}
+          </span>
+        )}
+        {showError && (
+          <span id={`${id}-error`} className="text-xs text-red-700 dark:text-red-300">
+            {error}
+          </span>
+        )}
+      </div>
+    );
+  } else if (def.type === "textarea") {
     control = <textarea className="admin-input" rows={4} dir={def.dir} value={text} aria-invalid={invalid} onChange={(e) => onChange(e.target.value)} />;
   } else if (def.type === "choice" || def.type === "area") {
     const list = def.type === "area" ? (areas ?? []) : def.choices!;
@@ -456,7 +489,9 @@ function SaveBar({ pending, message, onSave, errorCount }: { pending: boolean; m
 
 const label = (defs: FieldDef[], key: string, value: string | string[] | undefined) =>
   defs.find((d) => d.key === key)?.choices?.find((c) => c.value === value)?.label ?? "";
-const num = (v: string | string[] | undefined) => (typeof v === "string" && v ? Number(v.replace(/[,\s]/g, "")).toLocaleString("ar-EG") : "");
+/** A typed price in the draft's currency, as the admin shows it. */
+const price = (v: string | string[] | undefined, currency: string | string[] | undefined) =>
+  typeof v === "string" && v ? moneyAr(Number(v.replace(/[,\s]/g, "")), isCurrency(currency) ? currency : "EGP") : "";
 
 export function ProjectEditor({ id, initial, areas, folder }: { id: string; initial: ProjectDraft; areas: Option[]; folder: string }) {
   const [draft, setDraft] = useState(initial);
@@ -497,7 +532,7 @@ export function ProjectEditor({ id, initial, areas, folder }: { id: string; init
           addLabel="+ إضافة نموذج"
           folder={folder}
           onChange={(typologies) => set({ typologies })}
-          summary={(t) => [t.code, label(TYPOLOGY_FIELDS, "subType", t.subType), t.buaM2 && `${t.buaM2} م²`, num(t.priceFrom) && `${num(t.priceFrom)} ج.م`].filter(Boolean).join(" · ")}
+          summary={(t) => [t.code, label(TYPOLOGY_FIELDS, "subType", t.subType), t.buaM2 && `${t.buaM2} م²`, price(t.priceFrom, draft.project.currency)].filter(Boolean).join(" · ")}
         />
       </Section>
 
@@ -512,7 +547,7 @@ export function ProjectEditor({ id, initial, areas, folder }: { id: string; init
           folder={folder}
           onChange={(plans) => set({ plans })}
           summary={(p) =>
-            [p.downPaymentPct && `${p.downPaymentPct}% مقدم`, p.years && (p.years === "0" ? "كاش" : `${p.years} سنين`), label(PLAN_FIELDS, "frequency", p.frequency), p.typologyCode && `(${p.typologyCode})`]
+            [p.downPaymentPct && `${p.downPaymentPct}% مقدم`, p.years && (p.years === "0" ? "كاش" : `${p.years} سنين`), label(PLAN_FIELDS, "frequency", p.frequency), p.steps && "جدول مخصص", p.typologyCode && `(${p.typologyCode})`]
               .filter(Boolean)
               .join(" · ")
           }

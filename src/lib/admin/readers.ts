@@ -1,6 +1,7 @@
 import type { FormReader } from "./form";
 import {
   AMENITIES,
+  CURRENCIES,
   FINISHING_TYPES,
   INSTALLMENT_FREQUENCIES,
   ORIENTATIONS,
@@ -10,6 +11,7 @@ import {
   UNIT_AVAILABILITY,
   UNIT_VIEWS,
 } from "@/lib/property";
+import { MAX_SCHEDULE_LENGTH, parseSteps, termsFromSteps } from "@/lib/catalog/plan-steps";
 
 // The fields of each record, read and checked from a form. Shared by the admin forms
 // (app/admin/actions.ts) and the Excel import (lib/admin/import), so both accept exactly
@@ -60,6 +62,11 @@ export function readProject(f: FormReader) {
     progressPct: f.int("progressPct", { min: 0, max: 100 }),
     pricesUpdatedAt: f.date("pricesUpdatedAt"),
     bookingFee: f.number("bookingFee", { min: 0 }),
+    // Not required: an Excel sheet without the column, or with a blank cell, still creates projects in
+    // pounds. An existing project keeps its currency then (the import leaves the column out of that
+    // row's update: lib/admin/import/workbook.ts, and a portal draft saved before the setting existed
+    // keeps the live one: lib/portal/drafts.ts).
+    currency: f.oneOf("currency", CURRENCIES) ?? "EGP",
     landAreaM2: landFeddan === null ? null : Math.round(landFeddan * FEDDAN_M2 * 100) / 100,
     footprintPct: f.pct("footprintPct"),
     unitsCount: f.int("unitsCount", { min: 0 }),
@@ -92,23 +99,38 @@ export function readTypology(f: FormReader) {
   };
 }
 
+/**
+ * A payment plan. With a custom schedule in `steps` (the notation in catalog/plan-steps.ts), the down
+ * payment, years, frequency and delivery payment are taken from the steps, so they needn't be typed.
+ */
 export function readPaymentPlan(f: FormReader) {
-  const down = f.pct("downPaymentPct", { required: true });
+  const parsed = parseSteps(f.text("steps", { max: MAX_SCHEDULE_LENGTH }) ?? "");
+  if (parsed.error) f.errors.steps ??= parsed.error;
+  const terms = parsed.steps.length ? termsFromSteps(parsed.steps) : null;
+  // The terms are needed only for a plan without a schedule; a schedule with a mistake shows that mistake alone.
+  const needTerms = !terms && f.raw("steps") === "";
+  const down = f.pct("downPaymentPct", { required: needTerms });
   const delivery = f.pct("deliveryPaymentPct") ?? 0;
-  if (down !== null && down + delivery > 100) f.errors.deliveryPaymentPct = "المقدم + دفعة الاستلام أكثر من 100%";
+  if (!terms && down !== null && down + delivery > 100) f.errors.deliveryPaymentPct = "المقدم + دفعة الاستلام أكثر من 100%";
+  const years = f.int("years", { required: needTerms, min: 0, max: 30 });
+  const frequency = f.oneOf("frequency", INSTALLMENT_FREQUENCIES, { required: needTerms });
+  const maintenancePct = f.pct("maintenancePct");
+  if (parsed.steps.some((s) => s.kind === "MAINTENANCE") && !maintenancePct) f.errors.maintenancePct ??= "فيه دفعات صيانة، اكتب وديعة الصيانة %";
   return {
     nameAr: f.text("nameAr", { max: 200 }),
     nameEn: f.text("nameEn", { max: 200 }),
-    downPaymentPct: down ?? 0,
-    deliveryPaymentPct: delivery,
-    years: f.int("years", { required: true, min: 0, max: 30 }) ?? 0,
-    frequency: f.oneOf("frequency", INSTALLMENT_FREQUENCIES, { required: true }) ?? "QUARTERLY",
+    downPaymentPct: terms?.downPaymentPct ?? down ?? 0,
+    deliveryPaymentPct: terms ? terms.deliveryPaymentPct : delivery,
+    years: terms?.years ?? years ?? 0,
+    frequency: terms?.frequency ?? frequency ?? "QUARTERLY",
     cashDiscountPct: f.pct("cashDiscountPct"),
-    maintenancePct: f.pct("maintenancePct"),
+    maintenancePct,
     garageFee: f.number("garageFee", { min: 0 }),
     clubFee: f.number("clubFee", { min: 0 }),
     validUntil: f.date("validUntil"),
     isActive: f.bool("isActive"),
+    /** The custom schedule; empty for a plan paid by its terms. Written as nested PlanStep rows by the caller. */
+    steps: parsed.steps,
   };
 }
 
@@ -122,5 +144,7 @@ export function readUnit(f: FormReader) {
     orientation: f.oneOf("orientation", ORIENTATIONS),
     price: f.number("price", { min: 0 }),
     availability: f.oneOf("availability", UNIT_AVAILABILITY, { required: true }) ?? "AVAILABLE",
+    /** Checked against the unit's project by the caller (zoneOfProject). */
+    zoneId: f.id("zoneId"),
   };
 }

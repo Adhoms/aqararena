@@ -62,6 +62,10 @@ export type InstallmentFrequency = (typeof INSTALLMENT_FREQUENCIES)[number];
 export const UNIT_AVAILABILITY = ["AVAILABLE", "RESERVED", "SOLD"] as const;
 export type UnitAvailability = (typeof UNIT_AVAILABILITY)[number];
 
+/** A project's currency (spec section 4). */
+export const CURRENCIES = ["EGP", "USD"] as const;
+export type Currency = (typeof CURRENCIES)[number];
+
 /** Which way a unit faces. "north" is what the market calls بحري. */
 export const ORIENTATIONS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"] as const;
 export type Orientation = (typeof ORIENTATIONS)[number];
@@ -107,6 +111,7 @@ function isOneOf<T extends string>(list: readonly T[], value: unknown): value is
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
 
+export const isCurrency = (v: unknown): v is Currency => isOneOf(CURRENCIES, v);
 export const isPropertyCategory = (v: unknown): v is PropertyCategory => isOneOf(PROPERTY_CATEGORIES, v);
 export const isAreaSlug = (v: unknown): v is AreaSlug => isOneOf(AREA_SLUGS, v);
 export const isProjectStatus = (v: unknown): v is ProjectStatus => isOneOf(PROJECT_STATUSES, v);

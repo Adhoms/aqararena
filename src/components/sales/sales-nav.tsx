@@ -7,6 +7,8 @@ const LINKS = [
   // A unit page belongs to the inventory.
   { href: "/sales", label: "المخزون", also: "/sales/units/" },
   { href: "/sales/holds", label: "حجوزاتي" },
+  // An offer's page belongs to «عروضي».
+  { href: "/sales/offers", label: "عروضي", also: "/sales/offers/" },
   { href: "/sales/me", label: "ملفي" },
 ];
 

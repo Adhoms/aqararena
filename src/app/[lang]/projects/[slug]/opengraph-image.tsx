@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
-import { getDeveloper, getProject, summarize } from "@/lib/catalog";
+import { currencyOf, getDeveloper, getProject, summarize } from "@/lib/catalog";
+import type { Currency } from "@/lib/property";
 import { OG, OG_SIZE, OgBrand, OgDotField } from "@/lib/og";
 import en from "../../dictionaries/en.json";
 
@@ -8,7 +9,11 @@ export const alt = "Project on AqarArena";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 
-const millions = (v: number) => `EGP ${(v / 1_000_000).toFixed(v >= 10_000_000 ? 1 : 2)}M`;
+/** "EGP 4.85M" or "$1.20M", like the English cards. */
+const millions = (v: number, currency: Currency) => {
+  const m = (v / 1_000_000).toFixed(v >= 10_000_000 ? 1 : 2);
+  return currency === "USD" ? `$${m}M` : `EGP ${m}M`;
+};
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -17,7 +22,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const developer = await getDeveloper(project.developerSlug);
   const s = summarize(project);
   const stats: [string, string][] = [
-    ["From", millions(s.startingPrice)],
+    ["From", millions(s.startingPrice, currencyOf(project))],
     ["Down payment", `${s.minDownPct}%`],
     ["Installments", s.maxYears ? `${s.maxYears} years` : "Cash"],
     ["Delivery", String(project.deliveryYear)],

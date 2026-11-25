@@ -29,7 +29,7 @@ export type DraftErrors = Record<string, string>;
 export const LIMITS = { typologies: 60, plans: 60, media: 200, distances: 30 } as const;
 
 export const emptyProjectDraft = (): ProjectDraft => ({
-  project: { status: "LAUNCH", categories: ["RESIDENTIAL"] },
+  project: { status: "LAUNCH", categories: ["RESIDENTIAL"], currency: "EGP" },
   typologies: [],
   plans: [],
   media: [],

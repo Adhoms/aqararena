@@ -1,5 +1,6 @@
 import type { Locale } from "@/i18n/config";
 import type { Text } from "@/lib/catalog/types";
+import type { Currency } from "@/lib/property";
 
 // Western digits in both languages, matching how prices are written in Egypt's market.
 const numberLocale = (locale: Locale) => (locale === "ar" ? "ar-EG-u-nu-latn" : "en-EG");
@@ -10,18 +11,49 @@ export function formatNumber(value: number, locale: Locale) {
   return new Intl.NumberFormat(numberLocale(locale), { maximumFractionDigits: 0 }).format(value);
 }
 
-/** "4,850,000 ج.م" / "EGP 4,850,000" */
-export function formatMoney(value: number, locale: Locale) {
+/** The currency's name in Arabic form labels: "جنيه" or "دولار". */
+export const CURRENCY_NAMES_AR: Record<Currency, string> = { EGP: "جنيه", USD: "دولار" };
+
+/** The sign of an amount on the Arabic screens: "ج.م" after the figure, "$" before it. */
+export const currencyAr = (currency: Currency) => (currency === "USD" ? "$" : "ج.م");
+
+// A left-to-right mark keeps "$250,000" in one piece, sign first, inside an Arabic line.
+const LRM = "\u200E";
+
+/**
+ * An amount, Western digits in both languages: "4,850,000 ج.م" / "EGP 4,850,000" in pounds, "$250,000" in
+ * dollars (the sign before the figure in Arabic too, as dollar prices are written).
+ */
+export function formatMoney(value: number, locale: Locale, currency: Currency) {
   const n = formatNumber(value, locale);
+  if (currency === "USD") return locale === "ar" ? `${LRM}$${n}` : `$${n}`;
   return locale === "ar" ? `${n} ج.م` : `EGP ${n}`;
 }
 
-/** "4.85 مليون" / "EGP 4.85M" for cards. */
-export function formatMillions(value: number, locale: Locale) {
+/** "4.85 مليون" / "EGP 4.85M" for cards; dollars say so: "$1.20 مليون" / "$1.20M". */
+export function formatMillions(value: number, locale: Locale, currency: Currency) {
   const m = new Intl.NumberFormat(numberLocale(locale), { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(
     value / 1_000_000,
   );
+  if (currency === "USD") return locale === "ar" ? `${LRM}$${m} مليون` : `$${m}M`;
   return locale === "ar" ? `${m} مليون` : `EGP ${m}M`;
+}
+
+/**
+ * Pounds in millions, the currency named in Arabic too ("4.85 مليون ج.م" / "EGP 4.85M"): for market figures
+ * that count only the projects priced in pounds, shown beside projects in other currencies.
+ */
+export function formatMillionsEgp(value: number, locale: Locale) {
+  const m = formatMillions(value, locale, "EGP");
+  return locale === "ar" ? `${m} ج.م` : m;
+}
+
+/**
+ * An amount on the Arabic admin and portal screens: pounds in Arabic digits like the rest of those screens
+ * ("٤٬٨٥٠٬٠٠٠ ج.م"), dollars the way they are written ("$250,000").
+ */
+export function moneyAr(value: number, currency: Currency) {
+  return currency === "USD" ? formatMoney(value, "ar", "USD") : `${value.toLocaleString("ar-EG")} ج.م`;
 }
 
 /** A count on the Arabic admin, portal and Sales screens, in Arabic digits: "١٢٣". */
@@ -34,6 +66,8 @@ export type CountNoun = { one: string; two: string; few: string };
 export const HOURS_NOUN: CountNoun = { one: "ساعة", two: "ساعتين", few: "ساعات" };
 export const UNITS_NOUN: CountNoun = { one: "وحدة", two: "وحدتين", few: "وحدات" };
 export const HOLDS_NOUN: CountNoun = { one: "حجز", two: "حجزين", few: "حجوزات" };
+export const OFFERS_NOUN: CountNoun = { one: "عرض", two: "عرضين", few: "عروض" };
+export const DAYS_NOUN: CountNoun = { one: "يوم", two: "يومين", few: "أيام" };
 
 /**
  * A number with its noun, by the Arabic rule: 1 alone ("ساعة"), 2 as the dual ("ساعتين"), 3 to 10

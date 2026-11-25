@@ -13,6 +13,7 @@ import { ArrowIcon, Container, Eyebrow, SectionHeading } from "@/components/ui";
 import { Buildings, Check, Coins, Images, MapTrifold, Phone, Wallet } from "@phosphor-icons/react/ssr";
 import {
   countProjectsByDeveloper,
+  currencyOf,
   getFeaturedProjects,
   getMarketInsights,
   listDevelopers,
@@ -100,7 +101,7 @@ export default async function HomePage() {
           {[
             [all.length, dict.home.statProjects],
             [developers.length, dict.home.statDevelopers],
-            [insights.areas.length, dict.home.statAreas],
+            [new Set(all.map((p) => p.areaSlug)).size, dict.home.statAreas],
           ].map(([value, label], i) => (
             <div key={label} className={`flex flex-col-reverse gap-1 px-4 py-6 sm:px-8 ${i ? "border-s border-line" : ""}`}>
               <dt className="text-[13px] text-muted">{label}</dt>
@@ -310,7 +311,7 @@ function BestValueRow({
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="font-display font-medium">{project.name[locale]}</span>
           <span className="truncate text-xs text-on-dark-muted">
-            {dict.areas[project.areaSlug]} · {formatMillions(summarize(project).startingPrice, locale)}
+            {dict.areas[project.areaSlug]} · {formatMillions(summarize(project).startingPrice, locale, currencyOf(project))}
           </span>
           {value && <span className="truncate text-xs text-brass-light">{valueText(value, dict)}</span>}
         </span>
@@ -324,8 +325,17 @@ function BestValueRow({
 function FaceOff({ locale, dict, a, b }: { locale: "ar" | "en"; dict: Dictionary; a: Project; b: Project }) {
   const sa = summarize(a);
   const sb = summarize(b);
+  // Prices in two currencies aren't compared: each side shows its own and neither is marked.
+  const samePrice = currencyOf(a) === currencyOf(b);
   const rows: [string, string, string, number, number, "low" | "high"][] = [
-    [dict.common.startingFrom, formatMillions(sa.startingPrice, locale), formatMillions(sb.startingPrice, locale), sa.startingPrice, sb.startingPrice, "low"],
+    [
+      dict.common.startingFrom,
+      formatMillions(sa.startingPrice, locale, currencyOf(a)),
+      formatMillions(sb.startingPrice, locale, currencyOf(b)),
+      samePrice ? sa.startingPrice : 0,
+      samePrice ? sb.startingPrice : 0,
+      "low",
+    ],
     [dict.common.lowestDown, `${sa.minDownPct}%`, `${sb.minDownPct}%`, sa.minDownPct, sb.minDownPct, "low"],
     [dict.comparePage.rows.maxYears, fill(dict.common.years, { n: sa.maxYears }), fill(dict.common.years, { n: sb.maxYears }), sa.maxYears, sb.maxYears, "high"],
     [dict.common.delivery, String(a.deliveryYear), String(b.deliveryYear), a.deliveryYear, b.deliveryYear, "low"],

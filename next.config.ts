@@ -18,7 +18,20 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   cacheComponents: true,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // A client's offer is never indexed, never kept by a browser or shared cache (it changes when it is
+      // cancelled or expires, and the token is the only key), and its link never leaves in a Referer.
+      // Listed after the site-wide entry, so this Referrer-Policy wins for /o.
+      {
+        source: "/o/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "private, no-store" },
+        ],
+      },
+    ];
   },
   async redirects() {
     // The developers' landing page moved; old links and search results keep working.
@@ -29,6 +42,11 @@ const nextConfig: NextConfig = {
       // Without a language the proxy adds one afterwards.
       { source: "/for-developers", destination: "/dev", permanent: true },
     ];
+  },
+  // The routes that print PDFs need @sparticuz/chromium's packed browser, which it loads by path at
+  // run time, so the file tracer can't see it. Keys are route globs (brackets escaped).
+  outputFileTracingIncludes: {
+    "/sales/offers/\\[id\\]/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
   partialPrefetching: true,
   turbopack: {

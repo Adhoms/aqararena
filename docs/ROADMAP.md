@@ -33,7 +33,7 @@ The goal of each phase is something real users can open.
 
 - [x] Developer accounts: request from `/dev` or created by the admin, username + password, temporary passwords
 - [x] Developer portal (`/portal`): developers edit their company profile and projects (unit types, payment plans, photos, distances); every change waits for admin approval with a before/after review
-- [ ] Master-plan zones in the developer portal (admin only for now)
+- [ ] Drawing master-plan zones in the developer portal (admin only for now; developers can already place each unit in a zone)
 - [x] Units in the developer portal: statuses and prices go live at once within limits (approved unit types, price not under the type's starting price), Excel download / upload, admin emailed at most hourly. Renaming a unit type's code keeps its units; the review page warns when a removal would delete units.
 - [x] Visitor statistics per project (views, favorites, comparisons, contact clicks, brochure, price-alert subscribers) for developers in the portal and for the admin, daily totals only
 - [x] Bulk import from an Excel template (developers, projects, unit types, payment plans), with a check step
@@ -41,9 +41,14 @@ The goal of each phase is something real users can open.
 - [x] AqarArena Sales, step 1: sales accounts managed from the portal, `/sales` sign-in, projects overview and profile (spec: `docs/superpowers/specs/2026-11-15-aqararena-three-products-design.md`)
 - [x] AqarArena Sales, step 2: inventory search (filters in the URL, budget as total, down payment or monthly), unit pages with the payment calculator, temporary holds (one per unit, guaranteed by the database; hold length per developer and per project; portal and admin status changes, single or by Excel, release holds), my holds and the team's holds for leads
 - [ ] Before releasing step 2: run `scripts/hold-race.ts` once against a real PostgreSQL (a Neon branch). The local PGlite database runs one transaction at a time, so the local pass doesn't exercise the row lock or the unique index under real concurrency
-- [ ] Mark a unit's zone on the master plan and floor plans per unit type: needs a unit-to-zone link (doesn't exist yet; the unit page shows the master plan unmarked) and is needed for the step-3 PDF offers; uploads are per project today
+- [ ] Floor plans per unit type (uploads are per project today)
 - [ ] Known: another company's unit id in `/sales/units/[id]` shows the Sales not-found page with HTTP 200 and `noindex` (a soft 404). Accepted for now because the area needs sign-in and `robots.txt` disallows it; return a real 404 when the page is next reworked
-- [ ] AqarArena Sales, step 3: custom payment schedules, project currency, PDF offers shared by WhatsApp, Telegram and email (replacing the public offer sheet and WhatsApp share)
+- [x] AqarArena Sales, step 3: project currency (pounds or dollars, shown on the public site, in Sales and on offers), custom payment schedules (admin, portal, Excel), units on master-plan zones (admin, portal, Excel; boxed on the Sales unit page and the offer), offer settings per developer (validity, agent and lead discount limits), price offers with discount approval by team leads, the client's offer page `/o/[token]` with a server PDF (`OFFER_PDF=on`, Vercel Blob), sharing by WhatsApp, Telegram, email (Resend) and the phone's share sheet, «عروضي» and offer counts in «ملفي»
+- [ ] Before releasing step 3:
+  - run `scripts/hold-race.ts` once against a real PostgreSQL (a Neon branch), as for step 2 (offers lock the unit the same way)
+  - check server PDFs on a Vercel preview: the function's size and time with `@sparticuz/chromium`, and Arabic fonts shaped right to left in the printed file; keep `OFFER_PDF` unset on Vercel until this passes
+  - send one real offer email through Resend (needs `RESEND_API_KEY`), with the PDF attached and the reply going to the salesperson
+  - try the share sheet («مشاركة») with the PDF on a real phone (Android and iPhone)
 - [ ] AqarArena Sales, step 4: comparisons, clients and follow-ups, team page
 - [ ] Subscription tiers (Basic / Pro / Enterprise) and featured listings
 

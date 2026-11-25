@@ -6,6 +6,8 @@ import ar from "@/app/[lang]/dictionaries/ar.json";
 import { Panel } from "@/components/admin/fields";
 import { PaymentCalculator } from "@/components/project/payment-calculator";
 import { HoldPanel } from "@/components/sales/hold-panel";
+import { MarkedPlan } from "@/components/sales/marked-plan";
+import { Money } from "@/components/sales/money";
 import { SalesShell } from "@/components/sales/sales-shell";
 import { StateBadge } from "@/components/sales/state-badge";
 import { formatNumber } from "@/lib/format";
@@ -18,11 +20,6 @@ export const metadata: Metadata = { title: "وحدة" };
 
 /** A number left to right inside the Arabic line. */
 const Num = ({ value }: { value: number }) => <bdi dir="ltr">{formatNumber(value, "ar")}</bdi>;
-const money = (v: number) => (
-  <>
-    <Num value={Math.round(v)} /> ج.م
-  </>
-);
 /** Areas can have a fraction (112.5 م²); western digits, as prices are written. */
 const area = new Intl.NumberFormat("ar-EG-u-nu-latn", { maximumFractionDigits: 1 });
 const m2 = (v: number | null) =>
@@ -103,8 +100,8 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
               </div>
               <div className="flex flex-col items-start gap-0.5 sm:items-end">
                 <span className="text-xs text-muted">السعر</span>
-                <span className="font-display text-[28px] leading-tight font-light tabular-nums">{money(unit.price)}</span>
-                {t.buaM2 > 0 && <span className="text-xs text-muted tabular-nums">سعر المتر {money(unit.price / t.buaM2)}</span>}
+                <span className="font-display text-[28px] leading-tight font-light tabular-nums"><Money value={unit.price} currency={unit.project.currency} /></span>
+                {t.buaM2 > 0 && <span className="text-xs text-muted tabular-nums">سعر المتر <Money value={unit.price / t.buaM2} currency={unit.project.currency} /></span>}
               </div>
             </div>
             <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-divider pt-5 text-sm sm:grid-cols-3 xl:grid-cols-4">
@@ -118,16 +115,20 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
                 ))}
             </dl>
             <div className="flex flex-wrap items-center gap-3 border-t border-divider pt-5">
-              {/* Not built yet: plain text styled as a muted button, so it can't be focused or pressed. */}
-              {["عرض سعر", "إضافة للمقارنة"].map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-full border border-dashed border-line-strong px-4 text-sm text-muted select-none sm:min-h-9"
-                >
-                  {label}
-                  <span className="admin-badge">قريبًا</span>
+              {unit.state === "AVAILABLE" || (unit.state === "HELD" && unit.hold?.salesAccountId === me.id) ? (
+                <Link href={`/sales/units/${unit.id}/offer`} className="press admin-btn min-h-11 sm:min-h-9">
+                  عرض سعر
+                </Link>
+              ) : (
+                <span className="inline-flex min-h-11 items-center text-sm text-muted sm:min-h-9">
+                  {unit.state === "HELD" ? "مينفعش عرض سعر وهي محجوزة لزميل" : "مينفعش عرض سعر على وحدة مش متاحة"}
                 </span>
-              ))}
+              )}
+              {/* Not built yet: plain text styled as a muted button, so it can't be focused or pressed. */}
+              <span className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-full border border-dashed border-line-strong px-4 text-sm text-muted select-none sm:min-h-9">
+                إضافة للمقارنة
+                <span className="admin-badge">قريبًا</span>
+              </span>
               <a
                 href={`/ar/projects/${unit.project.slug}`}
                 target="_blank"
@@ -143,15 +144,16 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
           {plans.length > 0 ? (
             <PaymentCalculator
               units={[{ code: unit.id, name: unit.label, price: unit.price }]}
+              // Each plan with its own maintenance %, as on the offer made from it.
               plans={plans}
-              maintenancePct={plans.find((p) => p.maintenancePct !== undefined)?.maintenancePct}
               locale="ar"
+              currency={unit.project.currency}
               labels={{
                 ...ar.calculator,
                 title: "حاسبة السداد",
                 sub: "اختار الخطة وشوف المقدم والأقساط على سعر الوحدة دي.",
                 unit: "الوحدة",
-                note: "الأرقام من سعر الوحدة وخطط السداد السارية النهارده، ومقرّبة: المبالغ الكبيرة لأقرب ألف جنيه والأقساط لأقرب ١٠٠.",
+                note: "الأرقام من سعر الوحدة وخطط السداد السارية النهارده، ومقرّبة: المبالغ الكبيرة لأقرب ألف والأقساط لأقرب ١٠٠.",
                 frequencyPer: ar.frequencyPer,
                 planNames: plans.map(planLabel),
               }}
@@ -189,10 +191,16 @@ export default async function SalesUnitPage({ params }: PageProps<"/sales/units/
 
           {unit.masterPlan && (
             <Panel title="الماستر بلان">
-              <p className="-mt-2 mb-4 text-xs text-muted">مكان الوحدة مش متعلّم على الماستر بلان.</p>
+              <p className="-mt-2 mb-4 text-xs text-muted">
+                {unit.zone ? <>الوحدة في «{unit.zone.label}»، متعلّمة على الماستر بلان.</> : "مكان الوحدة مش متحدد على الماستر بلان."}
+              </p>
               <a href={unit.masterPlan} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-line bg-plan">
-                {/* eslint-disable-next-line @next/next/no-img-element -- uploaded plan, up to 4000 px, as on the project page */}
-                <img src={unit.masterPlan} alt={`الماستر بلان: ${unit.project.nameAr}`} loading="lazy" decoding="async" className="max-h-[70vh] w-full object-contain" />
+                {/* The frame hugs the height-capped image, so the zone lands where the admin measured it. */}
+                <MarkedPlan
+                  image={unit.masterPlan}
+                  zone={unit.zone}
+                  alt={`الماستر بلان: ${unit.project.nameAr}`}
+                />
                 <span className="sr-only">(بتفتح في تبويب جديد)</span>
               </a>
             </Panel>

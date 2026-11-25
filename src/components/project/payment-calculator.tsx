@@ -5,7 +5,7 @@ import type { Locale } from "@/i18n/config";
 import { paymentBreakdown } from "@/lib/catalog/payment";
 import type { PaymentPlan } from "@/lib/catalog/types";
 import { fill, formatMoney } from "@/lib/format";
-import type { InstallmentFrequency } from "@/lib/property";
+import type { Currency, InstallmentFrequency } from "@/lib/property";
 
 type Unit = { code: string; name: string; price: number };
 
@@ -27,6 +27,8 @@ type Labels = {
   split: string;
   parts: { down: string; installments: string; delivery: string; maintenance: string };
   note: string;
+  /** Under the figures of a plan with a custom schedule, whose installments differ. */
+  customSchedule: string;
   frequencyPer: Record<InstallmentFrequency, string>;
   /** Plan names in the page's language, in the same order as `plans`. */
   planNames: string[];
@@ -34,9 +36,13 @@ type Labels = {
 
 type Props = {
   units: Unit[];
+  /** A plan's own maintenance % (every plan from the database has one, 0 for none) wins over `maintenancePct`. */
   plans: PaymentPlan[];
+  /** The project's maintenance %, for plans without their own (the demo data). */
   maintenancePct?: number;
   locale: Locale;
+  /** The project's currency; every figure is in it. */
+  currency: Currency;
   labels: Labels;
 };
 
@@ -48,20 +54,21 @@ const PART_STYLES = {
   maintenance: "bg-brass-light",
 } as const;
 
-/** Every pound a buyer pays for one unit type on one plan: at contract, per installment, at handover, in total. */
-export function PaymentCalculator({ units, plans, maintenancePct, locale, labels }: Props) {
+/** Everything a buyer pays for one unit type on one plan: at contract, per installment, at handover, in total. */
+export function PaymentCalculator({ units, plans, maintenancePct, locale, currency, labels }: Props) {
   const id = useId();
   const [unitCode, setUnitCode] = useState(units[0]?.code);
   const [planIndex, setPlanIndex] = useState(0);
   const unit = units.find((u) => u.code === unitCode) ?? units[0];
   const plan = plans[planIndex] ?? plans[0];
   if (!unit || !plan) return null;
+  const maintenancePctOf = plan.maintenancePct ?? maintenancePct;
 
-  const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale);
-  const { price, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
+  const money = (n: number, step = 100) => formatMoney(Math.round(n / step) * step, locale, currency);
+  const { price, custom, cash, down, delivery, installmentsTotal, count, installment, monthly, firstYear, maintenance, total } = paymentBreakdown(
     unit.price,
     plan,
-    maintenancePct,
+    maintenancePctOf,
   );
 
   const parts = (
@@ -80,14 +87,14 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, labels
       ? ([
           [
             `${labels.installment} (${fill(labels.installmentsCount, { n: count, years: plan.years })})`,
-            `${money(installment)} ${labels.frequencyPer[plan.frequency]}`,
+            custom ? `~${money(installment)}` : `${money(installment)} ${labels.frequencyPer[plan.frequency]}`,
           ],
           [labels.monthlyEq, `~${money(monthly)}`],
           ...(delivery ? [[labels.delivery, money(delivery, 1000)]] : []),
           [labels.firstYear, money(firstYear, 1000)],
         ] as [string, string][])
       : []),
-    ...(maintenance ? ([[fill(labels.maintenance, { pct: maintenancePct ?? 0 }), money(maintenance, 1000)]] as [string, string][]) : []),
+    ...(maintenance ? ([[fill(labels.maintenance, { pct: maintenancePctOf ?? 0 }), money(maintenance, 1000)]] as [string, string][]) : []),
   ];
 
   const select =
@@ -134,7 +141,7 @@ export function PaymentCalculator({ units, plans, maintenancePct, locale, labels
             ))}
           </div>
         </fieldset>
-        <p className="text-xs text-muted">{labels.note}</p>
+        <p className="text-xs text-muted">{custom ? `${labels.customSchedule} ${labels.note}` : labels.note}</p>
       </div>
 
       <div className="flex flex-col gap-5" aria-live="polite">

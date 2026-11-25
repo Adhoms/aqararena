@@ -12,7 +12,7 @@ import { importProjectUnits, type UnitsImportResult } from "@/lib/admin/import/w
 import { requireAccount, type PortalAccount } from "@/lib/portal/session";
 import { UNIT_AVAILABILITY } from "@/lib/property";
 import { shouldNotify, unitPriceProblem } from "@/lib/unit-rules";
-import { findTwinUnit } from "@/lib/units";
+import { findTwinUnit, zoneOfProject } from "@/lib/units";
 import { releaseHoldsOfUnavailable } from "@/lib/sales/hold-service";
 import { HOURS_NOUN, countAr } from "@/lib/format";
 import { readHoldHours } from "@/lib/sales/holds";
@@ -54,6 +54,7 @@ export async function savePortalUnit(_: FormState, data: FormData): Promise<Form
   if (!type) f.errors.typologyId = "اختار نموذج من نماذج المشروع";
   const priceProblem = type ? unitPriceProblem(values.price, Number(type.priceFrom)) : null;
   if (priceProblem) f.errors.price = priceProblem;
+  if ((await zoneOfProject(project.id, values.zoneId)) === false) f.errors.zoneId = "المنطقة دي مش في الماستر بلان بتاع المشروع";
   if (!f.ok || !type) return f.result();
   if (id && !(await db.unit.findFirst({ where: { id, typology: { projectId: project.id } }, select: { id: true } }))) {
     return { ok: false, message: "الوحدة دي مش في المشروع" };

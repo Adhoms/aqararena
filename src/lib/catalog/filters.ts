@@ -1,6 +1,6 @@
 import { finishingsOf, type AreaSlug, type FinishGroup, type ProjectStatus, type PropertyCategory, type SubType } from "@/lib/property";
 import { bestBudgetFit, hasBudget } from "./budget";
-import { summarize } from "./summary";
+import { inEgp, summarize } from "./summary";
 import type { Developer, Project } from "./types";
 
 export const SORTS = ["newest", "price", "down", "delivery"] as const;
@@ -37,7 +37,8 @@ export const needsUnitMatch = (f: ProjectFilters) =>
 export function sortProjects(list: Project[], sort: Sort = "newest"): Project[] {
   const by: Record<Sort, (a: Project, b: Project) => number> = {
     newest: (a, b) => (b.launchYear ?? 0) - (a.launchYear ?? 0),
-    price: (a, b) => summarize(a).startingPrice - summarize(b).startingPrice,
+    // Pounds first, by price; projects in other currencies after them.
+    price: (a, b) => Number(!inEgp(a)) - Number(!inEgp(b)) || summarize(a).startingPrice - summarize(b).startingPrice,
     down: (a, b) => summarize(a).minDownPct - summarize(b).minDownPct,
     delivery: (a, b) => a.deliveryYear - b.deliveryYear,
   };
@@ -59,6 +60,8 @@ export function filterProjects(list: Project[], developers: Developer[], f: Proj
     if (f.deliveryBy && p.deliveryYear > f.deliveryBy) return false;
     if (f.maxDownPct && s.minDownPct > f.maxDownPct) return false;
     if (f.minYears && s.maxYears < f.minYears) return false;
+    // A price range is in pounds.
+    if ((f.minPrice || f.maxPrice) && !inEgp(p)) return false;
     if (
       needsUnitMatch(f) &&
       !p.typologies.some(

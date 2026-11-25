@@ -3,7 +3,9 @@ import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { readDeveloper, readPaymentPlan, readProject, readTypology, readUnit, FEDDAN_M2 } from "@/lib/admin/readers";
-import { recordPriceHistory } from "@/lib/price-history";
+import { formatSteps, stepsOf, toStepRows } from "@/lib/catalog/plan-steps";
+import { matchPlans, type PlanCandidate, type PlanWanted } from "./plan-match";
+import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
 import { unitKey, unitPriceProblem } from "@/lib/unit-rules";
 import { HOLDS_NOUN, countAr } from "@/lib/format";
 import type { Prisma } from "@/generated/prisma/client";
@@ -12,7 +14,7 @@ import { isBusy } from "@/lib/sales/hold-errors";
 import type { AvailabilityValue } from "@/lib/sales/holds";
 import { holdsLeavingWarning } from "@/lib/sales/labels";
 import { leavingSales, nothingLeaves, type Leaving } from "./leaving";
-import { CHOICES, SHEETS, type Column, type SheetDef, type SheetKey } from "./columns";
+import { CHOICES, SHEETS, headerMatches, norm, type Column, type SheetDef, type SheetKey } from "./columns";
 
 // Builds the Excel template (optionally filled with what is already on the site) and imports
 // a filled one. An import is all or nothing: every row is checked first, and nothing is saved
@@ -34,18 +36,6 @@ const scopeOfSave = (updateIds: string[], leaving: Leaving): Prisma.UnitWhereInp
     : null;
 
 // ─── Matching names typed by people ─────────────────────────────────────
-
-/** Loose form of a name for matching: case, spaces and common Arabic spelling variants ignored. */
-export function norm(s: string) {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/[ً-ْـ]/g, "") // diacritics and tatweel
-    .replace(/\s+/g, " ");
-}
 
 class Lookup<T> {
   private map = new Map<string, T>();
@@ -164,8 +154,7 @@ function readSheet(wb: ExcelJS.Workbook, def: SheetDef, problems: Problem[]): Sh
   // Match header cells to columns by their text (the "*" for required columns is optional).
   const byColumn = new Map<number, Column>();
   ws.getRow(1).eachCell((cell, n) => {
-    const h = norm(String(rawValue(cell) ?? "").replace(/\*/g, ""));
-    const col = def.columns.find((c) => norm(c.header) === h || c.key.toLowerCase() === h);
+    const col = def.columns.find((c) => headerMatches(c, String(rawValue(cell) ?? "")));
     if (col) {
       byColumn.set(n, col);
       out.present.add(col.key);
@@ -195,8 +184,38 @@ function readSheet(wb: ExcelJS.Workbook, def: SheetDef, problems: Problem[]): Sh
 
 /** Keeps only the fields whose column is in the sheet, so a removed column never wipes data. */
 function onlyPresent<T extends Record<string, unknown>>(values: T, present: Set<string>, always: string[] = []): Partial<T> {
-  const source: Record<string, string> = { landAreaM2: "landFeddan", pricePerM2From: "priceFrom" };
+  const source: Record<string, string> = { landAreaM2: "landFeddan", pricePerM2From: "priceFrom", zoneId: "zone" };
   return Object.fromEntries(Object.entries(values).filter(([k]) => always.includes(k) || present.has(source[k] ?? k))) as Partial<T>;
+}
+
+type ZoneRef = { id: string; projectId: string; shortAr: string; shortEn: string; nameAr: string; nameEn: string };
+const ZONE_SELECT = { id: true, projectId: true, shortAr: true, shortEn: true, nameAr: true, nameEn: true } as const;
+
+/** The zones of the project a cell's name matches (short or full name, Arabic or English). */
+const zonesNamed = (zones: Omit<ZoneRef, "id">[], projectId: string, name: string) =>
+  zones.filter((z) => z.projectId === projectId && [z.shortAr, z.shortEn, z.nameAr, z.nameEn].some((n) => n && norm(n) === norm(name)));
+
+const ZONE_COLUMN = "منطقة الماستر بلان";
+
+/**
+ * The zone of the project named in a cell, or the problem with the name: none of its zones has it, or
+ * more than one does (two zones with the same short name, say), so the unit could land in either.
+ */
+function zoneByName(zones: ZoneRef[], projectId: string, name: string): { zone: ZoneRef } | { problem: string } {
+  const found = zonesNamed(zones, projectId, name) as ZoneRef[];
+  if (found.length === 1) return { zone: found[0] };
+  if (!found.length) return { problem: `مالقيناش منطقة اسمها «${name}» في الماستر بلان` };
+  return { problem: `«${name}» اسم لأكتر من منطقة في الماستر بلان. اكتب الاسم الكامل للمنطقة` };
+}
+
+/**
+ * The name a template writes for a unit's zone, one that matches no other zone of its project, so the
+ * file imports back to the same zone: the Arabic short name, else the full Arabic name, else an English one.
+ */
+function zoneCell(zone: Omit<ZoneRef, "id"> | null, projectZones: Omit<ZoneRef, "id">[]): string | null {
+  if (!zone) return null;
+  const names = [zone.shortAr, zone.nameAr, zone.shortEn, zone.nameEn].filter(Boolean);
+  return names.find((n) => zonesNamed(projectZones, zone.projectId, n).length === 1) ?? zone.nameAr;
 }
 
 // ─── Import ─────────────────────────────────────────────────────────────
@@ -210,6 +229,37 @@ export type ImportResult = {
   /** Something to read before importing (shown apart from the success message). */
   warning?: string;
 };
+
+/** What the plan matching reads of an existing plan. */
+const PLAN_MATCH_SELECT = {
+  id: true,
+  projectId: true,
+  typologyId: true,
+  downPaymentPct: true,
+  years: true,
+  frequency: true,
+  steps: { orderBy: { sortOrder: "asc" }, select: { monthOffset: true, pct: true, kind: true } },
+} satisfies Prisma.PaymentPlanSelect;
+
+const asCandidate = (p: Prisma.PaymentPlanGetPayload<{ select: typeof PLAN_MATCH_SELECT }>): PlanCandidate => ({
+  id: p.id,
+  projectId: p.projectId,
+  typologyId: p.typologyId,
+  downPaymentPct: Number(p.downPaymentPct),
+  years: p.years,
+  frequency: p.frequency,
+  steps: formatSteps(stepsOf(p.steps)),
+});
+
+/** A sheet row as the plan matching sees it. `typologyId` is undefined for a unit type not on the site yet. */
+const wantedPlan = (values: ReturnType<typeof readPaymentPlan>, projectId: string | null, typologyId: string | null | undefined, stepsPresent: boolean): PlanWanted => ({
+  projectId,
+  typologyId,
+  downPaymentPct: values.downPaymentPct,
+  years: values.years,
+  frequency: values.frequency,
+  steps: stepsPresent ? formatSteps(values.steps) : null,
+});
 
 export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promise<ImportResult> {
   const problems: Problem[] = [];
@@ -232,21 +282,20 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   if (SHEETS.every((d) => sheets[d.key].rows.length === 0)) return fail("الملف فاضي: مالقيناش صفوف في شيتات المطورين أو المشروعات أو النماذج أو أنظمة السداد أو الوحدات.");
 
   // What is already on the site.
-  const [developers, areas, projects, typologies, plans, units] = await Promise.all([
+  const [developers, areas, projects, typologies, plans, units, zones] = await Promise.all([
     db.developer.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
     db.area.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true } }),
-    db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true, published: true, developer: { select: { slug: true } } } }),
+    db.project.findMany({ select: { id: true, slug: true, nameAr: true, nameEn: true, published: true, currency: true, developer: { select: { slug: true } } } }),
     db.typology.findMany({ select: { id: true, code: true, projectId: true } }),
-    db.paymentPlan.findMany({ select: { projectId: true, typologyId: true, downPaymentPct: true, years: true, frequency: true } }),
+    db.paymentPlan.findMany({ orderBy: { createdAt: "asc" }, select: PLAN_MATCH_SELECT }),
     db.unit.findMany({ select: { id: true, building: true, unitNumber: true, typology: { select: { projectId: true } } } }),
+    db.masterPlanZone.findMany({ select: ZONE_SELECT }),
   ]);
   // How a unit is recognised: same project, building and unit number.
   const unitKey = (project: string, building: string | null, number: string) => `${project}|${norm(building ?? "")}|${norm(number)}`;
   const unitIdByKey = new Map(units.filter((u) => u.unitNumber).map((u) => [unitKey(u.typology.projectId, u.building, u.unitNumber!), u.id]));
-  // How a plan is recognised: same project, unit type, down payment, years and frequency.
-  const planKey = (projectId: string, typologyId: string | null, down: number, years: number, frequency: string) =>
-    `${projectId}|${typologyId ?? ""}|${down}|${years}|${frequency}`;
-  const existingPlans = new Set(plans.map((p) => planKey(p.projectId, p.typologyId, Number(p.downPaymentPct), p.years, p.frequency)));
+  // How a plan is recognised: lib/admin/import/plan-match.ts.
+  const existingPlans = plans.map(asCandidate);
   const typIdByCode = new Map(typologies.map((t) => [`${t.projectId}/${t.code.toLowerCase()}`, t.id]));
 
   // A developer or project is identified by its slug; rows in the file win over the site.
@@ -298,8 +347,10 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
 
   // Projects
   const projRows: { slug: string; devSlug: string; areaId: string; values: ReturnType<typeof readProject>; present: Set<string> }[] = [];
+  // Existing projects whose currency the sheet changes, for the check before saving.
+  const currencyChanges: { name: string; from: string; to: string }[] = [];
   {
-    const { def, rows, present } = sheets.projects;
+    const { def, rows, present: sheetPresent } = sheets.projects;
     const seen = new Set<string>();
     for (const { row, cells } of rows) {
       const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
@@ -316,6 +367,14 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       seen.add(values.slug);
       const ref: ProjRef = projBySlug.get(values.slug) ?? { slug: values.slug, codes: new Set() };
       projBySlug.set(values.slug, ref);
+      // A blank currency cell keeps an existing project's currency (only a new project starts in pounds),
+      // so the column is left out of this row's update.
+      const present = new Set(sheetPresent);
+      if (ref.existingId && !data.get("currency")) present.delete("currency");
+      const was = ref.existingId ? projects.find((p) => p.id === ref.existingId) : undefined;
+      if (was && present.has("currency") && was.currency !== values.currency) {
+        currencyChanges.push({ name: was.nameAr, from: was.currency, to: values.currency });
+      }
       projs.add(ref, values.nameAr, values.nameEn, values.slug);
       counts.projects[ref.existingId ? "update" : "create"]++;
       if (dev && areaId) projRows.push({ slug: values.slug, devSlug: dev.slug, areaId, values, present });
@@ -345,12 +404,16 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   }
 
   // Payment plans
-  const planRows: { projSlug: string; code: string | null; values: ReturnType<typeof readPaymentPlan> }[] = [];
+  const planRows: { projSlug: string; code: string | null; values: ReturnType<typeof readPaymentPlan>; stepsPresent: boolean }[] = [];
   {
     const { def, rows, present } = sheets.plans;
+    const previewRows: PlanWanted[] = [];
     for (const { row, cells } of rows) {
       const say = (column: string, message: string) => problems.push({ sheet: def.name, row, column, message });
       const { data, refs } = rowToForm(def, cells, say);
+      // "0:100" typed into a cell Excel formats itself becomes a time of day. Said first, so it is the cell's one message.
+      const typedSteps = cells.get("steps") && rawValue(cells.get("steps")!);
+      if (typedSteps instanceof Date || typeof typedSteps === "number") say(def.columns.find((c) => c.key === "steps")!.header, "Excel قرأها كوقت، خلّي تنسيق الخانة نص");
       // A blank "active" cell means active.
       if (!present.has("isActive") || !String(rawValue(cells.get("isActive")!) ?? "").trim()) data.set("isActive", "on");
       const values = check(def, row, data, readPaymentPlan);
@@ -360,11 +423,11 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       const code = refs.typology || null;
       if (proj && code && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
       if (!proj) continue;
-      planRows.push({ projSlug: proj.slug, code, values });
-      const typologyId = code && proj.existingId ? (typIdByCode.get(`${proj.existingId}/${code.toLowerCase()}`) ?? "new") : null;
-      const known = proj.existingId && typologyId !== "new" && existingPlans.has(planKey(proj.existingId, typologyId, values.downPaymentPct, values.years, values.frequency));
-      counts.plans[known ? "update" : "create"]++;
+      planRows.push({ projSlug: proj.slug, code, values, stepsPresent: present.has("steps") });
+      const typologyId = code && proj.existingId ? typIdByCode.get(`${proj.existingId}/${code.toLowerCase()}`) : null;
+      previewRows.push(wantedPlan(values, proj.existingId ?? null, typologyId, present.has("steps")));
     }
+    for (const id of matchPlans(previewRows, existingPlans)) counts.plans[id ? "update" : "create"]++;
   }
 
   // Units
@@ -387,6 +450,13 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
       const code = refs.typology;
       if (!code) say("كود النموذج", "هذا الحقل مطلوب");
       else if (proj && !proj.codes.has(code.toLowerCase())) say("كود النموذج", `مالقيناش نموذج بالكود «${code}» في المشروع ده`);
+      // The zone must be one of the project's own, so only a project already on the site can have one.
+      if (proj && refs.zone) {
+        const found = proj.existingId ? zoneByName(zones, proj.existingId, refs.zone) : undefined;
+        if (!found) say(ZONE_COLUMN, "المشروع لسه جديد ومالوش ماستر بلان");
+        else if ("problem" in found) say(ZONE_COLUMN, found.problem);
+        values.zoneId = found && "zone" in found ? found.zone.id : null;
+      }
       if (!proj || !code || !values.unitNumber) continue;
       const key = unitKey(proj.slug, values.building, values.unitNumber);
       if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المشروع والمبنى والرقم)");
@@ -423,7 +493,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
     units: unitStatuses,
   });
   if (!save) {
-    const warning = holdsLeavingWarning(await heldLeaving(leaving));
+    const warning = [currencyWarning(currencyChanges), holdsLeavingWarning(await heldLeaving(leaving))].filter(Boolean).join(" ") || undefined;
     return { ok: true, saved: false, message: summary("الملف سليم وجاهز: "), problems, counts, warning };
   }
   const scope = scopeOfSave(unitStatuses.flatMap((u) => (u.existingId ? [u.existingId] : [])), leaving);
@@ -441,12 +511,15 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
         }
 
         const projId = new Map(projects.map((p) => [p.slug, p.id]));
+        // Existing projects whose currency the sheet changes: their price history and alert figures start again.
+        const newCurrency: string[] = [];
         for (const p of projRows) {
           // The price date is set below from the unit types and plans, never from the sheet.
           const values: Omit<typeof p.values, "pricesUpdatedAt"> & { pricesUpdatedAt?: Date | null } = { ...p.values };
           delete values.pricesUpdatedAt;
           const relations = { developer: { connect: { id: devId.get(p.devSlug)! } }, area: { connect: { id: p.areaId } } };
           const update = onlyPresent(values, p.present, ["nameAr", "nameEn", "slug", "status", "deliveryDate"]);
+          const was = "currency" in update ? await tx.project.findUnique({ where: { slug: p.slug }, select: { currency: true } }) : null;
           const saved = await tx.project.upsert({
             where: { slug: p.slug },
             create: { ...values, ...relations },
@@ -454,6 +527,7 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
             select: { id: true },
           });
           projId.set(p.slug, saved.id);
+          if (was && was.currency !== values.currency) newCurrency.push(saved.id);
         }
 
         const typId = new Map(typIdByCode);
@@ -471,23 +545,45 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
           touched.add(projectId);
         }
 
-        for (const p of planRows) {
+        // Each row updates the plan it matches (plan-match.ts), or adds one.
+        const planTargets = planRows.map((p) => {
           const projectId = projId.get(p.projSlug)!;
-          const typologyId = p.code ? typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null : null;
-          const values = { ...p.values, typologyId };
-          // The same plan (down payment, years, frequency, unit type) is updated rather than duplicated.
-          const same = await tx.paymentPlan.findFirst({
-            where: { projectId, typologyId, downPaymentPct: values.downPaymentPct, years: values.years, frequency: values.frequency },
-            select: { id: true },
-          });
-          if (same) await tx.paymentPlan.update({ where: { id: same.id }, data: values });
-          else await tx.paymentPlan.create({ data: { ...values, projectId } });
+          const typologyId = p.code ? (typId.get(`${projectId}/${p.code.toLowerCase()}`) ?? null) : null;
+          return { projectId, typologyId };
+        });
+        const currentPlans = await tx.paymentPlan.findMany({
+          where: { projectId: { in: [...new Set(planTargets.map((p) => p.projectId))] } },
+          orderBy: { createdAt: "asc" },
+          select: PLAN_MATCH_SELECT,
+        });
+        const stepped = new Set(currentPlans.filter((p) => p.steps.length).map((p) => p.id));
+        const matched = matchPlans(
+          planRows.map((p, i) => wantedPlan(p.values, planTargets[i].projectId, planTargets[i].typologyId, p.stepsPresent)),
+          currentPlans.map(asCandidate),
+        );
+        for (const [i, p] of planRows.entries()) {
+          const { projectId, typologyId } = planTargets[i];
+          const { steps, ...plan } = p.values;
+          const rows = toStepRows(steps);
+          const id = matched[i];
+          if (id) {
+            // Steps change only when the sheet has the column, so an old template never wipes them, nor
+            // overwrites the terms a stepped plan takes from its steps.
+            const { downPaymentPct: _d, deliveryPaymentPct: _p, years: _y, frequency: _f, ...rest } = plan;
+            void [_d, _p, _y, _f];
+            const terms = !p.stepsPresent && stepped.has(id) ? rest : plan;
+            await tx.paymentPlan.update({
+              where: { id },
+              data: { ...terms, typologyId, ...(p.stepsPresent && { steps: { deleteMany: {}, createMany: { data: rows } } }) },
+            });
+          } else await tx.paymentPlan.create({ data: { ...plan, typologyId, projectId, steps: { createMany: { data: rows } } } });
           touched.add(projectId);
         }
 
         const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
         if (touched.size) await tx.project.updateMany({ where: { id: { in: [...touched] } }, data: { pricesUpdatedAt: today } });
         await recordPriceHistory([...touched], tx);
+        await restartPriceTracking(newCurrency, tx);
 
         // Lock the units this save may take out of Sales before writing any unit, in id order, as every
         // other write that changes many units does (after the project and type rows, as they do too).
@@ -513,6 +609,15 @@ export async function importWorkbook(buffer: ArrayBuffer, save: boolean): Promis
   }
 
   return { ok: true, saved: true, message: summary("تم الاستيراد ✓ ") + (released ? ` · اتلغى ${countAr(released, HOLDS_NOUN)} في AqarArena Sales` : ""), problems, counts };
+}
+
+const CURRENCY_NAME: Record<string, string> = Object.fromEntries(CHOICES.currency.map((c) => [c.value, c.label]));
+
+/** The projects whose currency an import changes: their price history and price alerts start again. */
+function currencyWarning(changes: { name: string; from: string; to: string }[]) {
+  if (!changes.length) return undefined;
+  const list = changes.map((c) => `«${c.name}» (${CURRENCY_NAME[c.from] ?? c.from} ← ${CURRENCY_NAME[c.to] ?? c.to})`).join("، ");
+  return `الملف ده هيغيّر عملة: ${list}. سجل أسعارها وتنبيهات الأسعار هيبدأوا من جديد.`;
 }
 
 /** How many of the units an import takes out of Sales have a live hold. */
@@ -582,6 +687,7 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
     { title: "حالة الوحدة", values: CHOICES.availability.map((c) => c.label) },
     { title: "الإطلالة", values: CHOICES.unitViews.map((c) => c.label) },
     { title: "الاتجاه", values: CHOICES.orientations.map((c) => c.label) },
+    { title: "العملة", values: CHOICES.currency.map((c) => c.label) },
   ];
   const listRange = new Map<string, string>();
   listCols.forEach((l, i) => {
@@ -606,6 +712,7 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
       availability: "حالة الوحدة",
       view: "الإطلالة",
       orientation: "الاتجاه",
+      currency: "العملة",
     }[col.key];
     return title ? { range: listRange.get(title)!, strict: true } : null;
   };
@@ -624,6 +731,8 @@ export async function buildTemplate(withData: boolean): Promise<ArrayBuffer> {
       cell.alignment = { vertical: "middle" };
       if (c.help) cell.note = c.help;
       if (c.type === "date") ws.getColumn(i + 1).numFmt = "dd/mm/yyyy";
+      // Text, so Excel doesn't read a typed "0:100" as a time of day.
+      if (c.key === "steps") ws.getColumn(i + 1).numFmt = "@";
       if (c.type === "number" && /price|Fee|bookingFee/i.test(c.key)) ws.getColumn(i + 1).numFmt = "#,##0";
       const list = listFor(c);
       if (list) {
@@ -659,9 +768,10 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
         area: { select: { nameAr: true } },
         typologies: {
           orderBy: { code: "asc" },
-          include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }] } },
+          include: { units: { orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }], include: { zone: { select: ZONE_SELECT } } } },
         },
-        paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } } } },
+        zones: { select: ZONE_SELECT },
+        paymentPlans: { orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } }, steps: { orderBy: { sortOrder: "asc" } } } },
       },
     }),
   ]);
@@ -683,6 +793,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
       launchDate: date(p.launchDate),
       categories: many(CHOICES.categories, p.categories),
       bookingFee: num(p.bookingFee),
+      currency: label(CHOICES.currency, p.currency),
       landFeddan: p.landAreaM2 ? Math.round((Number(p.landAreaM2) / FEDDAN_M2) * 100) / 100 : null,
       footprintPct: num(p.footprintPct),
       unitsCount: p.unitsCount,
@@ -720,6 +831,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
         downPaymentPct: num(pl.downPaymentPct),
         years: pl.years,
         frequency: label(CHOICES.frequency, pl.frequency),
+        steps: pl.steps.length ? formatSteps(stepsOf(pl.steps)) : null,
         deliveryPaymentPct: num(pl.deliveryPaymentPct),
         cashDiscountPct: num(pl.cashDiscountPct),
         maintenancePct: num(pl.maintenancePct),
@@ -743,6 +855,7 @@ async function currentData(): Promise<Record<SheetKey, Record<string, unknown>[]
           price: num(u.price),
           view: label(CHOICES.unitViews, u.view),
           orientation: label(CHOICES.orientations, u.orientation),
+          zone: zoneCell(u.zone, p.zones),
         })),
       ),
     ),
@@ -779,9 +892,10 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
   const { rows, present } = readSheet(wb, def, problems);
   if (!rows.length && !problems.length) return fail("الشيت فاضي.");
 
-  const [types, existing] = await Promise.all([
+  const [types, existing, zones] = await Promise.all([
     db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { id: true, code: true, priceFrom: true } }),
     db.unit.findMany({ where: { typology: { projectId } }, select: { id: true, building: true, unitNumber: true } }),
+    db.masterPlanZone.findMany({ where: { projectId }, select: ZONE_SELECT }),
   ]);
   const typeByCode = new Map(types.map((t) => [t.code.toLowerCase(), t]));
   const idByKey = new Map(existing.filter((u) => u.unitNumber).map((u) => [unitKey(u.building, u.unitNumber!), u.id]));
@@ -800,7 +914,12 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
     if (!refs.typology) say("كود النموذج", "هذا الحقل مطلوب");
     else if (!type) say("كود النموذج", `مالقيناش نموذج بالكود «${refs.typology}» في المشروع ده`);
     const priceProblem = type ? unitPriceProblem(values.price, Number(type.priceFrom)) : null;
-    if (priceProblem) say("سعر الوحدة (جنيه)", priceProblem);
+    if (priceProblem) say(def.columns.find((c) => c.key === "price")?.header ?? "price", priceProblem);
+    if (refs.zone) {
+      const found = zoneByName(zones, projectId, refs.zone);
+      if ("problem" in found) say(ZONE_COLUMN, found.problem);
+      values.zoneId = "zone" in found ? found.zone.id : null;
+    }
     if (!type || !values.unitNumber) continue;
     const key = unitKey(values.building, values.unitNumber);
     if (seen.has(key)) say("رقم الوحدة", "الوحدة دي متكررة في الشيت (نفس المبنى والرقم)");
@@ -845,13 +964,14 @@ export async function importProjectUnits(buffer: ArrayBuffer, projectId: string,
 /** One project's units as a workbook the developer edits and uploads back. */
 export async function buildProjectUnitsWorkbook(projectId: string): Promise<ArrayBuffer> {
   const def = projectUnitsDef();
-  const [types, units] = await Promise.all([
+  const [types, units, zones] = await Promise.all([
     db.typology.findMany({ where: { projectId, priceFrom: { not: null } }, select: { code: true }, orderBy: { code: "asc" } }),
     db.unit.findMany({
       where: { typology: { projectId } },
-      include: { typology: { select: { code: true } } },
+      include: { typology: { select: { code: true } }, zone: { select: ZONE_SELECT } },
       orderBy: [{ building: "asc" }, { floor: "asc" }, { unitNumber: "asc" }],
     }),
+    db.masterPlanZone.findMany({ where: { projectId }, select: ZONE_SELECT }),
   ]);
   const wb = new ExcelJS.Workbook();
   wb.creator = "AqarArena";
@@ -903,6 +1023,7 @@ export async function buildProjectUnitsWorkbook(projectId: string): Promise<Arra
       price: num(u.price),
       view: label(CHOICES.unitViews, u.view),
       orientation: label(CHOICES.orientations, u.orientation),
+      zone: zoneCell(u.zone, zones),
     });
   }
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer;

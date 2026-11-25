@@ -378,7 +378,7 @@
       "cash": "Cash discount",
       "maintenance": "Maintenance deposit",
       "monthly": "Lowest monthly",
-      "downAmount": "Lowest down payment (EGP)",
+      "downAmount": "Lowest down payment",
       "valueScore": "Value score",
       "vsArea": "Price per m² vs the area",
       "areaRank": "Rank in the area",
@@ -634,6 +634,8 @@
   "calculator": {
     "title": "Work out your plan in pounds",
     "sub": "Pick a unit type and a payment plan to see every pound you'll pay, and when.",
+    "titleDollars": "Work out your plan in dollars",
+    "subDollars": "Pick a unit type and a payment plan to see every dollar you'll pay, and when.",
     "unit": "Unit type",
     "plan": "Payment plan",
     "price": "Unit price",
@@ -653,7 +655,8 @@
       "delivery": "Handover",
       "maintenance": "Maintenance"
     },
-    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest."
+    "note": "Approximate figures from the developer's published prices and plans. AqarArena adds no commission or interest.",
+    "customSchedule": "This plan has its own schedule: the first payment is exact, the installment and monthly figures are averages. A price offer lists every installment."
   },
   "forDevelopersPage": {
     "metaTitle": "For developers: the portal and AqarArena Sales",

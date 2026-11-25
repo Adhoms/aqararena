@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
-import { getMarketInsights, listDevelopers, searchProjects, summarize } from "@/lib/catalog";
+import { currencyOf, getMarketInsights, listDevelopers, searchProjects, summarize } from "@/lib/catalog";
+import type { Currency } from "@/lib/property";
 import { paramsFromSearch, readFilters } from "@/lib/catalog/read-filters";
 
 // Live results for the smart search bar. The bar understands the sentence in the browser
@@ -13,6 +14,7 @@ export type SearchHit = {
   developer: { ar: string; en: string };
   area: string;
   startingPrice: number;
+  currency: Currency;
   minDownPct: number;
   deliveryYear: number;
   score?: number;
@@ -39,6 +41,7 @@ export async function GET(request: NextRequest) {
         developer: devName.get(p.developerSlug) ?? { ar: "", en: "" },
         area: p.areaSlug,
         startingPrice: s.startingPrice,
+        currency: currencyOf(p),
         minDownPct: s.minDownPct,
         deliveryYear: p.deliveryYear,
         score: insights.values[p.slug]?.score,

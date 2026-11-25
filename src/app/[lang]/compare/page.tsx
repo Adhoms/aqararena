@@ -7,7 +7,17 @@ import { CompareShell, CompareSync, ProjectPicker, RestoreSavedList } from "@/co
 import { PrintButton, ShareButton } from "@/components/share-button";
 import { Container, Eyebrow } from "@/components/ui";
 import { ProjectCover } from "@/components/project-cover";
-import { getMarketInsights, getProjectsBySlugs, listDevelopers, listProjectOptions, summarize, type Developer, type MarketInsights, type Project } from "@/lib/catalog";
+import {
+  currencyOf,
+  getMarketInsights,
+  getProjectsBySlugs,
+  listDevelopers,
+  listProjectOptions,
+  summarize,
+  type Developer,
+  type MarketInsights,
+  type Project,
+} from "@/lib/catalog";
 import { MAX_COMPARE, parseCompareParam } from "@/lib/compare";
 import { fill, formatMoney, formatNumber, telHref, whatsappHref } from "@/lib/format";
 import { AMENITIES, type Amenity } from "@/lib/property";
@@ -272,7 +282,11 @@ function buildRows(
   const m2 = locale === "ar" ? "م²" : "m²";
   const NA = "-";
   const num = (n: number) => formatNumber(n, locale);
-  const money = (n: number | undefined) => (n ? formatMoney(n, locale) : NA);
+  // Each column in its project's currency; amounts only get a "best" mark when every column is in the same one.
+  const currencies = projects.map(currencyOf);
+  const money = (n: number | undefined, i: number) => (n ? formatMoney(n, locale, currencies[i]) : NA);
+  const oneCurrency = new Set(currencies).size === 1;
+  const amounts = (v: (number | undefined)[]) => (oneCurrency ? v : undefined);
   const pct = (n: number | undefined) => (n !== undefined && n !== null ? `${formatNumber(n, locale)}%` : NA);
   const yesNo = (has: boolean[], label: string): Row => ({
     label,
@@ -368,17 +382,17 @@ function buildRows(
     row(r.finishing, sums.map((x) => x.finishings.map((f) => dict.finishing[f]).join(" · "))),
 
     { section: s.prices },
-    row(r.startingPrice, sums.map((x) => money(x.startingPrice)), sums.map((x) => x.startingPrice), "low"),
-    row(r.maxPrice, maxPrice.map((v) => money(v))),
-    row(r.pricePerM2, sums.map((x) => money(x.avgPricePerM2)), sums.map((x) => x.avgPricePerM2), "low"),
-    row(r.bookingFee, projects.map((p) => money(p.bookingFee)), projects.map((p) => p.bookingFee), "low"),
+    row(r.startingPrice, sums.map((x, i) => money(x.startingPrice, i)), amounts(sums.map((x) => x.startingPrice)), "low"),
+    row(r.maxPrice, maxPrice.map((v, i) => money(v, i))),
+    row(r.pricePerM2, sums.map((x, i) => money(x.avgPricePerM2, i)), amounts(sums.map((x) => x.avgPricePerM2)), "low"),
+    row(r.bookingFee, projects.map((p, i) => money(p.bookingFee, i)), amounts(projects.map((p) => p.bookingFee)), "low"),
     row(r.pricesUpdated, updated),
 
     { section: s.plans },
     row(r.plansCount, projects.map((p) => num(p.paymentPlans.length)), projects.map((p) => p.paymentPlans.length), "high"),
     row(r.minDown, sums.map((x, i) => (installments[i].length ? `${x.minDownPct}%` : NA)), sums.map((x, i) => (installments[i].length ? x.minDownPct : undefined)), "low"),
-    row(r.downAmount, sums.map((x) => money(x.entryDown)), sums.map((x) => x.entryDown || undefined), "low"),
-    row(r.monthly, sums.map((x) => money(x.minMonthly)), sums.map((x) => x.minMonthly || undefined), "low"),
+    row(r.downAmount, sums.map((x, i) => money(x.entryDown, i)), amounts(sums.map((x) => x.entryDown || undefined)), "low"),
+    row(r.monthly, sums.map((x, i) => money(x.minMonthly, i)), amounts(sums.map((x) => x.minMonthly || undefined)), "low"),
     row(r.maxYears, sums.map((x) => (x.maxYears ? fill(dict.common.years, { n: x.maxYears }) : NA)), sums.map((x) => x.maxYears || undefined), "high"),
     row(r.deliveryPayment, minDelivery.map((v) => pct(v)), minDelivery, "low"),
     row(r.frequency, frequencies),
@@ -386,8 +400,8 @@ function buildRows(
 
     { section: s.fees },
     row(r.maintenance, projects.map((p) => pct(p.fees.maintenancePct)), projects.map((p) => p.fees.maintenancePct), "low"),
-    row(r.garage, projects.map((p) => money(p.fees.garageFee)), projects.map((p) => p.fees.garageFee), "low"),
-    row(r.club, projects.map((p) => money(p.fees.clubFee)), projects.map((p) => p.fees.clubFee), "low"),
+    row(r.garage, projects.map((p, i) => money(p.fees.garageFee, i)), amounts(projects.map((p) => p.fees.garageFee)), "low"),
+    row(r.club, projects.map((p, i) => money(p.fees.clubFee, i)), amounts(projects.map((p) => p.fees.clubFee)), "low"),
 
     { section: s.location },
     ...distanceRows,

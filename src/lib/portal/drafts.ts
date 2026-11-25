@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { FormReader } from "@/lib/admin/form";
 import { MEDIA_KINDS } from "@/lib/admin/labels";
 import { FEDDAN_M2, readDeveloper, readPaymentPlan, readProject, readTypology } from "@/lib/admin/readers";
-import { recordPriceHistory } from "@/lib/price-history";
+import { formatSteps, stepsOf, toStepRows } from "@/lib/catalog/plan-steps";
+import { recordPriceHistory, restartPriceTracking } from "@/lib/price-history";
 import { releaseHoldsOutOfSales } from "@/lib/sales/hold-service";
 import { matchTypologies } from "./match-typologies";
 import { PHOTO_GROUPS } from "@/lib/property";
@@ -21,7 +22,7 @@ const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : 
 
 export const projectInclude = {
   typologies: { orderBy: { code: "asc" } },
-  paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } } } },
+  paymentPlans: { where: { isActive: true }, orderBy: { createdAt: "asc" }, include: { typology: { select: { code: true } }, steps: { orderBy: { sortOrder: "asc" } } } },
   media: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] },
   distances: { orderBy: { sortOrder: "asc" } },
 } satisfies Prisma.ProjectInclude;
@@ -44,6 +45,7 @@ export function draftFromProject(p: LiveProject): ProjectDraft {
       launchDate: day(p.launchDate),
       progressPct: str(p.progressPct),
       bookingFee: str(p.bookingFee),
+      currency: p.currency,
       landFeddan: p.landAreaM2 ? String(Math.round((Number(p.landAreaM2) / FEDDAN_M2) * 100) / 100) : "",
       footprintPct: str(p.footprintPct),
       unitsCount: str(p.unitsCount),
@@ -75,6 +77,7 @@ export function draftFromProject(p: LiveProject): ProjectDraft {
       deliveryPaymentPct: str(pl.deliveryPaymentPct),
       years: str(pl.years),
       frequency: pl.frequency,
+      steps: formatSteps(stepsOf(pl.steps)),
       cashDiscountPct: str(pl.cashDiscountPct),
       maintenancePct: str(pl.maintenancePct),
       garageFee: str(pl.garageFee),
@@ -192,6 +195,8 @@ function run<T>(fields: Fields, read: (f: FormReader) => T, prefix: string, erro
 
 export type CheckedProject = {
   project: ReturnType<typeof readProject>;
+  /** False for a draft saved before the currency setting: approving it keeps the live project's currency. */
+  currencyGiven: boolean;
   areaId: string | null;
   /** `liveId`: the live unit type the row was opened from (null for a new one). */
   typologies: (ReturnType<typeof readTypology> & { liveId: string | null })[];
@@ -248,7 +253,8 @@ export async function checkProjectDraft(draft: ProjectDraft): Promise<{ errors: 
     return v;
   });
 
-  return { errors, values: { project, areaId, typologies, plans, media, distances } };
+  const currencyGiven = typeof draft.project.currency === "string" && draft.project.currency !== "";
+  return { errors, values: { project, currencyGiven, areaId, typologies, plans, media, distances } };
 }
 
 export function checkProfileDraft(draft: ProfileDraft) {
@@ -279,7 +285,8 @@ export async function applyProjectDraft(
   { developerId, projectId, values, publish }: { developerId: string; projectId: string | null; values: CheckedProject; publish: boolean },
 ): Promise<{ projectId: string; removedUrls: string[] }> {
   // The admin decides about publishing and featuring; the slug stays once set.
-  const { isFeatured: _f, published: _p, slug, pricesUpdatedAt: _d, ...fields } = values.project;
+  const { isFeatured: _f, published: _p, slug, pricesUpdatedAt: _d, currency, ...rest } = values.project;
+  const fields = { ...rest, ...(values.currencyGiven && { currency }) };
   void _f;
   void _p;
   void _d;
@@ -287,8 +294,10 @@ export async function applyProjectDraft(
   const removedUrls: string[] = [];
 
   let id = projectId;
+  let currencyChanged = false;
   if (id) {
-    const live = await tx.project.findUnique({ where: { id }, select: { masterPlanUrl: true } });
+    const live = await tx.project.findUnique({ where: { id }, select: { masterPlanUrl: true, currency: true } });
+    currencyChanged = Boolean(live && fields.currency && live.currency !== fields.currency);
     if (live?.masterPlanUrl && live.masterPlanUrl !== fields.masterPlanUrl) removedUrls.push(live.masterPlanUrl);
     await tx.project.update({ where: { id }, data: { ...fields, ...relations, pricesUpdatedAt: today(), ...(publish && { published: true }) } });
   } else {
@@ -327,9 +336,14 @@ export async function applyProjectDraft(
 
   // Plans: replaced as a whole.
   await tx.paymentPlan.deleteMany({ where: { projectId: id } });
-  for (const { typologyCode, ...p } of values.plans) {
-    await tx.paymentPlan.create({ data: { ...p, projectId: id, typologyId: typologyCode ? (typId.get(typologyCode.toLowerCase()) ?? null) : null } });
+  for (const { typologyCode, steps, ...p } of values.plans) {
+    await tx.paymentPlan.create({
+      data: { ...p, projectId: id, typologyId: typologyCode ? (typId.get(typologyCode.toLowerCase()) ?? null) : null, steps: { createMany: { data: toStepRows(steps) } } },
+    });
   }
+  // Prices in another currency: the price history and the alert figures start again (no alert for the
+  // change). After the plans are written, so the new alert figures are taken from the new plans.
+  if (currencyChanged) await restartPriceTracking([id], tx);
 
   // Photos and files by link.
   const liveMedia = await tx.media.findMany({ where: { projectId: id }, select: { id: true, url: true } });

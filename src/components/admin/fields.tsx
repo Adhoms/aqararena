@@ -30,6 +30,7 @@ export function TextField({
   autoCapitalize,
   spellCheck,
   inputMode,
+  inputClassName = "admin-input",
   ...rest
 }: Common & {
   type?: "text" | "number" | "url" | "email" | "tel" | "date" | "password";
@@ -43,6 +44,8 @@ export function TextField({
   spellCheck?: boolean;
   /** Overrides the keyboard a number field asks for ("numeric" for whole numbers). */
   inputMode?: "numeric" | "decimal" | "text";
+  /** The input's class (default "admin-input"), e.g. to make it taller on phones. */
+  inputClassName?: string;
 }) {
   return (
     <Wrap {...rest}>
@@ -60,7 +63,7 @@ export function TextField({
         autoComplete={autoComplete}
         autoCapitalize={autoCapitalize}
         spellCheck={spellCheck}
-        className="admin-input"
+        className={inputClassName}
       />
     </Wrap>
   );

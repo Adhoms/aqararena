@@ -56,14 +56,14 @@ export const sortSteps = (steps: PlanStepInput[]) =>
  */
 const normalise = (text: string) =>
   text
-    .replace(/[‎‏؜‪-‮⁦-⁩﻿]/g, "")
-    .replace(/ /g, " ")
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
-    .replace(/٫/g, ".")
-    .replace(/٪/g, "%")
-    .replace(/[–—]/g, "-")
-    .replace(/[،؛;\r\n]/g, ",");
+    .replace(/[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069\ufeff]/g, "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/\u066b/g, ".")
+    .replace(/\u066a/g, "%")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u060c\u061b;\r\n]/g, ",");
 
 const ENTRY = /^(?:((?:ال)?صيان[ةه]|maintenance)\s*)?(\d+)(?:\s*-\s*(\d+)\s*\/\s*(\d+))?\s*:\s*(\d+(?:\.\d+)?)\s*%?$/i;
 

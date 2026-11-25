@@ -14,10 +14,16 @@ const input = "admin-input min-h-11 text-base sm:min-h-10 sm:text-sm";
 const pct = (n: number) => String(Number(n.toFixed(2)));
 
 /** A labelled field with its hint and the slot AdminForm fills with the server's message for it. */
-function Field({ name, label, hint, hintId, children }: { name: string; label: ReactNode; hint?: ReactNode; hintId?: string; children: ReactNode }) {
+/**
+ * A field: only its title is the label (for the control with `id`); the hint below is not part of the
+ * field's name, the control points at it with aria-describedby={hintId}.
+ */
+function Field({ name, id, label, hint, hintId, children }: { name: string; id: string; label: ReactNode; hint?: ReactNode; hintId?: string; children: ReactNode }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1.5 text-sm">
-      <span className="font-medium text-ink">{label}</span>
+    <div className="flex min-w-0 flex-col gap-1.5 text-sm">
+      <label htmlFor={id} className="font-medium text-ink">
+        {label}
+      </label>
       {children}
       {hint && (
         <span id={hintId} className="text-xs leading-relaxed text-pretty text-muted">
@@ -25,7 +31,7 @@ function Field({ name, label, hint, hintId, children }: { name: string; label: R
         </span>
       )}
       <span data-error-for={name} className="text-xs text-red-700 empty:hidden dark:text-red-300" />
-    </label>
+    </div>
   );
 }
 
@@ -95,15 +101,15 @@ export function OfferForm({
 
       <fieldset className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
         <legend className="mb-3 p-0 font-display text-lg">العميل</legend>
-        <Field name="clientName" label="اسم العميل *" hint="بيظهر على غلاف العرض" hintId={`${ids}-name`}>
-          <input name="clientName" maxLength={100} autoComplete="off" aria-describedby={`${ids}-name`} className={input} />
+        <Field name="clientName" id={`${ids}-clientName`} label="اسم العميل *" hint="بيظهر على غلاف العرض" hintId={`${ids}-name`}>
+          <input id={`${ids}-clientName`} name="clientName" maxLength={100} autoComplete="off" aria-describedby={`${ids}-name`} className={input} />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field name="clientPhone" label="موبايل العميل" hint="لو كتبته، الواتساب هيفتح على رقمه على طول" hintId={`${ids}-phone`}>
-            <input name="clientPhone" type="tel" dir="ltr" maxLength={40} autoComplete="off" aria-describedby={`${ids}-phone`} className={input} />
+          <Field name="clientPhone" id={`${ids}-clientPhone`} label="موبايل العميل" hint="لو كتبته، الواتساب هيفتح على رقمه على طول" hintId={`${ids}-phone`}>
+            <input id={`${ids}-clientPhone`} name="clientPhone" type="tel" dir="ltr" maxLength={40} autoComplete="off" aria-describedby={`${ids}-phone`} className={input} />
           </Field>
-          <Field name="clientEmail" label="إيميل العميل" hint="اختياري، عشان تبعتله العرض بالإيميل" hintId={`${ids}-email`}>
-            <input name="clientEmail" type="email" dir="ltr" maxLength={200} autoComplete="off" aria-describedby={`${ids}-email`} className={input} />
+          <Field name="clientEmail" id={`${ids}-clientEmail`} label="إيميل العميل" hint="اختياري، عشان تبعتله العرض بالإيميل" hintId={`${ids}-email`}>
+            <input id={`${ids}-clientEmail`} name="clientEmail" type="email" dir="ltr" maxLength={200} autoComplete="off" aria-describedby={`${ids}-email`} className={input} />
           </Field>
         </div>
       </fieldset>
@@ -112,8 +118,8 @@ export function OfferForm({
 
       <fieldset className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
         <legend className="mb-3 p-0 font-display text-lg">العرض</legend>
-        <Field name="planId" label="خطة السداد *">
-          <select name="planId" defaultValue={plans[0]?.id} className={input}>
+        <Field name="planId" id={`${ids}-planId`} label="خطة السداد *">
+          <select id={`${ids}-planId`} name="planId" defaultValue={plans[0]?.id} className={input}>
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
@@ -122,14 +128,15 @@ export function OfferForm({
           </select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field name="language" label="لغة العرض *" hint="اللغة اللي العميل هيقرا بيها العرض">
-            <select name="language" defaultValue="ar" className={input}>
+          <Field name="language" id={`${ids}-language`} label="لغة العرض *" hint="اللغة اللي العميل هيقرا بيها العرض" hintId={`${ids}-lang`}>
+            <select id={`${ids}-language`} name="language" aria-describedby={`${ids}-lang`} defaultValue="ar" className={input}>
               <option value="ar">عربي</option>
               <option value="en">English</option>
             </select>
           </Field>
           <Field
             name="validityDays"
+            id={`${ids}-validityDays`}
             label="ساري كام يوم *"
             hintId={`${ids}-days`}
             hint={
@@ -138,7 +145,7 @@ export function OfferForm({
               </>
             }
           >
-            <input name="validityDays" inputMode="numeric" dir="ltr" defaultValue={validityDays} autoComplete="off" aria-describedby={`${ids}-days`} className={`${input} tabular-nums`} />
+            <input id={`${ids}-validityDays`} name="validityDays" inputMode="numeric" dir="ltr" defaultValue={validityDays} autoComplete="off" aria-describedby={`${ids}-days`} className={`${input} tabular-nums`} />
           </Field>
         </div>
         <div className="flex flex-col gap-3 rounded-xl bg-ink/[0.035] p-4 sm:flex-row sm:items-start sm:gap-6">

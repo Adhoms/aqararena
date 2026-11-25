@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { saveSubmission } from "@/app/portal/actions";
 import { checkFile, uploadFile } from "@/components/admin/upload";
-import { SCHEDULE_INPUT, ScheduleHint, SchedulePreview, previewShowsError } from "@/components/admin/schedule-field";
+import { SCHEDULE_INPUT, ScheduleHint, SchedulePreview, previewError } from "@/components/admin/schedule-field";
 import { IMAGE_TYPES } from "@/lib/admin/upload-config";
 import { moneyAr } from "@/lib/format";
 import { LIMITS, type DraftErrors, type Fields, type MediaItem, type ProfileDraft, type ProjectDraft } from "@/lib/portal/draft-types";
@@ -46,6 +46,7 @@ function Field({
 }) {
   const text = typeof value === "string" ? value : "";
   const invalid = error ? true : undefined;
+  const id = useId();
   const label = (
     <span className="font-medium text-ink">
       {def.label}
@@ -80,12 +81,33 @@ function Field({
   if (def.type === "image") return <ImageField def={def} value={text} onChange={onChange} error={error} folder={folder} />;
 
   if (def.type === "schedule") {
-    control = (
-      <>
-        <textarea {...SCHEDULE_INPUT} value={text} aria-invalid={invalid} onChange={(e) => onChange(e.target.value)} />
-        <SchedulePreview text={text} />
-        <ScheduleHint />
-      </>
+    // Only the title is the label; the check, the hint and the error are tied to the field by
+    // aria-describedby. The server's message is left out only when the live check says the same.
+    const showError = error && error !== previewError(text);
+    return (
+      <div className={`flex flex-col gap-1.5 text-sm ${SPAN[def.span ?? 1]}`}>
+        <label htmlFor={`${id}-input`}>{label}</label>
+        <textarea
+          {...SCHEDULE_INPUT}
+          id={`${id}-input`}
+          value={text}
+          aria-invalid={invalid}
+          aria-describedby={`${id}-preview ${id}-hint${def.hint ? ` ${id}-note` : ""}${showError ? ` ${id}-error` : ""}`}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <SchedulePreview id={`${id}-preview`} text={text} />
+        <ScheduleHint id={`${id}-hint`} />
+        {def.hint && (
+          <span id={`${id}-note`} className="text-xs text-muted">
+            {def.hint}
+          </span>
+        )}
+        {showError && (
+          <span id={`${id}-error`} className="text-xs text-red-700 dark:text-red-300">
+            {error}
+          </span>
+        )}
+      </div>
     );
   } else if (def.type === "textarea") {
     control = <textarea className="admin-input" rows={4} dir={def.dir} value={text} aria-invalid={invalid} onChange={(e) => onChange(e.target.value)} />;
@@ -119,8 +141,7 @@ function Field({
       {label}
       {control}
       {def.hint && <span className="text-xs text-muted">{def.hint}</span>}
-      {/* A schedule's mistake is already in its live check. */}
-      {error && !(def.type === "schedule" && previewShowsError(text)) && <span className="text-xs text-red-700 dark:text-red-300">{error}</span>}
+      {error && <span className="text-xs text-red-700 dark:text-red-300">{error}</span>}
     </label>
   );
 }

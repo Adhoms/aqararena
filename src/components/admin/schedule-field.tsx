@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { countAr, type CountNoun } from "@/lib/format";
 import { SCHEDULE_HINT, parseSteps } from "@/lib/catalog/plan-steps";
 
@@ -11,9 +11,9 @@ const MONTHS: CountNoun = { one: "شهر", two: "شهرين", few: "شهور" };
 const pctAr = (pct: number) => `${pct.toLocaleString("ar-EG", { maximumFractionDigits: 6 })}٪`;
 
 /** How to type a schedule, with its (Latin) example kept left to right. */
-export function ScheduleHint() {
+export function ScheduleHint({ id }: { id?: string }) {
   return (
-    <span className="text-xs text-muted">
+    <span id={id} className="text-xs text-muted">
       {SCHEDULE_HINT.before} <bdi dir="ltr">{SCHEDULE_HINT.example}</bdi>. {SCHEDULE_HINT.after}
     </span>
   );
@@ -22,8 +22,9 @@ export function ScheduleHint() {
 /**
  * What the typed schedule means, or what's wrong with it, announced as it changes. Shared by the
  * admin form and the portal editor; while it shows a mistake, the field leaves out the server's copy.
+ * Give the field `aria-describedby` with its `id`, so the check is read with the field too.
  */
-export function SchedulePreview({ text }: { text: string }) {
+export function SchedulePreview({ text, id }: { text: string; id?: string }) {
   const { steps, error } = text.trim() ? parseSteps(text) : { steps: [], error: null };
   let content = null;
   if (error) content = <span className="text-red-700 dark:text-red-300">{error}</span>;
@@ -42,14 +43,17 @@ export function SchedulePreview({ text }: { text: string }) {
     );
   }
   return (
-    <span aria-live="polite" className="text-xs text-muted">
+    <span id={id} aria-live="polite" className="text-xs text-muted">
       {content}
     </span>
   );
 }
 
+/** What the preview says is wrong with this text, or null. */
+export const previewError = (text: string) => (text.trim() ? parseSteps(text).error : null);
+
 /** True when the preview is already showing what's wrong with this text. */
-export const previewShowsError = (text: string) => Boolean(text.trim() && parseSteps(text).error);
+export const previewShowsError = (text: string) => Boolean(previewError(text));
 
 /** Shared by the admin and the portal: a schedule is typed in Latin characters, without spelling help. */
 export const SCHEDULE_INPUT = { dir: "ltr", rows: 2, spellCheck: false, autoComplete: "off", className: "admin-input font-mono" } as const;
@@ -62,6 +66,7 @@ export const SCHEDULE_INPUT = { dir: "ltr", rows: 2, spellCheck: false, autoComp
 export function ScheduleField({ name, defaultValue = "" }: { name: string; defaultValue?: string }) {
   const [text, setText] = useState(defaultValue);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const id = useId();
   useEffect(() => {
     const form = ref.current?.form;
     const reset = () => setText(defaultValue);
@@ -69,12 +74,24 @@ export function ScheduleField({ name, defaultValue = "" }: { name: string; defau
     return () => form?.removeEventListener("reset", reset);
   }, [defaultValue]);
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium text-ink">جدول سداد مخصص</span>
-      <textarea ref={ref} name={name} {...SCHEDULE_INPUT} defaultValue={defaultValue} onChange={(e) => setText(e.target.value)} />
-      <SchedulePreview text={text} />
-      <ScheduleHint />
-      <span data-error-for={name} className={`text-xs text-red-700 empty:hidden dark:text-red-300 ${previewShowsError(text) ? "hidden" : ""}`} />
-    </label>
+    // Only the title is the label: the check, the hint and the error are tied to the field by
+    // aria-describedby, so a screen reader doesn't read them all as the field's name.
+    <div className="flex flex-col gap-1.5 text-sm">
+      <label htmlFor={`${id}-input`} className="font-medium text-ink">
+        جدول سداد مخصص
+      </label>
+      <textarea
+        ref={ref}
+        id={`${id}-input`}
+        name={name}
+        {...SCHEDULE_INPUT}
+        defaultValue={defaultValue}
+        aria-describedby={`${id}-preview ${id}-hint ${id}-error`}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <SchedulePreview id={`${id}-preview`} text={text} />
+      <ScheduleHint id={`${id}-hint`} />
+      <span id={`${id}-error`} data-error-for={name} className={`text-xs text-red-700 empty:hidden dark:text-red-300 ${previewShowsError(text) ? "hidden" : ""}`} />
+    </div>
   );
 }

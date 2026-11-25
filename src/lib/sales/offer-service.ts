@@ -278,11 +278,25 @@ const limitsOf = (d: { agentDiscountPct: Prisma.Decimal; leadDiscountPct: Prisma
 });
 
 /**
- * Locks the plan row against deletion until the transaction ends (a portal approval deletes and
- * re-creates plans), so the offer never points at a plan that is gone. False when it already is.
+ * Locks the unit for the rest of the transaction, only when it is in `developerId`'s Sales inventory
+ * (scope.ts): the scoped lookup comes first and the lock is taken by the id it returns, so another
+ * company's unit is never locked. The caller reads the unit again after the lock. False when it is not.
  */
-async function lockPlan(tx: Tx, planId: string): Promise<boolean> {
-  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "PaymentPlan" WHERE "id" = ${planId} FOR KEY SHARE`;
+async function lockSalesUnit(tx: Tx, unitId: string, developerId: string): Promise<boolean> {
+  const unit = await tx.unit.findFirst({ where: { id: unitId, ...salesUnitWhere(developerId) }, select: { id: true } });
+  if (!unit) return false;
+  await lockUnit(tx, unit.id);
+  return true;
+}
+
+/**
+ * Locks a plan of the unit's project against deletion and change until the transaction ends (a portal
+ * approval deletes and re-creates plans, an admin edit changes one), so the offer never points at a
+ * plan that is gone, nor prints terms changed under it. A plan of another project, or one that is
+ * gone, is not locked: false, and the caller answers the same for both.
+ */
+async function lockPlan(tx: Tx, planId: string, projectId: string): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "PaymentPlan" WHERE "id" = ${planId} AND "projectId" = ${projectId} FOR SHARE`;
   return rows.length > 0;
 }
 
@@ -301,18 +315,19 @@ export async function createOffer(me: OfferActor, input: OfferInput, { client = 
     return await client.$transaction(async (tx): Promise<OfferResult> => {
       await limitLockWait(tx);
       // The unit first, then the account, then the plan: the unit and account in the order createHold
-      // takes them, so the two never deadlock.
-      await lockUnit(tx, input.unitId);
+      // takes them, so the two never deadlock. Each lock is scoped, so another company's ids lock nothing.
+      const notOurs: OfferResult = { ok: false, message: "الوحدة دي مش موجودة في مشروعات شركتك" };
+      if (!(await lockSalesUnit(tx, input.unitId, me.developerId))) return notOurs;
       const unit = await tx.unit.findFirst({ where: { id: input.unitId, ...salesUnitWhere(me.developerId) }, select: unitForOffer });
-      if (!unit) return { ok: false, message: "الوحدة دي مش موجودة في مشروعات شركتك" };
+      if (!unit) return notOurs;
       const salesperson = await activeSalesperson(tx, me.id, me.developerId);
       if (!salesperson) return { ok: false, message: "حسابك اتوقف. كلّم الشركة" };
-      if (!(await lockPlan(tx, input.planId))) return { ok: false, message: PLAN_GONE };
+      if (!(await lockPlan(tx, input.planId, unit.typology.projectId))) return { ok: false, message: PLAN_GONE };
       await releaseExpired(tx, { unitId: unit.id }, now);
       const blocked = await unitBlock(tx, unit, me.id, me.developerId, now);
       if (blocked) return { ok: false, message: blocked };
       const plan = await tx.paymentPlan.findFirst({ where: { id: input.planId, ...unitPlansWhere(unit, now) }, include: { steps: true } });
-      if (!plan) return { ok: false, message: "خطة السداد دي مش سارية للوحدة دي" };
+      if (!plan) return { ok: false, message: PLAN_GONE };
       const decision = discountDecision(me.role, input.discountPct, limitsOf(unit.typology.project.developer));
       if (!decision.ok) return decision;
       const offer = await tx.salesOffer.create({
@@ -363,9 +378,10 @@ export async function approveOffer(lead: OfferActor, offerId: string, { client =
       if (!canDecideOffer(lead, offer)) return { ok: false, message: "العرض ده مش مستني موافقة" };
       const snap = asSnapshot(offer.snapshot);
       if (!offer.unitId || !snap) return { ok: false, message: "الوحدة اتمسحت، ارفض العرض" };
-      await lockUnit(tx, offer.unitId);
+      const out: ActionResult = { ok: false, message: "الوحدة مبقتش في المخزون، ارفض العرض" };
+      if (!(await lockSalesUnit(tx, offer.unitId, lead.developerId))) return out;
       const unit = await tx.unit.findFirst({ where: { id: offer.unitId, ...salesUnitWhere(lead.developerId) }, select: unitForOffer });
-      if (!unit) return { ok: false, message: "الوحدة مبقتش في المخزون، ارفض العرض" };
+      if (!unit) return out;
       const salesperson = await activeSalesperson(tx, offer.salesAccountId, lead.developerId);
       if (!salesperson) return { ok: false, message: "حساب السيلز صاحب العرض اتوقف، ارفض العرض" };
       await releaseExpired(tx, { unitId: unit.id }, now);
@@ -375,9 +391,12 @@ export async function approveOffer(lead: OfferActor, offerId: string, { client =
       // approval re-creates plans) a current plan with the same terms and steps.
       const plans = await tx.paymentPlan.findMany({ where: unitPlansWhere(unit, now), orderBy: { createdAt: "asc" }, include: { steps: true } });
       const same = plans.filter((p) => fingerprintOf(p) === snap.plan.fingerprint);
-      const plan = same.find((p) => p.id === offer.paymentPlanId) ?? same[0];
-      if (!plan || listPriceOf(unit) !== snap.listPrice || unit.typology.project.currency !== snap.currency) return { ok: false, message: PRICE_MOVED };
-      if (!(await lockPlan(tx, plan.id))) return { ok: false, message: PLAN_GONE };
+      const chosen = same.find((p) => p.id === offer.paymentPlanId) ?? same[0];
+      if (!chosen || listPriceOf(unit) !== snap.listPrice || unit.typology.project.currency !== snap.currency) return { ok: false, message: PRICE_MOVED };
+      if (!(await lockPlan(tx, chosen.id, unit.typology.projectId))) return { ok: false, message: PLAN_GONE };
+      // Read again under the lock: an edit that finished between the read above and the lock shows now.
+      const plan = await tx.paymentPlan.findFirst({ where: { id: chosen.id, ...unitPlansWhere(unit, now) }, include: { steps: true } });
+      if (!plan || fingerprintOf(plan) !== snap.plan.fingerprint) return { ok: false, message: PRICE_MOVED };
       const discountPct = Number(offer.discountPct);
       if (!discountDecision("LEAD", discountPct, limitsOf(unit.typology.project.developer)).ok) return { ok: false, message: "الخصم ده أكبر من حدّك دلوقتي" };
       const input: SnapshotInput = { clientName: offer.clientName, clientPhone: offer.clientPhone, validityDays: snap.validityDays, discountPct };

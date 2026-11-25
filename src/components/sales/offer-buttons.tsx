@@ -1,8 +1,9 @@
 import { AdminForm } from "@/components/admin/admin-form";
 import { approveOfferAction, cancelOfferAction } from "@/app/sales/offer-actions";
 
-// Salespeople press these on phones: a 44 px tall button there, the usual admin size from `sm` up.
-const touch = "min-h-11 justify-center sm:min-h-0";
+// Salespeople press these on phones: a 44 px tall button filling its cell of the two-column grid
+// there (the offer list and the offer page), the usual admin size from `sm` up.
+const touch = "min-h-11 w-full justify-center sm:min-h-0 sm:w-auto";
 
 /** A team lead approves the discount: the offer goes out, valid from today. */
 export function ApproveOfferButton({ offerId }: { offerId: string }) {

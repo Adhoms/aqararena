@@ -333,8 +333,6 @@ export async function applyProjectDraft(
   if (values.typologies.some((t) => t.priceFrom === null)) await releaseHoldsOutOfSales(tx, { typology: { projectId: id, priceFrom: null } });
 
   await recordPriceHistory([id], tx);
-  // Prices in another currency: the price history and the alert figures start again (no alert for the change).
-  if (currencyChanged) await restartPriceTracking([id], tx);
 
   // Plans: replaced as a whole.
   await tx.paymentPlan.deleteMany({ where: { projectId: id } });
@@ -343,6 +341,9 @@ export async function applyProjectDraft(
       data: { ...p, projectId: id, typologyId: typologyCode ? (typId.get(typologyCode.toLowerCase()) ?? null) : null, steps: { createMany: { data: toStepRows(steps) } } },
     });
   }
+  // Prices in another currency: the price history and the alert figures start again (no alert for the
+  // change). After the plans are written, so the new alert figures are taken from the new plans.
+  if (currencyChanged) await restartPriceTracking([id], tx);
 
   // Photos and files by link.
   const liveMedia = await tx.media.findMany({ where: { projectId: id }, select: { id: true, url: true } });

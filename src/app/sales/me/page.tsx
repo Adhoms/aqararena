@@ -12,6 +12,9 @@ import { updateSalesProfile } from "../actions";
 
 export const metadata: Metadata = { title: "ملفي" };
 
+/** Fields and buttons a thumb can hit on a phone (44 px), the usual size from the sm breakpoint up. */
+const INPUT = "admin-input min-h-11 text-base sm:min-h-10 sm:text-sm";
+
 export default async function SalesMePage() {
   const me = await requireSales();
   const actor = { id: me.id, role: me.role, developerId: me.developer.id };
@@ -36,15 +39,15 @@ export default async function SalesMePage() {
       </Panel>
       <Panel title="بياناتك على العروض">
         <p className="mb-4 text-sm text-muted">الاسم والأرقام دي هي اللي العميل هيشوفها على عروض الأسعار اللي هتبعتها.</p>
-        <AdminForm action={updateSalesProfile} resetOnSuccess>
+        <AdminForm action={updateSalesProfile} resetOnSuccess submitClassName="admin-btn min-h-11 sm:min-h-0">
           <Row>
-            <TextField name="nameAr" label="الاسم بالعربي *" defaultValue={me.nameAr} autoComplete="name" />
-            <TextField name="nameEn" label="الاسم بالإنجليزي" defaultValue={me.nameEn} dir="ltr" hint="بيظهر على العروض الإنجليزي" />
+            <TextField name="nameAr" label="الاسم بالعربي *" defaultValue={me.nameAr} autoComplete="name" inputClassName={INPUT} />
+            <TextField name="nameEn" label="الاسم بالإنجليزي" defaultValue={me.nameEn} dir="ltr" hint="بيظهر على العروض الإنجليزي" inputClassName={INPUT} />
           </Row>
           <Row cols={3}>
-            <TextField name="phone" label="الموبايل *" type="tel" defaultValue={me.phone} dir="ltr" autoComplete="tel" />
-            <TextField name="whatsapp" label="واتساب" type="tel" defaultValue={me.whatsapp} dir="ltr" autoComplete="off" hint="فاضي = نفس الموبايل" />
-            <TextField name="email" label="البريد الإلكتروني" type="email" defaultValue={me.email} dir="ltr" autoComplete="email" />
+            <TextField name="phone" label="الموبايل *" type="tel" defaultValue={me.phone} dir="ltr" autoComplete="tel" inputClassName={INPUT} />
+            <TextField name="whatsapp" label="واتساب" type="tel" defaultValue={me.whatsapp} dir="ltr" autoComplete="off" hint="فاضي = نفس الموبايل" inputClassName={INPUT} />
+            <TextField name="email" label="البريد الإلكتروني" type="email" defaultValue={me.email} dir="ltr" autoComplete="email" inputClassName={INPUT} />
           </Row>
         </AdminForm>
       </Panel>
@@ -59,7 +62,7 @@ export default async function SalesMePage() {
           <dt className="text-muted">الشركة</dt>
           <dd>{me.developer.nameAr}</dd>
         </dl>
-        <Link href="/sales/password" className="admin-btn-ghost mt-4">
+        <Link href="/sales/password" className="admin-btn-ghost mt-4 min-h-11 sm:min-h-0">
           تغيير كلمة المرور
         </Link>
       </Panel>
